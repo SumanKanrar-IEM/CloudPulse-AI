@@ -1,27 +1,55 @@
-# AI Workflow & Agentic Development Journal
+# AI Workflow & Agentic Development Journal — CloudPulse AI
 
-> **Purpose:** This journal documents the AI-native engineering practices, the agentic workflow, and how our POD collaborated to build the AWS-native CloudPulse AI MVP. It serves as an artifact for the hackathon assessment to demonstrate engineering maturity, architectural discipline, and effective POD collaboration using AI tools (GitHub Copilot and the GitHub Spec Kit).
+> **Purpose:** Evidence of AI-native engineering practices for the hackathon assessment.
+> Documents how the POD used GitHub Copilot, GitHub Spec Kit, and GitHub Agentic Workflows
+> to build the AWS-native CloudPulse AI MVP — covering spec-driven development, architectural
+> discipline, engineering standards, and POD collaboration.
+> **Rule:** the person who runs a speckit phase appends its entry the same day.
 
-## 1. Project Initialization & Constitution
-*Document how project principles and POD collaboration standards were established using AI tools.*
-- **Tool Used:** GitHub Copilot + GitHub Spec Kit (`/speckit-constitution`)
-- **AI Prompt Strategy:** We explicitly instructed the agent to define a fully **AWS-native architecture** (e.g., Amazon Bedrock Agents, Lambda, Step Functions) and establish strict collaboration standards for our POD. The constitution prioritized modularity, strict typing, and contract-first development so frontend and backend POD members could work in parallel.
-- **Outcome:** *(Fill in the AWS native stack the agent selected and the POD collaboration principles established)*
+## 0. Project Initialization & Scope Definition
 
-## 2. Specification & Planning (Spec-Driven Development)
-*Document how the MVP scope was translated into a technical specification, architectural discipline, and actionable plans for the POD.*
-- **Tools Used:** `/speckit-specify`, `/speckit-clarify`, `/speckit-plan`
-- **Approach:** Instead of manually writing API contracts, we fed the agent the product requirements and asked it to generate modular data contracts and an AWS-native serverless architecture plan. We enforced the use of **Amazon Bedrock Agents** and actual AWS SDK integrations (`boto3`). We also instructed the agent to generate clear boundary definitions to facilitate seamless POD collaboration.
-- **Outcome:** *(Fill in details about the AWS-native architecture generated and how work was divided among the POD)*
+- **Tools:** GitHub Spec Kit (`specify init`, Copilot integration, Python scripts), AI-assisted document analysis.
+- **What we did:**
+  - Initialized the repo with GitHub Spec Kit for GitHub Copilot (`.github/skills/speckit-*`, `.specify/` scaffolding); repo pushed to `SumanKanrar-IEM/CloudPulse-AI`; moved the working copy out of OneDrive to a plain local path to protect git integrity.
+  - Used AI to deep-analyze all product documents (`docs/`): Capstone Overview, Plan & Tech Stack, Engineering Guide, Architecture deck, and the Backlog spreadsheet — including programmatic extraction of the **color-coded MVP stories** (cell-fill analysis of the xlsx).
+  - Locked MVP scope v2 with explicit dependency rulings (drop S32, cut Notification Engine E6, include S43 + S47, AI suggestions render on findings page) and priority tiers (P1 demo-critical / P2 stretch).
+  - Decided the AI-discovery approach: **deterministic engine, AI-planned coverage** — generic whole-account discovery with a Bedrock Agent proposing coverage extensions as data.
+  - Produced `docs/SPECKIT_PLAYBOOK.md`: exact inputs for every speckit command, six-feature spec slicing, run order, and POD working agreement (trunk-based, short-lived branches, PRs to main with Copilot review).
+- **Outcome:** *(fill after constitution: date, POD member names/owners per spec)*
 
-## 3. Implementation, Testing & POD Collaboration
-*Document the execution phase, how coding standards were maintained, and how the POD collaborated using AI assistance.*
-- **Tools Used:** `/speckit-tasks`, `/speckit-implement`, GitHub PRs
-- **Approach:** Work was broken down into granular, actionable tasks by the agent. Each implementation step included automated unit testing generation. The POD utilized Copilot for PR reviews and to ensure adherence to the constitution's coding standards during implementation.
-- **Outcome:** *(Fill in details about the implementation process, test coverage, and collaborative AI PR reviews)*
+## 1. Constitution
 
-## 4. Assessment & Convergence
-*Document how the codebase was audited and finalized by the team.*
-- **Tools Used:** `/speckit-analyze`, `/speckit-checklist`, `/speckit-converge`
-- **Approach:** The agent continuously cross-checked the codebase against the established constitution, automatically identifying technical debt and appending refactoring tasks to achieve high engineering maturity.
-- **Outcome:** *(Fill in final architectural assessment and modularity score)*
+- **Tool:** `/speckit-constitution` (whole POD session)
+- **Approach:** Eight enforceable principles derived from the product docs and hackathon judging criteria: Spec-First Delivery; AWS-Native & GitHub-Native (Amazon Bedrock Agents for all GenAI); Zero Stored Credentials; Deterministic Core, Agentic Edge; Contract-First Modularity; Test & Quality Gates; Trunk-Based POD Collaboration; Honest Prioritization (P1/P2).
+- **Outcome:** *(constitution version, ratification date, any POD amendments)*
+
+## 2. Specification (6 feature specs, one owner each)
+
+- **Tools:** `/speckit-specify`, `/speckit-clarify`
+- **Slicing:** 1 platform-foundation (DevOps) · 2 account-onboarding-and-discovery (BE2) · 3 tag-compliance-and-ownership (BE1) · 4 governance-dashboard (FE) · 5 cost-and-utilization (BE1+BE2) · 6 ai-insights-agent (BE1).
+- **Approach:** Functional, tech-agnostic spec inputs from the playbook; clarify answered from the settled decision log; each spec merged to main via PR the same day.
+- **Outcome:** *(per spec: branch/PR link, clarify questions that surfaced, decisions recorded)*
+
+## 3. Planning & Task Generation
+
+- **Tools:** `/speckit-plan`, `/speckit-checklist`, `/speckit-tasks`, `/speckit-taskstoissues`, `/speckit-analyze`
+- **Approach:** One shared AWS-native technology direction across all six plans (Lambda/FastAPI, Step Functions, Cloud Control API discovery, Aurora Serverless v2, Angular 18, Bedrock Agents, Terraform, GitHub Actions OIDC). Tasks ordered P1-first, exported to GitHub Issues for POD assignment; analyze run per spec before any code.
+- **Outcome:** *(plan highlights, analyze findings fixed, issue counts per spec)*
+
+## 4. Implementation & POD Collaboration
+
+- **Tools:** `/speckit-implement`, GitHub PRs with Copilot review, GitHub Actions CI
+- **Approach:** Task-sized short-lived branches; every PR references spec + issue, passes CI gates (ruff, mypy, pytest+moto, Angular build, terraform validate), and gets Copilot + human review before same-day merge to the always-releasable trunk.
+- **Outcome:** *(PR/merge stats, test coverage, notable Copilot-review catches, demo milestones)*
+
+## 5. Agentic Automation
+
+- **Tools:** GitHub Agentic Workflows (`gh aw`), adapted from githubnext/agentics
+- **Planned set:** issue triage, constitution-aware PR reviewer, CI doctor, daily progress + journal drafter.
+- **Outcome:** *(workflows compiled/enabled, examples of agent contributions)*
+
+## 6. Assessment & Convergence
+
+- **Tools:** `/speckit-analyze`, `/speckit-checklist`, `/speckit-converge`
+- **Approach:** End-of-sprint audit of codebase vs specs and constitution; remaining gaps appended as tasks, never silently dropped.
+- **Outcome:** *(convergence report summary, P1 coverage %, final architectural assessment)*
