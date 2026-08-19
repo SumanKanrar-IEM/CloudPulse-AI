@@ -2,7 +2,7 @@
 
 > Copy-paste inputs for every `/speckit-*` command, in execution order, for the CloudPulse AI MVP.
 > Scope source: color-coded stories in `docs/CloudPulse-AI_Backlog.xlsx` (scope v2 — see §0.2).
-> Audience: the 4-person POD running GitHub Copilot in VS Code against this repo.
+> Audience: the 6-person POD running GitHub Copilot in VS Code against this repo.
 
 ---
 
@@ -10,10 +10,13 @@
 
 ### 0.1 Working agreement
 
-- **Branching:** trunk-based. `main` is the only long-lived branch. Every spec and every task slice happens on a short-lived branch → PR → Copilot review → merge within hours.
-- **Spec ownership:** each feature spec has one owner who runs its speckit lifecycle (specify → clarify → plan → tasks → implement). The constitution is written once, together.
+- **Branching:** trunk-based. `pods/pod73` is the only long-lived branch and the target of every PR. All short-lived branches follow the naming pattern `pods/pod73-XXX` (e.g. `pods/pod73-001-platform-foundation`, `pods/pod73-T042-scan-diffing`). Every spec and every task slice happens on such a branch → PR into `pods/pod73` → Copilot review → merge within hours.
+- **Repo settings (do once):** on GitHub, set `pods/pod73` as the repository **default branch** so PRs auto-target it, and protect it (require the CI check + 1 review, no direct pushes). All GitHub Actions triggers must reference `pods/pod73`, not `main`.
+- **Spec ownership:** six specs, six POD members — each member owns exactly one spec and runs its full speckit lifecycle (specify → clarify → plan → tasks → implement). The constitution is written once, together.
 - **Journal:** after every speckit phase, the person who ran it appends the outcome to `AI_WORKFLOW_JOURNAL.md` (structure already prepared).
-- **Spec Kit mechanics:** `/speckit-specify` auto-creates a numbered feature branch (e.g. `001-platform-foundation`) and `specs/001-platform-foundation/spec.md`. Merge each spec PR into `main` promptly so later specs and plans can reference it.
+- **Spec Kit mechanics:** `/speckit-specify` auto-creates a numbered feature branch (e.g. `001-platform-foundation`) and `specs/001-platform-foundation/spec.md`. Immediately rename the branch to match the POD pattern before pushing:
+  `git branch -m 001-platform-foundation pods/pod73-001-platform-foundation`
+  The spec directory name keeps its `001-...` form. If a later speckit command on the renamed branch complains it cannot detect the feature branch, set the `SPECIFY_FEATURE` environment variable to the spec directory name (e.g. `SPECIFY_FEATURE=001-platform-foundation`) before running it. Merge each spec PR into `pods/pod73` promptly so later specs and plans can reference it.
 
 ### 0.2 MVP scope v2 (the single source of truth for "what's in")
 
@@ -54,7 +57,7 @@ Day 13–14    /speckit-converge                           (audit vs constitutio
 
 ```
 Create the CloudPulse AI constitution. Context: CloudPulse AI is a serverless cloud
-governance, cost & compliance platform for AWS, built by a 4-person POD in a 2-week
+governance, cost & compliance platform for AWS, built by a 6-person POD in a 2-week
 hackathon that is judged on AI-native engineering practices, spec-driven development,
 architectural discipline, coding standards, modularity, and POD collaboration — not on
 business value. Derive the principles below, keep them declarative and testable, and
@@ -90,15 +93,17 @@ resource model isolates cloud specifics; tag rules, SDA mappings, coverage defin
 agent-proposed extensions are data, not code. New providers, rules, or resource types must
 ship without modifying core code.
 
-Principle VI — Test and Quality Gates. Every merge to main passes lint, type checks, unit
-tests, and (for cloud-touching code) integration tests with mocked AWS in CI. Each story's
-definition of done includes tests, structured logs, and updated docs. CI is required — a red
-check blocks merge, no exceptions.
+Principle VI — Test and Quality Gates. Every merge to pods/pod73 passes lint, type checks,
+unit tests, and (for cloud-touching code) integration tests with mocked AWS in CI. Each
+story's definition of done includes tests, structured logs, and updated docs. CI is
+required — a red check blocks merge, no exceptions.
 
-Principle VII — Trunk-Based POD Collaboration. main is the only long-lived branch and is
-always releasable. Work happens on short-lived branches merged via PR the same day where
-possible; every PR gets a GitHub Copilot review plus one human review; PRs stay small and
-reference their spec/task IDs. Each feature spec has a single named owner.
+Principle VII — Trunk-Based POD Collaboration. pods/pod73 is the only long-lived branch
+and is always releasable; every pull request targets it, and all working branches follow
+the pods/pod73-XXX naming pattern. Work happens on short-lived branches merged via PR the
+same day where possible; every PR gets a GitHub Copilot review plus one human review; PRs
+stay small and reference their spec/task IDs. Each of the six feature specs has a single
+named owner from the six-member POD.
 
 Principle VIII — Honest Prioritization. Every requirement carries a P1 (demo-critical) or
 P2 (stretch) tier. P1 scope is frozen; new ideas enter as P2 or post-MVP. P2 work never
@@ -113,7 +118,7 @@ reviews check work against these principles.
 
 ## 2. `/speckit-specify` — six runs (owner in parentheses)
 
-> Run each from `main` (pull first). Spec Kit will create the numbered branch and spec file.
+> Run each from `pods/pod73` (pull first). Spec Kit will create the numbered branch and spec file.
 > Keep the inputs functional — the tech stack is decided later in `/speckit-plan`.
 
 ### Spec 1 — platform-foundation (DevOps)
@@ -121,7 +126,7 @@ reviews check work against these principles.
 ```
 Build the engineering and operational foundation of CloudPulse AI, an internal cloud
 governance platform operated by a small platform team, so that all product features can be
-developed, deployed, and observed safely by a 4-person POD.
+developed, deployed, and observed safely by a 6-person POD.
 
 Users and roles: platform users sign in with organizational identity and hold exactly one
 role — admin (manage accounts, rules, SDAs), operator (run scans, work findings), or viewer
@@ -265,7 +270,7 @@ approval workflows (no remediation execution in MVP), cost and utilization pages
 agent chat interfaces.
 ```
 
-### Spec 5 — cost-and-utilization (BE1 + BE2 shared)
+### Spec 5 — cost-and-utilization (BE3 / full-stack)
 
 ```
 Add the financial-control dimension: what is each SDA/project spending, are budgets being
@@ -295,7 +300,7 @@ pipeline + SDA registry (spec 3), dashboard shell (spec 4). Out of scope: rights
 forecasting (spec 6), cost-saving execution of any kind.
 ```
 
-### Spec 6 — ai-insights-agent (BE1)
+### Spec 6 — ai-insights-agent (AI engineer)
 
 ```
 Build the platform's intelligence layer as Amazon Bedrock Agents: AI that observes the
@@ -394,7 +399,8 @@ Create the implementation plan for this spec. Technology direction for the whole
   ExternalId (cross-account); GitHub OIDC federation for CI/CD; zero stored credentials.
 - IaC & CI/CD: Terraform (modules per component, envs dev/prod) + GitHub Actions
   (ci.yml on PR: ruff, mypy, pytest+moto, Angular build, terraform validate/plan;
-  deploy-dev.yml on merge; deploy-prod.yml behind environment approval).
+  deploy-dev.yml on merge; deploy-prod.yml behind environment approval). All workflow
+  triggers target the pods/pod73 trunk — never main/master.
 - Testing: pytest + moto for unit, LocalStack for integration in CI, Playwright for the
   P1 dashboard journeys.
 
@@ -450,8 +456,9 @@ coverage as data. Stop and report if the implementation would deviate from the s
 plan instead of silently improvising.
 ```
 
-POD loop per task: branch off `main` → `/speckit-implement` → push → PR (reference issue
-+ spec) → Copilot review + 1 human review → merge → next task.
+POD loop per task: branch off `pods/pod73` as `pods/pod73-<task-id>-<slug>` →
+`/speckit-implement` → push → PR into `pods/pod73` (reference issue + spec) → Copilot
+review + 1 human review → merge → next task.
 
 ## 10. `/speckit-converge` — paste this (end of week 2)
 
@@ -479,4 +486,4 @@ specs are merged — each is a markdown workflow compiled with `gh aw compile`:
 4. **Daily progress & journal** — summarizes merged PRs/closed issues per spec into a
    daily report and drafts the AI_WORKFLOW_JOURNAL entry.
 
-These will be detailed in a separate follow-up once the six specs are on `main`.
+These will be detailed in a separate follow-up once the six specs are on `pods/pod73`.

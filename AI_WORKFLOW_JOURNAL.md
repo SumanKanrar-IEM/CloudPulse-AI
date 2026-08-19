@@ -14,7 +14,7 @@
   - Used AI to deep-analyze all product documents (`docs/`): Capstone Overview, Plan & Tech Stack, Engineering Guide, Architecture deck, and the Backlog spreadsheet — including programmatic extraction of the **color-coded MVP stories** (cell-fill analysis of the xlsx).
   - Locked MVP scope v2 with explicit dependency rulings (drop S32, cut Notification Engine E6, include S43 + S47, AI suggestions render on findings page) and priority tiers (P1 demo-critical / P2 stretch).
   - Decided the AI-discovery approach: **deterministic engine, AI-planned coverage** — generic whole-account discovery with a Bedrock Agent proposing coverage extensions as data.
-  - Produced `docs/SPECKIT_PLAYBOOK.md`: exact inputs for every speckit command, six-feature spec slicing, run order, and POD working agreement (trunk-based, short-lived branches, PRs to main with Copilot review).
+  - Produced `SPECKIT_PLAYBOOK.md`: exact inputs for every speckit command, six-feature spec slicing (one spec per member of the 6-person POD), run order, and POD working agreement — trunk-based on `pods/pod73`, short-lived `pods/pod73-XXX` feature branches, all PRs into `pods/pod73` with Copilot review.
 - **Outcome:** *(fill after constitution: date, POD member names/owners per spec)*
 
 ## 1. Constitution
@@ -26,8 +26,8 @@
 ## 2. Specification (6 feature specs, one owner each)
 
 - **Tools:** `/speckit-specify`, `/speckit-clarify`
-- **Slicing:** 1 platform-foundation (DevOps) · 2 account-onboarding-and-discovery (BE2) · 3 tag-compliance-and-ownership (BE1) · 4 governance-dashboard (FE) · 5 cost-and-utilization (BE1+BE2) · 6 ai-insights-agent (BE1).
-- **Approach:** Functional, tech-agnostic spec inputs from the playbook; clarify answered from the settled decision log; each spec merged to main via PR the same day.
+- **Slicing (one owner per POD member):** 1 platform-foundation (DevOps) · 2 account-onboarding-and-discovery (BE2) · 3 tag-compliance-and-ownership (BE1) · 4 governance-dashboard (FE) · 5 cost-and-utilization (BE3/full-stack) · 6 ai-insights-agent (AI engineer).
+- **Approach:** Functional, tech-agnostic spec inputs from the playbook; clarify answered from the settled decision log; each spec branch renamed to the `pods/pod73-XXX` pattern and merged to `pods/pod73` via PR the same day.
 - **Outcome:** *(per spec: branch/PR link, clarify questions that surfaced, decisions recorded)*
 
 ## 3. Planning & Task Generation
@@ -39,7 +39,7 @@
 ## 4. Implementation & POD Collaboration
 
 - **Tools:** `/speckit-implement`, GitHub PRs with Copilot review, GitHub Actions CI
-- **Approach:** Task-sized short-lived branches; every PR references spec + issue, passes CI gates (ruff, mypy, pytest+moto, Angular build, terraform validate), and gets Copilot + human review before same-day merge to the always-releasable trunk.
+- **Approach:** Task-sized short-lived branches named `pods/pod73-<task-id>-<slug>`; every PR targets `pods/pod73`, references spec + issue, passes CI gates (ruff, mypy, pytest+moto, Angular build, terraform validate), and gets Copilot + human review before same-day merge to the always-releasable trunk.
 - **Outcome:** *(PR/merge stats, test coverage, notable Copilot-review catches, demo milestones)*
 
 ## 5. Agentic Automation
