@@ -313,3 +313,69 @@ every ARN) and Cognito/API IDs from an environment already destroyed.
   "deploys automatically on merge."
 
 T033 complete. Unblocks T034, T035, T108, T109, T127.
+
+## T034, T108 — live-verified against the real trunk (2026-08-22)
+
+**Sequencing decision.** T034 needs branch protection tested against the real trunk,
+but `pods/pod73` had none of spec 001's code yet — PR #1 (the entire foundation) had
+been open the whole build. Rather than test fixtures against a feature branch (which
+would only prove "the check fails," not "merge is blocked"), asked the maintainer and
+merged PR #1 first. GitHub Copilot review is unavailable on this account tier, so an
+AI review was recorded as a `COMMENTED` review (GitHub does not allow self-approval)
+per constitution v2.0.0 Principle VII's fallback, then merged.
+
+**Merging to trunk immediately triggered `deploy-dev.yml`** (FR-015) — an unplanned
+but genuine opportunity to exercise T108 for real. It failed three times, each
+failure a real bug caught only by watching a live run:
+
+1. **OIDC trust rejected.** `AssumeRoleWithWebIdentity` failed with a bare
+   "Not authorized." CloudTrail showed GitHub's actual `sub` claim embeds numeric
+   owner/repo IDs (`repo:OWNER@ID/REPO@ID:...`) by default now — confirmed via
+   `gh api .../actions/oidc/customization/sub` (`use_default: true`). The trust
+   policy only listed the older plain form. Fixed by listing both.
+2. **`aws lambda invoke ... /dev/stdout` concatenation.** The CLI's own status
+   metadata and the Lambda's payload land on the same stream, producing two JSON
+   documents on one line; `jq` silently evaluates the requested field against both,
+   emitting the second as a bare `null` that fails `$GITHUB_OUTPUT`'s parser.
+   Reproduced locally against the live Lambda before fixing all six call sites.
+   Alongside it: the frontend publish step derived the S3 bucket name by stripping
+   `https://` off the CloudFront URL — masked by a `||` fallback that happened to
+   guess right.
+3. **`record_start` ran before migrations.** On a brand-new database the `tenant`
+   table it queries does not exist yet. Reordered both workflows to
+   apply → migrate → record → publish → smoke test → record outcome. prod's ordering
+   changed more: `record_start` had run before `terraform apply` even created the
+   migrate Lambda, which would have failed prod's very first deploy outright. The
+   `environment: prod` gate — not step ordering — is what actually enforces
+   FR-017/FR-019.
+
+Two smaller bugs surfaced alongside: my own `jq -r '.error // \"unknown error\"'`
+inside single quotes (backslashes are literal there; invalid jq syntax), and
+`Settings` requiring Cognito config that no Python code reads and that the
+migration/pre-token Lambdas never set. Each fix shipped as its own small PR (#2–#5),
+each with a recorded AI review, each merged only after all 13 checks passed.
+
+**T108 / SC-005, independently verified — PASS.** Merge to live-in-dev: 142 seconds
+(budget 15 minutes). Confirmed against the live API (`/health` returns `healthy`,
+`version` matches the merge commit) and by round-tripping `record_start`/
+`record_finish` directly against the migrated schema — not just the workflow's own
+green checkmark.
+
+**T034 / SC-003, verified as 11 real PRs against the protected trunk**, not a
+tabletop exercise. Every broken fixture showed `mergeStateStatus: BLOCKED` — the
+half of SC-003 a dry run cannot prove. The additive fixture showed
+`CLEAN, MERGEABLE` with all 13 checks green, confirming FR-048a's inverse.
+
+Three findings were genuine cross-check couplings, not defects, and are now
+documented in `ops/ci-fixtures/README.md` rather than engineered away: an untyped
+snippet fails both `ruff` and `mypy`; a leaked credential fails both `secret-scan`
+and the unit suite's own `test_no_credentials.py` (deliberate defense in depth); a
+shared Terraform module fails both environments' validate jobs. Two were fixture
+authoring bugs and were fixed: a literal `1 == 2` also tripped mypy's
+comparison-overlap check, and a missing blank line tripped ruff's import sort.
+Fixtures 6 and 11 needed the generated client regenerated in the same commit — the
+same requirement any real contract-changing PR has (FR-048) — which is why the
+first pass on both showed `client-drift` failing alongside (or instead of) the
+intended result.
+
+All 11 fixture PRs closed without merging; branches deleted.
