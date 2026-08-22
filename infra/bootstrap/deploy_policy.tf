@@ -105,7 +105,7 @@ data "aws_iam_policy_document" "deploy" {
       aws_s3_bucket.state.arn,
       "${aws_s3_bucket.state.arn}/*",
       aws_dynamodb_table.lock.arn,
-      aws_iam_openid_connect_provider.github.arn,
+      local.oidc_provider_arn,
     ]
   }
 
