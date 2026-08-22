@@ -261,13 +261,22 @@ resource "aws_apigatewayv2_authorizer" "cognito" {
   authorizer_uri                    = aws_lambda_function.authorizer.invoke_arn
   authorizer_payload_format_version = "2.0"
   enable_simple_responses           = true
-  identity_sources                  = ["$request.header.Authorization"]
   name                              = "${local.name}-cognito"
 
-  # Caches by identity source (the raw header value) for 5 minutes -- the same token
-  # is re-verified at most once per cache window rather than on every request, which
-  # is what keeps this near-zero-cost at demo scale.
-  authorizer_result_ttl_in_seconds = 300
+  # Deliberately empty, not ["$request.header.Authorization"]. HTTP APIs only invoke a
+  # REQUEST authorizer when every declared identity source is present -- a request with
+  # NO Authorization header at all would never reach the Lambda and would get API
+  # Gateway's own fixed 401 again, defeating the whole point of this authorizer (found
+  # live against a real deployment: a missing header still returned
+  # `{"message":"Unauthorized"}` after the authorizer swap, while an invalid token
+  # correctly returned the uniform envelope). Every request must reach the function so
+  # "no token" gets the same `context.valid: "false"` treatment as "bad token".
+  identity_sources = []
+
+  # An empty identity source disables response caching regardless of this value (there
+  # is no cache key to keyed on) -- set to 0 rather than left non-zero and silently
+  # ignored.
+  authorizer_result_ttl_in_seconds = 0
 }
 
 # FR-033a: /health is the ONE unauthenticated operation. Declared explicitly rather
