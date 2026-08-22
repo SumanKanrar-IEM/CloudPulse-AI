@@ -18,5 +18,6 @@ export interface CurrentUser {
      */
     role: string;
     tenantId: string;
+    lastSeenAt?: string | null;
 }
 
