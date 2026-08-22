@@ -20,10 +20,6 @@ export interface ErrorBody {
      */
     message: string;
     /**
-     * Matches the id in the structured logs for this request (FR-044).
-     */
-    correlationId: string;
-    /**
      * Field-level detail. Present for validation failures only.
      */
     details?: Array<ErrorDetail> | null;
