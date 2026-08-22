@@ -372,7 +372,13 @@ reflects it and an alert email is delivered.
 #### Continuous delivery (S3) [P1]
 
 - **FR-015**: A merge to the trunk MUST automatically deploy the merged change to dev with no
-  manual intervention.
+  manual intervention, **provided the `DEV_AUTO_DEPLOY` repository variable is set to `true`**.
+  *Amended 2026-08-23:* the account carries no free tier, and an unconditional trigger silently
+  re-provisioned a deliberately torn-down dev environment on the next unrelated merge (a docs-only
+  PR), restarting billing with no one having asked for it. The variable defaults unset so a
+  teardown stays torn down; a `workflow_dispatch` run is always the explicit action FR-015's
+  "automatic" clause was written to test, and remains unconditional regardless of the variable.
+  SC-005's 15-minute budget is measured against whichever run actually deploys.
 - **FR-016**: Deployment MUST apply any pending data schema migrations before the new service
   version begins serving traffic.
 - **FR-017**: Deployment to prod MUST NOT proceed without an explicit approval recorded by an

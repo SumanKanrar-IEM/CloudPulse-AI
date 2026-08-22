@@ -1,7 +1,13 @@
 # Continuous delivery to dev (FR-015, FR-016, FR-022, FR-023).
 #
-# A merge to the trunk reaches dev with NO human action (FR-015). SC-005 budgets
-# 15 minutes end to end.
+# A merge to the trunk reaches dev with NO human action, IF the DEV_AUTO_DEPLOY repo
+# variable is "true" (FR-015 amendment, 2026-08-23). This account has no free tier, so
+# an unconditional auto-deploy on every trunk push silently re-provisions a torn-down
+# dev environment and starts billing again -- discovered when merging a docs-only PR
+# undid a deliberate teardown. The variable defaults unset (deploy skipped) precisely
+# so teardown stays torn down until a verification session explicitly turns it back on.
+# `workflow_dispatch` always runs regardless of the variable -- that IS the explicit
+# trigger. SC-005 budgets 15 minutes end to end for whichever run actually deploys.
 #
 # Constitution Principle VII: pods/pod73 is the only long-lived branch. This workflow
 # does not reference main or master.
@@ -39,6 +45,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     environment: dev
+    # Skip on an ordinary trunk push unless the toggle is explicitly on; a manual
+    # dispatch is already the explicit action the toggle exists to require.
+    if: github.event_name == 'workflow_dispatch' || vars.DEV_AUTO_DEPLOY == 'true'
     outputs:
       deployment_id: ${{ steps.record_start.outputs.deployment_id }}
 
