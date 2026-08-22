@@ -75,19 +75,32 @@ Pipeline each spec **fully** (specify → clarify → plan → checklist → tas
 in dependency order 1 → 2 → 3 → 4 → 5 → 6, so every merged spec is context Claude Code can
 read when authoring the next.
 
-> **Current status (2026-08-22):** setup (A1) done — trunk `pods/pod73` exists on the remote.
-> Constitution **amended to v2.0.0** — solo governance + Claude Code as the development-time
-> engine (A2 complete; see §1). **Spec 1 is complete through analyze** on
-> `pods/pod73-001-platform-foundation`: spec (73 FRs, 17 SCs), clarify (4 questions), plan,
-> research, data model, OpenAPI contract, quickstart, two checklists, tasks (128, T001–T128),
-> analyze (15 findings, all resolved). FR and SC task coverage both 100%. Resume at step B11
-> (PR into trunk) or B12 (`/speckit-taskstoissues`), then step 14 to start implementing.
+> **Current status (2026-08-23): Spec 1 is DONE — merged, implemented, live-verified, and torn
+> down.** Constitution is **v2.0.1**. `pods/pod73-001-platform-foundation` merged into `pods/pod73`
+> across 29 PRs (#1–#29); 135/135 tasks closed (T001–T135, including 5 tasks added after the
+> original 130 to trace live-discovered fixes and the process gate they led to). Every P1 story is
+> implemented, deployed to a real AWS account, and independently verified against live
+> infrastructure — not just passing tests. Dev and prod are currently **torn down to zero cost**
+> (only the two bootstrap Terraform-state S3 buckets remain); redeploy either with
+> `gh workflow run "Deploy dev" --ref pods/pod73` after setting `DEV_AUTO_DEPLOY=true`, or
+> `gh workflow run "Deploy prod" --ref pods/pod73` (always requires your approval regardless of
+> that variable).
 >
-> **Deviation from the plan below, recorded honestly:** the v2.0.0 amendment was applied
-> in-session on `pods/pod73-001-platform-foundation` rather than on a separate
-> `pods/pod73-000-constitution-v2` branch, because it was triggered by an analyze finding on
-> spec 1 rather than run standalone. The constitution change and the spec-1 artifacts will
-> therefore land in the same PR. For specs 2–6, follow A2/B3–B12 as written.
+> **§0.5 below is the actual payoff of this run**: every real blocker, apply-time failure, and
+> live-verification finding from spec 1, turned into standing rules baked into §4's plan template,
+> §6's tasks template, and §8's analyze checklist so specs 2–6 hit as few of them as possible.
+> Read §0.5 once, in full, before running `/speckit-specify` for spec 2 — most of it is now also
+> enforced automatically by CI (the `pr-task-reference` and `terraform-ascii` gates exist on trunk
+> already), but the parts that aren't automatic (cost-consciousness, live-verification discipline,
+> the authorizer pattern) are still yours to apply by hand each time.
+>
+> **Deviation from the plan below, recorded honestly:** the v2.0.0 constitution amendment was
+> applied in-session on `pods/pod73-001-platform-foundation` rather than on a separate
+> `pods/pod73-000-constitution-v2` branch, because it was triggered by an analyze finding on spec 1
+> rather than run standalone. A second amendment, v2.0.1, landed the same way mid-implementation
+> (triggered by a `/speckit-analyze` re-run after P1 completion, T128) — see §1. For specs 2–6,
+> follow A2/B3–B12 as written; there should be no more mid-spec constitution amendments once §0.5's
+> lessons are actually applied from the start.
 
 **A. One-time setup**
 1. ~~Create `pods/pod73`, push, set as GitHub default branch + protection~~ *(done — verify the
@@ -125,6 +138,10 @@ read when authoring the next.
     → **Demo checkpoint 2:** full P1 demo path walkable end-to-end.
     Each task slice: branch `pods/pod73-<task-id>-<slug>` → `/speckit-implement` (§9 input)
     → PR → AI review + CI → merge → journal.
+    After each spec's P1 work merges: live-verify against real AWS, tear down and cost-sweep
+    (§0.5.3), then re-run `/speckit-analyze` on that spec (§8's second-run note) before starting
+    the next spec's P1 work — this is what caught spec 1's F1–F4/G1/G2 findings and it is
+    meaningfully cheaper to do per-spec than to let six specs' worth of drift accumulate.
 
 **E. Implementation — Wave 2, P2 in dependency order (each item skippable)**
 20. S7 (alarms — do early, it protects the rest), S17 + S31, S33 (e2e hardening).
@@ -145,13 +162,220 @@ step 17 still leaves a coherent, judged-worthy story if the sprint compresses.
 
 ---
 
-## 1. `/speckit-constitution` — amendment to v2.0.0 ✅ **APPLIED 2026-08-22**
+### 0.5 Hard-won lessons from spec 1 — mandatory baseline for specs 2–6
 
-> **Status: done.** The constitution on disk is v2.0.0. The input below is kept as the record of
-> what was asked for; read the file itself for what actually landed. This was a governance change
-> → **MAJOR** version bump, correctly applied as such.
+> Every item below cost real time on spec 1: a blocked apply, a stale doc nobody caught, an
+> AWS bill nobody meant to run, or a decision re-litigated because it wasn't written down the
+> first time. Nothing here is theoretical. Read it once before `/speckit-specify` for spec 2, and
+> re-read §0.5.3 (cost) and §0.5.5 (live-verification discipline) before *every* spec's
+> implementation phase, not just the first.
 >
-> **What landed beyond the input below**, all of it tightening rather than loosening:
+> **Already enforced automatically — no action needed, just don't fight it:**
+> - `pr-task-reference` (CI, required check): every PR body must contain a task ID shaped
+>   `T\d{3}`. An FR-/SC- reference does not satisfy it — write the actual task ID.
+> - `terraform-ascii` (CI, required check, `ops/scripts/check_terraform_ascii.py`): no
+>   non-ASCII character in any Terraform attribute value. `terraform validate`/`plan` do not
+>   catch this; only a live `apply` does, and by then resources already exist.
+> - `.gitleaks.toml`'s `[allowlist]` (singular table — the `[[allowlists]]` array form is
+>   silently ignored by the pinned gitleaks version) exempts files whose *purpose* requires a
+>   credential-shaped string. Add a new path there, by exact path never a broad glob, if a new
+>   spec's tests need one — see the file's own header for the rule.
+> - `dependency-allowlist` and `connector-boundary` (CI): no non-AWS AI/agent SDK in any
+>   manifest; no cloud-provider SDK type crosses out of `backend/connectors/`.
+
+#### 0.5.1 Repository & CI setup — decide these on Day 1, not when you hit the wall
+
+- **Public repo, no human-approval branch protection.** Required status checks and GitHub
+  Environments (needed for the prod approval gate) require GitHub Pro on a *private* repo.
+  Spec 1 made the repo public after verifying `gitleaks detect` was clean over the entire
+  history. If you're reading this before that decision existed, it's already made — verify
+  `pods/pod73` branch protection has `enforce_admins: true` and `required_approving_review_count:
+  0` (the merge gate is green CI + a recorded AI review, never a second human).
+- **GitHub OIDC trust policy must accept both `sub` claim formats.** GitHub's default OIDC
+  customization embeds numeric owner/repo IDs:
+  `repo:OWNER@OWNER_ID/REPO@REPO_ID:ref:refs/heads/pods/pod73` — not just the plain
+  `repo:OWNER/REPO:ref:...` form most examples show. Check with
+  `gh api repos/OWNER/REPO/actions/oidc/customization/sub`; if `use_default: true`, the trust
+  policy's `StringLike` condition needs both forms, or every `AssumeRoleWithWebIdentity` fails
+  with an opaque "Not authorized" that CloudTrail's `principalId` field is what actually
+  explains (`aws cloudtrail lookup-events` around the failing timestamp).
+- **The OIDC provider is an AWS account-wide singleton — bootstrap must be multi-environment-safe
+  from the start.** `infra/bootstrap/` now has a `create_oidc_provider` variable (default `true`
+  for the first environment); every environment after the first must pass `false` and the module
+  looks the provider up via a `data` source instead. If you ever add a third environment, isolate
+  its bootstrap `terraform apply` with a completely separate `-state=terraform-<env>.tfstate` file
+  and confirm via `terraform plan` showing zero changes to the existing provider *before* applying
+  — this is not optional, a naive second bootstrap apply can silently replace the resource every
+  other environment's deploy role depends on.
+- **`aws lambda invoke ... /dev/stdout` is a real bug, not a style nit.** The CLI's own status
+  metadata (`{"StatusCode":200,...}`) and the Lambda's response payload land on the *same* stream
+  and concatenate into two JSON documents on one line, and `jq` silently evaluates against both.
+  Always invoke to a real temp file (`/tmp/whatever.json`) and `cat`/`jq` that file, never
+  `/dev/stdout`, in any CD workflow.
+- **Local tooling must match the CI-pinned version, or "fixes" become regressions.** `pyproject.toml`
+  pins `ruff>=0.6,<0.7`; a locally-installed newer ruff (e.g. 0.16.x) flags rules (`RUF022`,
+  `RUF023`, `RUF059`) that don't exist in the pinned version. Before treating a local finding as
+  real, check it reproduces against the pinned version — don't "fix" pre-existing code a newer
+  ambient tool merely started noticing.
+- **Any local venv you create for testing MUST live outside the repo directory** (e.g.
+  `/tmp/<project>-test-venv`), never `backend/.venv`. The repo's own credential scanner
+  (`test_no_credentials.py`) walks the filesystem, not git — a venv inside the repo gets its
+  vendored `botocore` example keys and library source flagged as "committed credentials."
+
+#### 0.5.2 Terraform/AWS gotchas that `validate` and `plan` will never catch
+
+These only surface on a live `apply`, sometimes partway through one, after real resources
+already exist and cost money while you fix the config and retry:
+
+- **Aurora engine versions get deprecated between planning and applying.** Query
+  `aws rds describe-db-engine-versions --engine aurora-postgresql` immediately before writing
+  the version into Terraform, not from memory or an earlier research pass.
+- **`count` cannot depend on a value unknown until apply** (e.g. a sibling module's output).
+  Use an explicit boolean variable (`enable_x`) instead of an expression like
+  `count = var.y == "" ? 0 : 1` where `var.y` comes from another module.
+- **A shared module set (one Terraform module used by both dev and prod) cannot use
+  `lifecycle { prevent_destroy }` conditionally** — Terraform requires that argument to be a
+  literal. If a spec needs an environment-specific protection layer, it has to be an *external*
+  guard (a wrapper script that refuses before invoking Terraform at all, like `ops/teardown.sh`),
+  not a Terraform-native one.
+- **`skip_final_snapshot = false` on prod (a deliberate safety default) leaves a manual final
+  snapshot behind on every `terraform destroy`, with NO automatic expiry** — unlike the
+  `backup_retention_period`-governed automated backups, a final snapshot persists forever until
+  someone deletes it by hand. Any "reduce prod to zero cost" pass must explicitly check
+  `aws rds describe-db-cluster-snapshots --snapshot-type manual` and delete what it finds (after
+  confirming with a human — it may be a real restore point someone wants kept).
+
+#### 0.5.3 Cost-consciousness — this AWS account has no free tier
+
+Every dollar spent is deliberate, not incidental. This applies to every spec, not just spec 1's
+infrastructure — spec 2's Step Functions/SQS workers, spec 5's cost-ingestion jobs, and spec 6's
+Bedrock Agents all add billable resources.
+
+- **State the dev/prod cost profile explicitly in each spec's `research.md`**, mirroring spec 1's
+  R-003: no RDS Proxy at demo scale (8-ACU minimum pricing floor makes it cost roughly double the
+  0.5-ACU cluster it pools for), Aurora `min_acu = 0.5` kept warm rather than scale-to-zero for a
+  verification session's duration, `enable_observability = false` until P2 work actually needs it.
+  Whatever a new spec adds (Step Functions executions, SQS queues, Bedrock Agent invocations),
+  write down the same reasoning for its dev/prod parity before implementing it, not after.
+- **Any workflow that deploys on a trunk push must be gated behind an explicit toggle** if the
+  environment might be deliberately torn down between merges. `deploy-dev.yml`'s
+  `DEV_AUTO_DEPLOY` repository variable (default `false`) exists precisely because an unrelated,
+  docs-only merge silently re-provisioned a torn-down dev environment once and restarted billing
+  with no one having asked for it. If a later spec adds its own deploy workflow (it shouldn't —
+  spec 1 owns `deploy-dev.yml`/`deploy-prod.yml` and every spec should deploy through them), the
+  same toggle discipline applies.
+- **Before ending any session that provisioned AWS resources, run the full sweep**, not just
+  "did terraform destroy report success":
+  ```bash
+  # RDS (clusters, instances, AND manual snapshots — see 0.5.2)
+  aws rds describe-db-clusters --query 'length(DBClusters)'
+  aws rds describe-db-cluster-snapshots --snapshot-type manual --query 'length(DBClusterSnapshots)'
+  # Compute / networking
+  aws lambda list-functions --query 'Functions[].FunctionName'
+  aws ec2 describe-vpcs --filters Name=isDefault,Values=false --query 'length(Vpcs)'
+  aws ec2 describe-nat-gateways --filter Name=state,Values=available,pending --query 'length(NatGateways)'
+  aws ec2 describe-instances --query 'length(Reservations)'
+  aws elbv2 describe-load-balancers --query 'length(LoadBalancers)'
+  aws ec2 describe-addresses --query 'length(Addresses)'
+  # Application-layer services a spec might add
+  aws cloudfront list-distributions --query 'length(DistributionList.Items)'
+  aws cognito-idp list-user-pools --max-results 20 --query 'length(UserPools)'
+  aws apigatewayv2 get-apis --query 'length(Items)'
+  aws stepfunctions list-state-machines --query 'length(stateMachines)'
+  aws sqs list-queues
+  aws sns list-topics --query 'length(Topics)'
+  aws events list-rules --query 'length(Rules)'
+  aws cloudwatch describe-alarms --query 'length(MetricAlarms)'
+  # Orphans that survive teardown scripts (see 0.5.5 — these are the ones actually missed)
+  aws logs describe-log-groups --query 'logGroups[].[logGroupName,retentionInDays,storedBytes]'
+  ```
+  Anything unexpected there gets force-destroyed (after confirming it isn't a deliberate restore
+  point) — it does not get left "for later," because later is where cost quietly accrues.
+- **A stray CloudWatch log group with no retention policy will outlive the Lambda that created
+  it.** Deleting a Lambda does not delete its log group. Check
+  `aws logs describe-log-groups --query 'logGroups[?retentionInDays==null]'` specifically —
+  those never expire on their own.
+
+#### 0.5.4 If a later spec needs its own authorizer or auth-gated API surface
+
+Spec 1 owns identity and the single HTTP API; specs 2–6 should consume `require_role` and add
+routes to the existing API, never stand up a second Cognito pool or API Gateway. If that
+assumption ever breaks:
+
+- **Use a Lambda authorizer (`REQUEST` type), not the native `JWT` authorizer type**, if the
+  service needs FR-043-style uniform error envelopes on *every* failure including pre-auth
+  rejections. HTTP APIs give the native JWT authorizer type no way to customize its 401 body —
+  a rejected token always gets API Gateway's fixed `{"message":"Unauthorized"}`, never your
+  application's error shape. The working pattern (`handlers/authorizer_handler.py`): verify the
+  token yourself (signature, issuer, audience/client-id, expiry against the JWKS endpoint), but
+  **always** return `isAuthorized: true`, carrying the real result as a `context.valid` flag. A
+  failed check then reaches the application with no verified claims and gets refused through the
+  app's own normal error-handling path — never denied at the gateway.
+- **`identity_sources` must be `[]` (empty), not `["$request.header.Authorization"]`.** HTTP
+  APIs only invoke a `REQUEST` authorizer when every declared identity source is *present* — a
+  request with **no** Authorization header at all bypasses the authorizer function entirely and
+  still gets the native 401. This is the more common case (an anonymous visitor) and the easier
+  one to miss, since a garbage/invalid token *does* reach the authorizer and appears to work.
+  Test both cases, not just one — `infra/tests/test_authorizer_wiring.sh` is the working example.
+- **Don't try to correlate app-level correlation IDs with API Gateway access logs directly.**
+  HTTP API access logs have no `$context` variable that can read a response header back from the
+  integration's response — trying `$context.error.messageString` (empty except on gateway-level
+  errors) or similar is how you get `"-"` logged on every normal request. Log
+  `$context.requestId` (always populated) in the access log, and have the application log that
+  same ID alongside its own correlation ID in its structured logs — two different IDs, tied
+  together by one shared field, is the actual working pattern.
+
+#### 0.5.5 Process discipline
+
+- **Every PR body needs a task ID** — now enforced by CI (`pr-task-reference`), but the habit
+  matters more than the gate: write the task ID *because* the change traces to one, not to
+  satisfy a regex. If a live-verification session finds a real bug, add the task to `tasks.md`
+  *before* opening the fix PR, not after — retroactive tracing is a repair, not a substitute for
+  doing it in order.
+- **When a fix replaces or renames something plan.md/tasks.md/READMEs describe, grep for the old
+  name across the repo in the same PR.** Spec 1's Lambda-authorizer swap left five stale "JWT
+  authorizer" references across `plan.md`, `tasks.md`, and `infra/README.md` for a full day
+  before `/speckit-analyze` caught them. `grep -rn "<old term>" --include="*.md"` before merging
+  a PR that changes an architectural component's identity is cheap; finding it a week later in
+  an analyze pass is not.
+- **A constitution amendment's Sync Impact Report claiming "full propagation" needs verifying,
+  not trusting.** The v2.0.0 amendment's own report claimed this and missed two spots (the
+  opening paragraph, the Development Workflow section) that directly contradicted the redefined
+  principle for a full day. After any constitution amendment, `grep` the whole file for the terms
+  the amendment was supposed to remove, not just the principle sections you edited directly.
+- **A checklist review (like spec 1's `checklists/scope-and-contracts.md`) must be a genuine
+  line-by-line pass against the *current* spec text, not a rubber-stamp of a prior remediation
+  table.** Several items that a remediation table claimed "closed" were only partially closed on
+  re-inspection — re-derive the answer from the spec, cite it, don't just copy a prior verdict
+  forward.
+- **`tasks.md`'s Tier Summary and its phase checkpoints can drift from each other** — spec 1's
+  top-line summary claimed Phases 1–8 satisfied two success criteria that were actually verified
+  by a Phase 10 task. When writing or reviewing a tasks.md, cross-check the summary's SC range
+  against which phase's task actually verifies each one; don't let a summary line and a
+  checkpoint line say different things.
+- **`/speckit-analyze` finding shapes to expect** (beyond the six listed under §8 for spec 1's
+  first run): a constitution amendment that didn't fully propagate (grep for the old term you
+  think you replaced); a live-discovered fix merged with no task ID; documentation describing an
+  architectural component that a later fix quietly replaced; a Tier Summary or coverage claim
+  that overclaims relative to where the verifying task actually lives.
+
+---
+
+## 1. `/speckit-constitution` — amended to v2.0.1 ✅ **v2.0.0 APPLIED 2026-08-22, v2.0.1 APPLIED 2026-08-23**
+
+> **Status: done.** The constitution on disk is v2.0.1. The input below is kept as the record of
+> what v2.0.0 was asked for; read the file itself for what actually landed. This was a governance
+> change → **MAJOR** version bump, correctly applied as such.
+>
+> **v2.0.1 (PATCH, 2026-08-23):** `/speckit-analyze` (T128) found that v2.0.0's own Sync Impact
+> Report had claimed full propagation while missing two spots — the opening paragraph ("built by a
+> six-person POD") and the Development Workflow section (step 2: "POD assignment"; step 3:
+> "Copilot review plus one human review") — both still describing the six-person process it
+> claimed to have retired. No principle was redefined; this was purely the lesson in §0.5.5's
+> third bullet ("a Sync Impact Report claiming full propagation needs verifying, not trusting")
+> applied to its own source. Read that bullet before writing any future amendment's report.
+>
+> **What v2.0.0 landed beyond the input below**, all of it tightening rather than loosening:
 > - Principle II was restructured into three labelled parts — **Runtime** (AWS-only, Bedrock
 >   Agents for product GenAI), **Delivery** (GitHub-native), and **Development-time AI** (Claude
 >   Code and Copilot permitted) — because the single-paragraph form made it too easy to read the
@@ -209,12 +433,21 @@ described above.
 > rename the branch per §0.2. Keep the inputs functional — the tech stack is decided in
 > `/speckit-plan`.
 
-### Spec 1 — platform-foundation ✅ *(complete through `/speckit-analyze` + remediation — 2026-08-22)*
+### Spec 1 — platform-foundation ✅ *(MERGED, IMPLEMENTED, live-verified — 2026-08-22/23)*
 
 > Artifacts: `specs/001-platform-foundation/` — spec.md (73 FR, 17 SC), plan.md, research.md
-> (12 decisions, 4 carrying **VERIFY** markers), data-model.md (10 entities, 8 migrations),
-> contracts/openapi.yaml, quickstart.md (V1–V9), checklists/{requirements,scope-and-contracts}.md,
-> tasks.md (128 tasks; P1 = T001–T113, P2 = T114–T122).
+> (12 decisions + 1 addendum, 4 carrying **VERIFY** markers, all resolved), data-model.md (10
+> entities, 8 migrations), contracts/openapi.yaml, quickstart.md (V1–V9),
+> checklists/{requirements,scope-and-contracts}.md, tasks.md (135 tasks; P1 = T001–T113 plus
+> T131–T135 traced retroactively, P2 = T114–T122). All 135 closed. Every requirement and success
+> criterion has ≥1 tracing task (checked mechanically, not sampled).
+>
+> **Not just implemented — verified against a real AWS account.** Prod was actually provisioned,
+> deployed through the real approval gate (paused, confirmed byte-for-byte unchanged while
+> pending, approved, completed), and independently curl-tested. Both environments were then fully
+> torn down and an account-wide resource sweep confirmed zero billable resources remain outside
+> the two bootstrap state buckets. §0.5 above is the distilled set of everything that made this
+> harder than it should have been — read it before starting spec 2.
 >
 > **Clarify answers that became binding decisions for later specs:** federated sign-in only with
 > the role derived from directory group membership (no self-service registration, no platform-side
@@ -496,8 +729,11 @@ Create the implementation plan for this spec. Technology direction for the whole
   and cost ingestion.
 - Data: Aurora Serverless v2 PostgreSQL (SQLAlchemy 2 + Alembic migrations, run in CD);
   raw scan snapshots as immutable JSON in S3. Every table tenant-scoped.
-- Identity: Amazon Cognito user pool (admin/operator/viewer groups), JWT authorizer on
-  API Gateway.
+- Identity: Amazon Cognito user pool (admin/operator/viewer groups), already provisioned by
+  spec 1. Consume `require_role` on new routes on the existing API Gateway HTTP API — do not
+  stand up a second Cognito pool or API Gateway. (If a spec genuinely needs its own authorizer,
+  see §0.5.4 first: a Lambda `REQUEST` authorizer with empty `identity_sources`, not the native
+  `JWT` type, is the pattern that actually satisfies FR-043-style uniform error envelopes.)
 - Frontend: Angular 18 (standalone components, signals) + Angular Material + ng2-charts,
   hosted on S3 + CloudFront; OpenAPI-generated client from the FastAPI schema.
 - GenAI: Amazon Bedrock Agents (Claude models on Bedrock) with action groups implemented
@@ -516,12 +752,24 @@ Honor the P1/P2 tiers from the spec: the plan must sequence P1 work so it is del
 without any P2 item. Follow the monorepo layout: infra/ (Terraform), backend/ (app/api,
 app/workers, app/scan, connectors/, migrations, tests), frontend/ (Angular), agents/
 (Bedrock agent definitions, action-group lambdas, prompts, evals), ops/, .github/.
+
+Cost: this AWS account has no free tier. research.md must state the dev/prod cost profile
+for every new billable resource this spec adds (Step Functions executions, SQS queues,
+Bedrock Agent invocations, scheduled scans, whatever applies), with the same reasoning
+depth as spec 1's R-003 — mirror the pricing-floor kind of argument, don't just assert
+"cheap." Live-verification sessions against real AWS must end with a full teardown and the
+resource sweep in playbook §0.5.3, not just "terraform destroy exited 0."
 ```
 
 > For **spec 1** append: "This spec owns the monorepo scaffold, Terraform baseline, CI/CD
-> pipelines, Cognito, Aurora, and the API skeleton that all other specs consume."
+> pipelines, Cognito, Aurora, and the API skeleton that all other specs consume." *(Done —
+> spec 1 is merged; this note is historical.)*
 > For **spec 6** append: "This spec owns the agents/ directory and all Bedrock Agent
 > resources; action groups may only call APIs delivered by specs 2, 3, and 5."
+> For **every spec 2–6**, also append: "Before writing this plan, read
+> `SPECKIT_PLAYBOOK.md` §0.5 in full — it records every apply-time failure, cost surprise,
+> and process gap spec 1 hit, each now either fixed in shared infrastructure or turned into
+> a standing rule this plan must follow."
 
 ---
 
@@ -542,6 +790,17 @@ clearly marked and scheduled after P1. Each task must reference its backlog stor
 (S-numbers) and spec requirement, include its test task (unit/integration/e2e as
 appropriate per the constitution's quality gates), and be sized for a single short-lived
 branch and same-day PR.
+
+Include, near the end of the P1 phase: an explicit live-verification task (deploy this
+spec's work to dev, exercise it against the real AWS account, not just mocked tests) and an
+explicit teardown-and-cost-sweep task immediately after it, following
+`SPECKIT_PLAYBOOK.md` §0.5.3's checklist — don't leave live verification's last task as
+"confirm it works" with no matching "and now tear it back down" task next to it.
+
+If implementation surfaces a fix this task list didn't anticipate, add a new task for it
+before opening that fix's PR — `pr-task-reference` CI will require the task ID in the PR
+body regardless, but the task should exist in tasks.md for the same reason every other
+task does, not be invented after the fact to satisfy the gate.
 ```
 
 ## 7. `/speckit-taskstoissues` — run per spec, no special input
@@ -573,6 +832,16 @@ implementation; journal one line per run ("analyze found X, fixed Y").
 >
 > Run analyze *before* the PR, not after: fixing 15 findings changed the spec, plan, tasks, both
 > checklists, and the journal together, and that is much cheaper as one commit than as a follow-up.
+>
+> **A second run after P1 implementation completed (T128, 2026-08-23) caught a different shape
+> entirely** — not spec/plan/tasks inconsistency, but *implementation-vs-documentation* drift that
+> only accumulates once code starts shipping: a constitution amendment that didn't fully
+> propagate, two PRs merged with no task ID, five stale references to a component a live fix had
+> replaced, and a tasks.md summary line overclaiming relative to where its success criteria were
+> actually verified. Full list and the standing rules each one produced: playbook §0.5.5. **Run
+> `/speckit-analyze` a second time after each spec's P1 implementation is done**, not only before
+> it starts — the first run catches planning-time inconsistency, the second catches drift that
+> only exists once real code and real PRs exist to drift from.
 
 ## 9. `/speckit-implement` — paste this (per task or task group)
 
