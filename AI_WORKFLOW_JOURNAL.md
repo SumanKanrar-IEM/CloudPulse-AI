@@ -282,3 +282,34 @@
 - **Tools:** `/speckit-analyze`, `/speckit-checklist`, `/speckit-converge`
 - **Approach:** End-of-sprint audit of codebase vs specs and constitution; remaining gaps appended as tasks, never silently dropped.
 - **Outcome:** *(convergence report summary, P1 coverage %, final architectural assessment)*
+
+## T033 — Branch protection configured (2026-08-22)
+
+**Context.** Branch protection, rulesets, and environment required-reviewers are all
+unavailable on a private repo under a free personal GitHub account — confirmed via the
+API rather than assumed (`403 Upgrade to GitHub Pro or make this repository public`).
+Verified this blocked 6 of the 9 remaining tasks (T033, T034, T035, T108, T109, T127),
+including the mechanism that enforces FR-011 and FR-017.
+
+**Decision.** The maintainer made the repository public. Verified before recommending
+it: `gitleaks detect` over the *entire* history returns "no leaks found" — Principle
+III's zero-stored-credentials design means there was nothing to expose. The only
+identifiable data in committed files is the AWS account ID (non-secret, appears in
+every ARN) and Cognito/API IDs from an environment already destroyed.
+
+**Applied via the GitHub API** (`gh api`), then independently re-read to confirm:
+
+- **Branch protection on `pods/pod73`**: 13 required status checks (every CI job by
+  name), `enforce_admins: true` (no bypass — FR-011), force-push and deletion both
+  disabled, conversation resolution required. `required_approving_review_count: 0` —
+  GitHub cannot let a sole maintainer approve their own PR, so the merge gate is
+  green CI + a recorded AI review per constitution v2.0.0 Principle VII, not a second
+  human approval.
+- **`prod` GitHub Environment**: required reviewer (the maintainer), restricted to
+  protected branches only. This is what makes `environment: prod` in
+  `deploy-prod.yml` actually pause for approval — FR-017 is now enforced, not merely
+  coded.
+- **`dev` GitHub Environment**: no gate, protected-branches-only — matches FR-015's
+  "deploys automatically on merge."
+
+T033 complete. Unblocks T034, T035, T108, T109, T127.

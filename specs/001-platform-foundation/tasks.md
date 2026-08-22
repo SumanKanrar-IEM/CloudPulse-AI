@@ -112,7 +112,7 @@ which makes landing it before there is much code to check more important here, n
 - [X] T030 [US2] Add the dependency-allowlist gate to `ci.yml`, failing any PR that introduces a non-AWS inference, model-hosting, or agent-framework SDK into a dependency manifest — S2, FR-013a, SC-016
 - [X] T031 [US2] Add the connector-boundary gate to `ci.yml`, failing any PR where a cloud-provider SDK type is imported outside `backend/connectors/` — S2, FR-054, SC-016
 - [X] T032 [US2] Extend `ci.yml` failure output to name the failing check plus file path and line number wherever the failure is attributable to a location — S2, FR-012
-- [ ] T033 [US2] Configure branch protection on `pods/pod73` making all nine checks required, with no administrative bypass, and requiring a recorded AI review before merge — S2, FR-011, SC-003, Principle VII
+- [X] T033 [US2] Configure branch protection on `pods/pod73` making all nine checks required, with no administrative bypass, and requiring a recorded AI review before merge — S2, FR-011, SC-003, Principle VII
 - [ ] T034 [US2] Verify each fixture from T020 fails exactly its own check and no other, and that an additive-only contract change passes — S2, SC-003, FR-048a
 - [ ] T035 [US2] Measure and record the suite's wall-clock time; tune job parallelism until it reports within 10 minutes — S2, FR-014, SC-004
 
