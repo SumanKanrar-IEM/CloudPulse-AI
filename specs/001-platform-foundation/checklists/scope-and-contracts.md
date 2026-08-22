@@ -15,50 +15,50 @@ whether this spec specifies a seam well enough for a downstream spec to build ag
 
 ## P1/P2 Tier Completeness
 
-- [ ] CHK001 Is every functional requirement assigned a P1 or P2 tier, or is tiering only applied at the requirement-group heading level? [Completeness, Spec §Requirements]
-- [ ] CHK002 Are the lettered requirements added during clarification (FR-005a/b, FR-029a, FR-031a, FR-032a, FR-038a, FR-039a, FR-046a, FR-047a/b, FR-048a/b/c) covered by their group's tier, or do they inherit ambiguously? [Gap, Spec §Requirements]
+- [x] CHK001 Is every functional requirement assigned a P1 or P2 tier, or is tiering only applied at the requirement-group heading level? [Completeness, Spec §Requirements]
+- [x] CHK002 Are the lettered requirements added during clarification (FR-005a/b, FR-029a, FR-031a, FR-032a, FR-038a, FR-039a, FR-046a, FR-047a/b, FR-048a/b/c) covered by their group's tier, or do they inherit ambiguously? [Gap, Spec §Requirements]
 - [ ] CHK003 Is each success criterion traceable to a tier, so a reviewer can tell which of SC-001–SC-015 must hold if all P2 work is dropped? [Traceability, Spec §Success Criteria]
 - [ ] CHK004 Does the spec state explicitly which success criteria become unverifiable if S7 (P2) is dropped entirely? [Completeness, Spec §SC-011]
 - [ ] CHK005 Is the constitution's rule that "P2 work never blocks or destabilises the P1 demo path" expressed as a checkable requirement anywhere in this spec, or only as a user-story rationale? [Gap, Spec §US7]
-- [ ] CHK006 Are the P1 requirements self-contained — does any P1 requirement depend on a capability that only a P2 requirement introduces? [Consistency, Spec §Requirements]
+- [x] CHK006 Are the P1 requirements self-contained — does any P1 requirement depend on a capability that only a P2 requirement introduces? [Consistency, Spec §Requirements]
 - [ ] CHK007 Is there a stated rule for how a new requirement discovered mid-build is assigned a tier, or is tier assignment left to whoever writes it? [Gap, Spec §Assumptions]
 
 ## Acceptance Criteria Testability & Measurability
 
-- [ ] CHK008 Is FR-014's "within a time that supports same-day merging" quantified in the requirement itself, rather than only in SC-004? [Clarity, Spec §FR-014]
+- [x] CHK008 Is FR-014's "within a time that supports same-day merging" quantified in the requirement itself, rather than only in SC-004? [Clarity, Spec §FR-014]
 - [ ] CHK009 Are FR-036's "bounded period" and FR-038's "bounded interval" quantified in the requirements, or only in the Assumptions section? [Clarity, Spec §FR-036, §FR-038]
 - [ ] CHK010 Is FR-050's "agreed threshold" for service errors defined with a number, or does it defer an undefined value into implementation? [Ambiguity, Spec §FR-050]
-- [ ] CHK011 Can FR-021's "known, serviceable state" after a failed deployment be objectively evaluated, or is it a judgement call? [Measurability, Spec §FR-021]
-- [ ] CHK012 Is FR-012's "precisely enough to act on without re-running anything locally" expressed as a criterion a reviewer could apply consistently? [Measurability, Spec §FR-012]
-- [ ] CHK013 Is FR-003's "no unintended changes" distinguishable from "no changes" in a way that makes the requirement falsifiable? [Clarity, Spec §FR-003]
-- [ ] CHK014 Does every acceptance scenario in User Stories 1–7 state an observable outcome rather than an internal state change? [Measurability, Spec §User Scenarios]
-- [ ] CHK015 Are the "Independent Test" statements on each user story sufficient to test that story with the other six unbuilt? [Coverage, Spec §User Scenarios]
+- [x] CHK011 Can FR-021's "known, serviceable state" after a failed deployment be objectively evaluated, or is it a judgement call? [Measurability, Spec §FR-021]
+- [x] CHK012 Is FR-012's "precisely enough to act on without re-running anything locally" expressed as a criterion a reviewer could apply consistently? [Measurability, Spec §FR-012]
+- [x] CHK013 Is FR-003's "no unintended changes" distinguishable from "no changes" in a way that makes the requirement falsifiable? [Clarity, Spec §FR-003]
+- [x] CHK014 Does every acceptance scenario in User Stories 1–7 state an observable outcome rather than an internal state change? [Measurability, Spec §User Scenarios]
+- [x] CHK015 Are the "Independent Test" statements on each user story sufficient to test that story with the other six unbuilt? [Coverage, Spec §User Scenarios]
 - [ ] CHK016 Is SC-001's 60-minute budget attributable to specific steps, so a reviewer can tell which step caused an overrun? [Measurability, Spec §SC-001]
-- [ ] CHK017 Are the seven CI check categories in FR-009 each independently failable, and is that independence stated as a requirement rather than assumed? [Completeness, Spec §FR-009]
+- [x] CHK017 Are the seven CI check categories in FR-009 each independently failable, and is that independence stated as a requirement rather than assumed? [Completeness, Spec §FR-009]
 
 ## Scope Boundary Integrity — Out-of-Scope Leakage
 
-- [ ] CHK018 Is the distinction between in-scope operational alerting (FR-051) and out-of-scope resource-owner notification stated in the requirements, or only in the Assumptions section? [Consistency, Spec §FR-051, §Out of Scope]
-- [ ] CHK019 Does any requirement in this spec imply a remediation or state-changing action against a scanned cloud account, which the constitution's Principle IV forbids? [Conflict, Spec §Requirements]
-- [ ] CHK020 Is there a requirement — not merely an absence — establishing that this spec introduces no AI or model-inference runtime? [Gap, Spec §Out of Scope]
-- [ ] CHK021 Does the spec state that no non-AWS AI vendor runtime may be introduced by any spec building on this foundation, or is that left entirely to the constitution? [Gap, Spec §Out of Scope]
+- [x] CHK018 Is the distinction between in-scope operational alerting (FR-051) and out-of-scope resource-owner notification stated in the requirements, or only in the Assumptions section? [Consistency, Spec §FR-051, §Out of Scope]
+- [x] CHK019 Does any requirement in this spec imply a remediation or state-changing action against a scanned cloud account, which the constitution's Principle IV forbids? [Conflict, Spec §Requirements]
+- [x] CHK020 Is there a requirement — not merely an absence — establishing that this spec introduces no AI or model-inference runtime? [Gap, Spec §Out of Scope]
+- [x] CHK021 Does the spec state that no non-AWS AI vendor runtime may be introduced by any spec building on this foundation, or is that left entirely to the constitution? [Gap, Spec §Out of Scope]
 - [ ] CHK022 Are the Out of Scope entries phrased as testable exclusions, so a reviewer can identify a PR that violates one? [Measurability, Spec §Out of Scope]
-- [ ] CHK023 Does FR-033's description of role capabilities ("manage accounts, rules, SDAs"; "run scans, work findings") reference capabilities that do not exist in this spec, and is that forward reference marked as such? [Consistency, Spec §FR-033]
-- [ ] CHK024 Is the role-permission matrix for the endpoints this spec actually ships (`/health`, `/me`) specified, separately from the forward-looking matrix in FR-033? [Gap, Spec §FR-033, §FR-034]
+- [x] CHK023 Does FR-033's description of role capabilities ("manage accounts, rules, SDAs"; "run scans, work findings") reference capabilities that do not exist in this spec, and is that forward reference marked as such? [Consistency, Spec §FR-033]
+- [x] CHK024 Is the role-permission matrix for the endpoints this spec actually ships (`/health`, `/me`) specified, separately from the forward-looking matrix in FR-033? [Gap, Spec §FR-033, §FR-034]
 - [ ] CHK025 Does the spec bound what a future spec may add to the API surface, or could a downstream spec add a state-changing cloud operation without violating any requirement written here? [Gap, Spec §FR-048a]
 
 ## Cross-Spec Contract Consistency
 
-- [ ] CHK026 Is there any functional requirement mandating a provider-agnostic connector interface, or does the connector contract appear only in the Assumptions section and the plan's directory tree? [Gap, Spec §Assumptions]
+- [x] CHK026 Is there any functional requirement mandating a provider-agnostic connector interface, or does the connector contract appear only in the Assumptions section and the plan's directory tree? [Gap, Spec §Assumptions]
 - [ ] CHK027 If the connector interface is spec 2's to define, does this spec state what it must guarantee so that FR-010's mocked-cloud unit tests remain possible? [Completeness, Spec §FR-010]
-- [ ] CHK028 Are the finding lifecycle states enumerated in the requirements, or does the spec describe only "status, and lifecycle over time" while the concrete states appear first in the data model? [Gap, Spec §Key Entities]
-- [ ] CHK029 Is it specified whether a finding's link to the rule version that produced it is a requirement of this spec's schema or a spec 3 concern? [Clarity, Spec §Key Entities]
-- [ ] CHK030 Are the SDA grouping and roll-up semantics either specified here or explicitly delegated, so spec 3 and spec 4 cannot each assume a different meaning? [Gap, Spec §Key Entities]
-- [ ] CHK031 Does the spec define which entities are tenant-scoped and which are legitimately not, or does FR-030's "every entity that belongs to a tenant" leave the boundary to interpretation? [Ambiguity, Spec §FR-030]
-- [ ] CHK032 Is there a requirement establishing a read-only, tenant-scoped access path that spec 6's agent action groups can call, or must spec 6 introduce that contract itself? [Gap, Spec §Requirements]
-- [ ] CHK033 Does the uniform error envelope requirement (FR-043) state that it binds endpoints added by later specs, or only endpoints in this one? [Clarity, Spec §FR-043]
-- [ ] CHK034 Are the additive-only contract rules (FR-048a–c) written to bind all six specs, and is the mechanism for resolving two specs adding the same contract path defined? [Gap, Spec §FR-048a]
-- [ ] CHK035 Is the audit-event contract — which fields every spec must populate when writing one — specified, or does FR-040 name only actor, action, target, and time? [Completeness, Spec §FR-040]
+- [x] CHK028 Are the finding lifecycle states enumerated in the requirements, or does the spec describe only "status, and lifecycle over time" while the concrete states appear first in the data model? [Gap, Spec §Key Entities]
+- [x] CHK029 Is it specified whether a finding's link to the rule version that produced it is a requirement of this spec's schema or a spec 3 concern? [Clarity, Spec §Key Entities]
+- [x] CHK030 Are the SDA grouping and roll-up semantics either specified here or explicitly delegated, so spec 3 and spec 4 cannot each assume a different meaning? [Gap, Spec §Key Entities]
+- [x] CHK031 Does the spec define which entities are tenant-scoped and which are legitimately not, or does FR-030's "every entity that belongs to a tenant" leave the boundary to interpretation? [Ambiguity, Spec §FR-030]
+- [x] CHK032 Is there a requirement establishing a read-only, tenant-scoped access path that spec 6's agent action groups can call, or must spec 6 introduce that contract itself? [Gap, Spec §Requirements]
+- [x] CHK033 Does the uniform error envelope requirement (FR-043) state that it binds endpoints added by later specs, or only endpoints in this one? [Clarity, Spec §FR-043]
+- [x] CHK034 Are the additive-only contract rules (FR-048a–c) written to bind all six specs, and is the mechanism for resolving two specs adding the same contract path defined? [Gap, Spec §FR-048a]
+- [x] CHK035 Is the audit-event contract — which fields every spec must populate when writing one — specified, or does FR-040 name only actor, action, target, and time? [Completeness, Spec §FR-040]
 - [ ] CHK036 Does the spec enumerate which actions count as "privileged or state-changing" for audit purposes, or is that judgement left to each downstream spec? [Ambiguity, Spec §FR-040]
 
 ## Edge Case → Requirement Traceability
@@ -68,16 +68,16 @@ whether this spec specifies a seam well enough for a downstream spec to build ag
 - [ ] CHK039 Does any requirement define the platform's behaviour when the identity provider is unavailable, or is that covered only in Edge Cases? [Gap, Spec §Edge Cases, §FR-031]
 - [ ] CHK040 Is the "correlation identifier absent or malformed" behaviour — validate and regenerate rather than log a caller-supplied value — stated as a requirement? [Gap, Spec §Edge Cases, §FR-044]
 - [ ] CHK041 Does a requirement cover provisioning into a non-empty account where a required name is already taken? [Gap, Spec §Edge Cases, §FR-001]
-- [ ] CHK042 Are the "two pull requests add the same contract path" and "failed migration mid-flight" edge cases each traceable to a requirement that resolves them? [Coverage, Spec §Edge Cases]
+- [x] CHK042 Are the "two pull requests add the same contract path" and "failed migration mid-flight" edge cases each traceable to a requirement that resolves them? [Coverage, Spec §Edge Cases]
 
 ## Ambiguities, Assumptions & Conflicts
 
-- [ ] CHK043 Does FR-001's "no manual console configuration" conflict with the bootstrap step the plan identifies as unavoidable, and is that reconciled in the requirements? [Conflict, Spec §FR-001, Plan §R-001]
+- [x] CHK043 Does FR-001's "no manual console configuration" conflict with the bootstrap step the plan identifies as unavoidable, and is that reconciled in the requirements? [Conflict, Spec §FR-001, Plan §R-001]
 - [ ] CHK044 Is "authorised approver" (FR-017) defined in the requirements, or does its meaning live only in the Assumptions section? [Ambiguity, Spec §FR-017]
 - [ ] CHK045 Are the assumptions that were resolved by guess rather than clarification — single seeded tenant, 1-hour session bound — flagged as reversible decisions rather than settled facts? [Assumption, Spec §Assumptions]
-- [ ] CHK046 Are request rate limiting and throttling requirements intentionally excluded, or absent by oversight? [Gap, Spec §Requirements]
-- [ ] CHK047 Are the four clarification answers each reflected consistently everywhere they apply, with no surviving statement that contradicts them? [Consistency, Spec §Clarifications]
-- [ ] CHK048 Is every dependency in the Dependencies section paired with a requirement or success criterion that would fail visibly if the dependency were unavailable? [Traceability, Spec §Dependencies]
+- [x] CHK046 Are request rate limiting and throttling requirements intentionally excluded, or absent by oversight? [Gap, Spec §Requirements]
+- [x] CHK047 Are the four clarification answers each reflected consistently everywhere they apply, with no surviving statement that contradicts them? [Consistency, Spec §Clarifications]
+- [x] CHK048 Is every dependency in the Dependencies section paired with a requirement or success criterion that would fail visibly if the dependency were unavailable? [Traceability, Spec §Dependencies]
 
 ## Notes
 
@@ -106,3 +106,25 @@ items had their underlying gap closed, so re-evaluate them first:
 Still open by design: CHK046 (rate limiting) remains an accepted omission at demo scale.
 
 - A "no" answer is not automatically a defect. For a foundation spec, delegating a contract to its owning spec can be the right call — the item is asking whether the delegation is *stated*, not whether the content is present
+
+### Review pass 2026-08-23 (T124)
+
+30/48 marked `[x]` against the current spec text. 18 left unmarked as genuine, accepted gaps —
+mostly items the checklist's own Notes predicted would read "no" (CHK037–041 edge cases with no
+matching FR; CHK044/CHK045 terms defined only in Assumptions), plus a few new ones found this
+pass:
+
+| Item | Why left open |
+|---|---|
+| CHK003–005, CHK007 | SCs and mid-build tiering carry no explicit tier tags; P2-never-blocks-P1 lives only in US7's prose rationale |
+| CHK009, CHK010 | "bounded period/interval" and "agreed threshold" are quantified only in Assumptions/nowhere, not in the requirement text itself |
+| CHK016 | SC-001's 60-minute budget is not broken into attributable steps |
+| CHK022, CHK025 | Out-of-Scope entries are declarative, not phrased as checkable PR-level exclusions; nothing bounds the *kind* of endpoint a downstream spec may add beyond requiring a declared role |
+| CHK027 | FR-054 reserves the connector package but doesn't state what it must guarantee for FR-010's mock-based tests |
+| CHK036 | FR-040 doesn't enumerate which actions count as "privileged or state-changing" |
+| CHK037–041 | Approval-expiry, self-approval-as-requirement, IdP-outage, correlation-ID-validation, and name-collision edge cases each exist only in prose, with no matching FR |
+| CHK044, CHK045 | "Authorised approver" and the single-tenant/1-hour defaults are defined only in Assumptions, not flagged as reversible |
+
+None of these block the P1 demo path — they're requirements-quality gaps in a solo-maintainer
+foundation spec, not implementation defects. Candidates for a future spec-quality pass if the
+project continues past the hackathon.
