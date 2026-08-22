@@ -90,14 +90,38 @@ cd infra/envs/dev && terraform init && terraform apply
 ### 3. Apply the schema
 
 ```bash
-aws lambda invoke --function-name cloudpulse-dev-migrate --payload '{"command":"upgrade","revision":"head"}' /dev/stdout
+aws lambda invoke --function-name cloudpulse-dev-migrate \
+  --payload '{"command":"upgrade","revision":"head"}' /tmp/migrate.json
+cat /tmp/migrate.json
 ```
+
+Invoke to a real file, never `/dev/stdout`: the CLI's own status metadata
+(`{"StatusCode":200,...}`) and the Lambda's response payload land on the same stream and
+concatenate into two JSON documents on one line, which breaks any `jq` parsing of the result
+(playbook §0.5.1).
 
 ### 4. Create the first administrator
 
 In the Cognito console (or by CLI), create your user and add them to the `admin` group. **There is
 no in-platform way to do this** — that is FR-039 working as specified, not a missing feature. Until
 someone is in a group, signing in yields a signed-in-but-unauthorised state.
+
+**Get a token for the validation scenarios below** (V5, V6 use `$TOKEN`):
+
+```bash
+CLIENT_ID=$(aws cognito-idp list-user-pool-clients --user-pool-id <pool-id> \
+  --query 'UserPoolClients[0].ClientId' --output text)
+AUTH=$(aws cognito-idp admin-initiate-auth --user-pool-id <pool-id> --client-id "$CLIENT_ID" \
+  --auth-flow ADMIN_USER_PASSWORD_AUTH \
+  --auth-parameters USERNAME=<your-email>,PASSWORD=<your-password>)
+TOKEN=$(echo "$AUTH" | jq -r '.AuthenticationResult.IdToken')
+```
+
+Use the **ID token**, not the access token — Cognito's access token never carries an `email`
+claim, so `/me` would return an empty email if you passed that one instead (playbook §0.5.4).
+The Lambda authorizer accepts either token type (both are RS256-signed by the same pool), so
+this is easy to get wrong silently: it will look like it works and the email will just be
+missing.
 
 ### 5. Confirm
 
