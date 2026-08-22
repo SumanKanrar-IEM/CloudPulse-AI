@@ -140,18 +140,22 @@ jobs:
         run: |
           MIGRATE_FN=$(cd infra/envs/prod && terraform init -input=false >/dev/null && terraform output -raw migrate_function_name)
           echo "migrate_function=$MIGRATE_FN" >> "$GITHUB_OUTPUT"
-          RESULT=$(aws lambda invoke --function-name "$MIGRATE_FN" \
+          # A real file, never /dev/stdout: the CLI's own status metadata
+          # ({"StatusCode":200,...}) and the Lambda's payload would otherwise
+          # concatenate onto the same stream into two JSON documents on one line,
+          # and jq would silently evaluate .deployment_id against both.
+          aws lambda invoke --function-name "$MIGRATE_FN" \
             --cli-binary-format raw-in-base64-out \
             --payload "$(jq -nc --arg sha "${{ inputs.git_sha }}" --arg who "$GITHUB_ACTOR" \
               --arg at "$(date -u +%Y-%m-%dT%H:%M:%S+00:00)" \
               '{command:"record_start",environment:"prod",git_sha:$sha,triggered_by:$who,approved_by:$who,approved_at:$at}')" \
-            /dev/stdout)
-          echo "$RESULT"
-          if [ "$(echo "$RESULT" | jq -r '.ok')" != "true" ]; then
+            /tmp/record_start.json
+          cat /tmp/record_start.json
+          if [ "$(jq -r '.ok' /tmp/record_start.json)" != "true" ]; then
             echo "::error::Could not record the deployment. FR-018 requires a recorded approver before prod changes."
             exit 1
           fi
-          echo "deployment_id=$(echo "$RESULT" | jq -r '.deployment_id')" >> "$GITHUB_OUTPUT"
+          echo "deployment_id=$(jq -r '.deployment_id' /tmp/record_start.json)" >> "$GITHUB_OUTPUT"
 
       - uses: hashicorp/setup-terraform@v3
         with:
@@ -166,23 +170,28 @@ jobs:
             -var="package_path=../../../backend/dist/lambda.zip" \
             -var="package_hash=${PACKAGE_HASH}" \
             -var="git_sha=${{ inputs.git_sha }}"
-          echo "api_endpoint=$(terraform output -raw api_endpoint)" >> "$GITHUB_OUTPUT"
+          {
+            echo "api_endpoint=$(terraform output -raw api_endpoint)"
+            echo "frontend_bucket=$(terraform output -raw frontend_bucket)"
+            echo "cloudfront_id=$(terraform output -raw cloudfront_distribution_id)"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Apply database migrations
         run: |
-          RESULT=$(aws lambda invoke --function-name "${{ steps.record_start.outputs.migrate_function }}" \
+          aws lambda invoke --function-name "${{ steps.record_start.outputs.migrate_function }}" \
             --cli-binary-format raw-in-base64-out \
-            --payload '{"command":"upgrade","revision":"head"}' /dev/stdout)
-          echo "$RESULT"
-          if [ "$(echo "$RESULT" | jq -r '.ok')" != "true" ]; then
+            --payload '{"command":"upgrade","revision":"head"}' /tmp/migrate.json
+          cat /tmp/migrate.json
+          if [ "$(jq -r '.ok' /tmp/migrate.json)" != "true" ]; then
             echo "::error::Migration failed. The previous version is still serving (FR-021)."
             exit 1
           fi
 
       - name: Publish the frontend
         run: |
-          aws s3 sync frontend/dist/cloudpulse \
-            "s3://cloudpulse-prod-frontend-$(aws sts get-caller-identity --query Account --output text)" --delete
+          aws s3 sync frontend/dist/cloudpulse "s3://${{ steps.apply.outputs.frontend_bucket }}" --delete
+          aws cloudfront create-invalidation \
+            --distribution-id "${{ steps.apply.outputs.cloudfront_id }}" --paths "/*"
 
       - name: Smoke test
         run: |
@@ -203,4 +212,5 @@ jobs:
             --cli-binary-format raw-in-base64-out \
             --payload "$(jq -nc --arg id "${{ steps.record_start.outputs.deployment_id }}" \
               --arg st "$STATUS" '{command:"record_finish",deployment_id:$id,status:$st}')" \
-            /dev/stdout
+            /tmp/record_finish.json
+          cat /tmp/record_finish.json

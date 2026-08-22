@@ -94,7 +94,8 @@ jobs:
             -var="git_sha=${GITHUB_SHA}"
           {
             echo "migrate_function=$(terraform output -raw migrate_function_name)"
-            echo "frontend_bucket=$(terraform output -raw frontend_url | sed 's|https://||')"
+            echo "frontend_bucket=$(terraform output -raw frontend_bucket)"
+            echo "cloudfront_id=$(terraform output -raw cloudfront_distribution_id)"
             echo "api_endpoint=$(terraform output -raw api_endpoint)"
           } >> "$GITHUB_OUTPUT"
 
@@ -102,12 +103,24 @@ jobs:
       - name: Record deployment start
         id: record_start
         run: |
-          RESULT=$(aws lambda invoke --function-name "${{ steps.apply.outputs.migrate_function }}" \
+          # A real file, never /dev/stdout: the CLI's own status metadata
+          # ({"StatusCode":200,...}) and the Lambda's response payload would otherwise
+          # land on the SAME stream and concatenate into two JSON documents on one
+          # line. jq then silently evaluates .deployment_id against both, emitting
+          # "null" twice -- and the second "null" is not valid key=value output
+          # syntax, which fails the step with a bare "Invalid format 'null'" that
+          # gives no hint the real cause is upstream.
+          aws lambda invoke --function-name "${{ steps.apply.outputs.migrate_function }}" \
             --cli-binary-format raw-in-base64-out \
             --payload "$(jq -nc --arg sha "$GITHUB_SHA" --arg who "$GITHUB_ACTOR" \
               '{command:"record_start",environment:"dev",git_sha:$sha,triggered_by:$who}')" \
-            /dev/stdout)
-          echo "deployment_id=$(echo "$RESULT" | jq -r '.deployment_id')" >> "$GITHUB_OUTPUT"
+            /tmp/record_start.json
+          cat /tmp/record_start.json
+          if [ "$(jq -r '.ok' /tmp/record_start.json)" != "true" ]; then
+            echo "::error::Could not record the deployment: $(jq -r '.error // \"unknown error\"' /tmp/record_start.json)"
+            exit 1
+          fi
+          echo "deployment_id=$(jq -r '.deployment_id' /tmp/record_start.json)" >> "$GITHUB_OUTPUT"
 
       # --- Migrations BEFORE traffic shifts (FR-016) -------------------
       # research.md R-002: the runner cannot reach the private Aurora cluster, so this
@@ -116,19 +129,20 @@ jobs:
       - name: Apply database migrations
         id: migrate
         run: |
-          RESULT=$(aws lambda invoke --function-name "${{ steps.apply.outputs.migrate_function }}" \
+          aws lambda invoke --function-name "${{ steps.apply.outputs.migrate_function }}" \
             --cli-binary-format raw-in-base64-out \
-            --payload '{"command":"upgrade","revision":"head"}' /dev/stdout)
-          echo "$RESULT"
-          if [ "$(echo "$RESULT" | jq -r '.ok')" != "true" ]; then
+            --payload '{"command":"upgrade","revision":"head"}' /tmp/migrate.json
+          cat /tmp/migrate.json
+          if [ "$(jq -r '.ok' /tmp/migrate.json)" != "true" ]; then
             echo "::error::Migration failed. The previous service version is still serving (FR-021)."
             exit 1
           fi
 
       - name: Publish the frontend
         run: |
-          aws s3 sync frontend/dist/cloudpulse "s3://$(cd infra/envs/dev && terraform output -raw frontend_url | sed 's|https://||')" --delete || \
-          aws s3 sync frontend/dist/cloudpulse "s3://cloudpulse-dev-frontend-$(aws sts get-caller-identity --query Account --output text)" --delete
+          aws s3 sync frontend/dist/cloudpulse "s3://${{ steps.apply.outputs.frontend_bucket }}" --delete
+          aws cloudfront create-invalidation \
+            --distribution-id "${{ steps.apply.outputs.cloudfront_id }}" --paths "/*"
 
       - name: Smoke test
         run: |
@@ -152,4 +166,5 @@ jobs:
             --cli-binary-format raw-in-base64-out \
             --payload "$(jq -nc --arg id "${{ steps.record_start.outputs.deployment_id }}" \
               --arg st "$STATUS" '{command:"record_finish",deployment_id:$id,status:$st}')" \
-            /dev/stdout
+            /tmp/record_finish.json
+          cat /tmp/record_finish.json
