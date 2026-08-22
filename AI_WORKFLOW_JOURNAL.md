@@ -234,6 +234,42 @@
   artifacts were (`spec 2` vs `spec 002`, and a shell `||` precedence bug), which is a reminder that
   a verification failing is not the same as the thing being verified failing.
   **266 tests passing** (214 unit, 52 integration); 10/10 Terraform roots validate.
+- **Live verification session (2026-08-22, 11:04-11:59 UTC, cost ~$0.07):** T129 decided (ephemeral
+  sessions; proxy off per R-003, min_acu 0.5), then applied 48 resources to dev, verified, and
+  destroyed. **Eleven tasks closed:** T046-T049, T080, T095, T096, T110, T111, T113, T129.
+  Teardown verified independently against AWS - zero orphaned resources; only the state bucket
+  survives, as it must.
+
+  **Four defects that only a live apply could find** - `terraform validate` and `plan` passed all
+  of them:
+  1. **Non-ASCII in a security group description.** `CreateSecurityGroup` rejects it outright
+     (`Character sets beyond ASCII are not supported`); an em-dash failed the apply midway, after
+     ~20 resources already existed. Fixed in 3 files and now guarded by
+     `ops/scripts/check_terraform_ascii.py`, wired into CI and `make check`.
+  2. **`count` derived from an unknown value.** The JWT authorizer's count came from a sibling
+     module's output, which Terraform cannot evaluate at plan time. Replaced with an explicit
+     `enable_cognito_auth` boolean - the standard pattern for exactly this.
+  3. **Aurora `16.4` no longer exists.** Valid at planning time, deprecated by first apply. Pinned
+     to `16.14`, staying on major 16 deliberately so the Testcontainers suite (`postgres:16-alpine`)
+     tests the same major the platform runs on.
+  4. **FR-043 / SC-009 gap (still open).** Every pre-authorizer rejection returns API Gateway's
+     `{"message":"Unauthorized"}`, not the uniform envelope. Authenticated errors DO use the
+     envelope correctly, so the gap is scoped precisely to requests the JWT authorizer rejects
+     before they reach the app. HTTP APIs cannot customise that response, so the options are a
+     Lambda authorizer or a spec amendment - a decision, not a fix.
+
+  **FR-032a verified end to end against a real Cognito pool**, which is the result that matters
+  most: no mapped group -> 403, viewer -> 200 viewer, **two groups -> 403 refused rather than
+  resolved**, admin -> 200 admin. The naive "pick the first group" implementation would have passed
+  three of those four.
+
+  **Two smaller findings:** `/me` returns an empty `email` because the access token carries no email
+  claim (the ID token does); and the API Gateway access-log format uses
+  `$context.error.messageString` for correlationId, which is the wrong variable and logs `"-"`.
+
+  **SC-010 note:** `filter-log-events` did not index a new low-volume group within 2 minutes, but
+  **CloudWatch Logs Insights found the record in 2 seconds** with all fields intact. Insights is the
+  correct tool and the runbook should say so.
 
 ## 5. Agentic Automation
 

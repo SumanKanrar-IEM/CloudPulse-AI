@@ -155,6 +155,13 @@ jobs:
         with:
           terraform_version: ${{ env.TERRAFORM_VERSION }}
       - run: terraform fmt -check -recursive infra/
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      # Several AWS APIs reject non-ASCII outright (CreateSecurityGroup among them).
+      # Neither validate nor plan catches it -- it surfaces mid-apply, after some
+      # resources already exist. Caught here instead.
+      - run: python ops/scripts/check_terraform_ascii.py
       # -backend=false: validation needs no state and therefore no AWS credentials.
       - run: terraform init -backend=false
         working-directory: infra/envs/${{ matrix.env }}

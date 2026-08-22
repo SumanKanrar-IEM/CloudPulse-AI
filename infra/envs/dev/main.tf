@@ -83,6 +83,7 @@ module "api" {
   db_user       = "cloudpulse_admin"
   db_secret_arn = module.database.master_user_secret_arn
 
+  enable_cognito_auth        = var.enable_cognito_auth
   cognito_user_pool_id       = module.identity.user_pool_id
   cognito_user_pool_arn      = module.identity.user_pool_arn
   cognito_user_pool_endpoint = module.identity.user_pool_endpoint

@@ -62,5 +62,5 @@ resource "aws_iam_role_policy_attachment" "deploy" {
 
 output "deploy_role_arn" {
   value       = aws_iam_role.deploy.arn
-  description = "Record as the AWS_DEPLOY_ROLE_ARN repository *variable* (not a secret — it is an identifier, not a credential)."
+  description = "Record as the AWS_DEPLOY_ROLE_ARN repository *variable*, not a secret: it is an identifier, not a credential."
 }

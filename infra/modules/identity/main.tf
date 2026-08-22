@@ -87,7 +87,15 @@ resource "aws_cognito_user_pool_client" "web" {
   # secret. PKCE covers the authorization-code flow instead.
   generate_secret = false
 
-  explicit_auth_flows = ["ALLOW_REFRESH_TOKEN_AUTH", "ALLOW_USER_SRP_AUTH"]
+  # SRP for the browser. ADMIN_USER_PASSWORD_AUTH is admin-gated -- it can only be
+  # called with AWS IAM credentials, so it adds no public attack surface -- and it is
+  # what lets the role matrix (SC-008) be verified against a REAL pool rather than only
+  # against locally-signed tokens.
+  explicit_auth_flows = [
+    "ALLOW_REFRESH_TOKEN_AUTH",
+    "ALLOW_USER_SRP_AUTH",
+    "ALLOW_ADMIN_USER_PASSWORD_AUTH",
+  ]
 
   allowed_oauth_flows                  = ["code"]
   allowed_oauth_flows_user_pool_client = true

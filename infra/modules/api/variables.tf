@@ -74,3 +74,18 @@ variable "group_role_map_encoded" {
   description = "group:role pairs, comma separated. Mirrors role_group_map (FR-039a)."
   default     = ""
 }
+
+variable "enable_cognito_auth" {
+  type        = bool
+  description = <<-DESC
+    Whether to attach the JWT authorizer (FR-034).
+
+    A literal boolean rather than `cognito_user_pool_endpoint != ""` because Terraform
+    cannot evaluate `count` against a value that is unknown until apply, and the pool
+    endpoint comes from a sibling module. Set false only for a bootstrap apply where
+    the pool does not exist yet -- the application still enforces FR-032a independently
+    (research.md R-004, layer 2), but every route would be publicly reachable, so it
+    must not stay false.
+  DESC
+  default     = true
+}

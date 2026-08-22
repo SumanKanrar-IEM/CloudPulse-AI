@@ -142,10 +142,10 @@ confirming the result is identical both times.
 - [X] T043 [US1] Write `ops/teardown.sh` reading the target workspace and exiting non-zero on `prod` before invoking anything — S1, FR-005a, R-010
 - [X] T044 [US1] Add a shared Terraform local for log retention (30 days) and a module convention requiring every log group to consume it, so modules created in later phases inherit it rather than needing a retroactive sweep — S6, FR-046a, SC-014
 - [X] T045 [US1] Complete `ops/runbooks/provisioning.md` end to end, including every prerequisite and supplied value — S1, FR-006
-- [ ] T046 [US1] Time a full fresh-account provision against the 60-minute budget and record the per-step breakdown — S1, SC-001
-- [ ] T047 [US1] Run the drift check: change a resource by hand, confirm `terraform plan` reports it, and confirm apply restores the defined state — S1, FR-004
-- [ ] T048 [US1] Tear down the dev environment completely, re-provision from a clean clone, and assert the result is functionally identical — closing the dev half of SC-002 — S1, FR-005, SC-002
-- [ ] T049 [US1] Assert a second `terraform apply` reports **no changes at all**, not merely no unintended ones — S1, FR-003
+- [X] T046 [US1] Time a full fresh-account provision against the 60-minute budget and record the per-step breakdown — S1, SC-001
+- [X] T047 [US1] Run the drift check: change a resource by hand, confirm `terraform plan` reports it, and confirm apply restores the defined state — S1, FR-004
+- [X] T048 [US1] Tear down the dev environment completely, re-provision from a clean clone, and assert the result is functionally identical — closing the dev half of SC-002 — S1, FR-005, SC-002
+- [X] T049 [US1] Assert a second `terraform apply` reports **no changes at all**, not merely no unintended ones — S1, FR-003
 
 **Checkpoint**: dev exists and is reproducible. SC-001 and SC-002 are demonstrable.
 
@@ -211,7 +211,7 @@ identical envelope and appears in the logs under a traceable identifier.
 - [X] T077 [US6] Generate the Angular client into `frontend/src/app/api/` and add a header comment marking it generated and never hand-edited — S6, FR-048, Principle V
 - [X] T078 [US6] Build the Angular shell in `frontend/src/app/shared/` — layout, navigation, error display — meeting the FR-047a baseline of semantic markup, keyboard operability, and visible focus — S6, FR-047a
 - [X] T079 [US6] Write `frontend/e2e/shell.spec.ts` with Playwright plus axe-core assertions on the shell — S6, FR-047b, SC-015
-- [ ] T080 [US6] Confirm any correlation id from a response locates the complete request trace in the logs within 2 minutes — S6, SC-010
+- [X] T080 [US6] Confirm any correlation id from a response locates the complete request trace in the logs within 2 minutes — S6, SC-010
 
 **Checkpoint**: The API contract specs 2–6 extend is live and enforced.
 
@@ -244,8 +244,8 @@ mapped group, two mapped groups — and confirm every cell gives the expected al
 - [X] T092 [US5] Wire `write_audit_event` into every administrative and state-changing path — S5, FR-040
 - [X] T093 [US5] Implement the Angular auth guard, token handling, and sign-out in `frontend/src/app/core/` — S5, FR-037
 - [X] T094 [US5] Add the first-administrator procedure to `ops/runbooks/provisioning.md`, stating that no in-platform bootstrap path exists — S5, FR-039, R-006
-- [ ] T095 [US5] Confirm SC-013: move a user between directory groups and verify the change takes effect within 1 hour with no action inside the platform, and that no endpoint or screen can assign a role — S5, SC-013
-- [ ] T096 [US5] Confirm FR-038a: remove a user from all mapped groups and separately disable the user in the directory, and verify access ends within the same 1-hour bound and any held session stops being accepted — S5, FR-038a
+- [X] T095 [US5] Confirm SC-013: move a user between directory groups and verify the change takes effect within 1 hour with no action inside the platform, and that no endpoint or screen can assign a role — S5, SC-013
+- [X] T096 [US5] Confirm FR-038a: remove a user from all mapped groups and separately disable the user in the directory, and verify access ends within the same 1-hour bound and any held session stops being accepted — S5, FR-038a
 - [X] T097 [US5] Implement and test the read-only, tenant-scoped API principal that spec 6's agent action groups will authenticate as: it MUST hold no cloud credential, MUST have no path to the data store except the API, and MUST be refused on every state-changing operation — S5, FR-056, SC-017
 
 **Checkpoint**: Access control is complete and the role matrix passes end to end.
@@ -276,10 +276,10 @@ then attempt a prod release and confirm it halts until approved.
 - [ ] T107 [US3] Provision the prod environment from the same module set and confirm only documented per-environment differences — S1, FR-002
 - [ ] T108 [US3] Confirm SC-005: time a trunk merge to live-in-dev against the 15-minute budget with zero human actions — S3, SC-005
 - [ ] T109 [US3] Confirm SC-006: verify a paused prod release leaves prod byte-for-byte unchanged, and that no release proceeds without a recorded approver — S3, SC-006
-- [ ] T110 [US3] Confirm SC-002's prod half: run `ops/teardown.sh prod` and verify it refuses having changed nothing — S1, FR-005a, SC-002
-- [ ] T111 [US3] Confirm SC-014: inspect log group retention, cluster backup retention, and the absence of any expiry mechanism on `audit_event` — S4, FR-029a, SC-014
+- [X] T110 [US3] Confirm SC-002's prod half: run `ops/teardown.sh prod` and verify it refuses having changed nothing — S1, FR-005a, SC-002
+- [X] T111 [US3] Confirm SC-014: inspect log group retention, cluster backup retention, and the absence of any expiry mechanism on `audit_event` — S4, FR-029a, SC-014
 - [X] T112 [US3] Confirm SC-012: run a repo-wide credential scan and verify no workflow authenticates with a stored key — S2, SC-012
-- [ ] T113 [US3] Walk quickstart.md V1–V8 end to end from the runbook alone, without relying on memory of having written it — S1, FR-006, SC-001
+- [X] T113 [US3] Walk quickstart.md V1–V8 end to end from the runbook alone, without relying on memory of having written it — S1, FR-006, SC-001
 
 **Checkpoint**: 🏁 **P1 COMPLETE.** SC-001 through SC-010 and SC-012 through SC-015 all pass. The
 demo path is walkable. Everything below is optional.
@@ -324,7 +324,7 @@ this only once T104 is green.
 - [X] T126 [P] Write `backend/README.md`, `frontend/README.md`, and `infra/README.md` describing each area's ownership boundary — Principle I
 - [ ] T127 [P] Confirm every merged PR carries a recorded AI review alongside its green CI check, and that no PR merged without one — Principle VII
 - [ ] T128 Re-run `/speckit-analyze` after the last P1 task and before spec 002 begins, resolving any new finding — Governance
-- [ ] T129 Decide the dev cost profile (RDS Proxy on/off, min_acu 0 vs 0.5) and record it in `infra/envs/dev/terraform.tfvars` with the reasoning — S1, R-003
+- [X] T129 Decide the dev cost profile (RDS Proxy on/off, min_acu 0 vs 0.5) and record it in `infra/envs/dev/terraform.tfvars` with the reasoning — S1, R-003
 - [X] T130 Correct R-010 in research.md and the FR-005a note: `prevent_destroy` cannot be made conditional in a module shared by dev and prod, so prod protection is two layers, not three. Principle I — fix the spec, do not work around it — Principle I, FR-005a
 
 ---

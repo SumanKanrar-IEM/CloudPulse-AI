@@ -11,8 +11,25 @@ variable "vpc_cidr" { type = string }
 variable "private_subnet_ids" { type = list(string) }
 
 variable "engine_version" {
-  type    = string
-  default = "16.4"
+  type        = string
+  description = <<-DESC
+    Aurora PostgreSQL engine version.
+
+    Pinned to an exact minor for reproducibility (FR-003: unchanged definitions must
+    report no changes; a floating version would produce a diff whenever AWS moves the
+    default).
+
+    Kept on the **16** major deliberately: the integration suite runs against
+    `postgres:16-alpine` via Testcontainers, so moving Aurora to 17 would mean the
+    migrations and the append-only trigger are tested on a different major than they
+    run on. Change both together or neither.
+
+    AWS deprecates minors, so this needs periodic bumping. `16.4` was valid at planning
+    time and had been removed by first apply. Check with:
+      aws rds describe-db-engine-versions --engine aurora-postgresql \
+        --query 'DBEngineVersions[].EngineVersion' --output text
+  DESC
+  default     = "16.14"
 }
 
 # Demo-scale (plan.md Technical Context): ~10 concurrent users. 0.5 ACU is the floor

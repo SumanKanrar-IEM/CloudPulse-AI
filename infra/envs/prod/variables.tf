@@ -118,3 +118,9 @@ variable "dlq_names" {
   type    = list(string)
   default = []
 }
+
+variable "enable_cognito_auth" {
+  type        = bool
+  description = "Attach the JWT authorizer (FR-034). False only for a bootstrap apply."
+  default     = true
+}

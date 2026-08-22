@@ -27,7 +27,7 @@ resource "aws_db_subnet_group" "this" {
 
 resource "aws_security_group" "cluster" {
   name        = "${local.name}-aurora"
-  description = "Aurora cluster — reachable only from within the VPC"
+  description = "Aurora cluster, reachable only from within the VPC"
   vpc_id      = var.vpc_id
 
   ingress {

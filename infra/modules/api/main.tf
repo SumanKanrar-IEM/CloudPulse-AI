@@ -204,7 +204,7 @@ resource "aws_apigatewayv2_integration" "api" {
 # raw group claim on every request and refuses anything that is not exactly one group
 # (FR-032a). The authorizer alone cannot satisfy that requirement.
 resource "aws_apigatewayv2_authorizer" "cognito" {
-  count = var.cognito_user_pool_endpoint == "" ? 0 : 1
+  count = var.enable_cognito_auth ? 1 : 0
 
   api_id           = aws_apigatewayv2_api.this.id
   authorizer_type  = "JWT"
@@ -232,8 +232,8 @@ resource "aws_apigatewayv2_route" "default" {
   api_id             = aws_apigatewayv2_api.this.id
   route_key          = "$default"
   target             = "integrations/${aws_apigatewayv2_integration.api.id}"
-  authorization_type = var.cognito_user_pool_endpoint == "" ? "NONE" : "JWT"
-  authorizer_id      = var.cognito_user_pool_endpoint == "" ? null : aws_apigatewayv2_authorizer.cognito[0].id
+  authorization_type = var.enable_cognito_auth ? "JWT" : "NONE"
+  authorizer_id      = var.enable_cognito_auth ? aws_apigatewayv2_authorizer.cognito[0].id : null
 }
 
 # --- Pre-token-generation Lambda (R-004 layer 1) ---------------------------
@@ -269,7 +269,7 @@ resource "aws_cloudwatch_log_group" "pre_token" {
 }
 
 resource "aws_lambda_permission" "cognito_invoke" {
-  count = var.cognito_user_pool_arn == "" ? 0 : 1
+  count = var.enable_cognito_auth ? 1 : 0
 
   statement_id  = "AllowCognitoInvoke"
   action        = "lambda:InvokeFunction"

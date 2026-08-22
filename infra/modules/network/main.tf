@@ -29,7 +29,7 @@ variable "vpc_cidr" {
 
 variable "azs" {
   type        = list(string)
-  description = "Availability zones. Two minimum — Aurora requires a subnet group spanning at least two."
+  description = "Availability zones. Two minimum: Aurora requires a subnet group spanning at least two."
   default     = ["us-east-1a", "us-east-1b"]
 
   validation {
