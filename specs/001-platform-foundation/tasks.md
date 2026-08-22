@@ -273,9 +273,9 @@ then attempt a prod release and confirm it halts until approved.
 - [X] T104 [US3] Write `.github/workflows/deploy-prod.yml` behind a GitHub Environment approval gate — S3, FR-017, FR-019
 - [X] T105 [US3] Record approver identity and time, plus the `self_approved` flag when the approver is the author, as an audit event — S3, FR-018, Assumptions
 - [X] T106 [US3] Implement failure handling meeting all three FR-021 conditions — previous version still serving, schema at a revision it supports, deployment status recorded `failed` — and surface the failure to the maintainer — S3, FR-021
-- [ ] T107 [US3] Provision the prod environment from the same module set and confirm only documented per-environment differences — S1, FR-002
+- [x] T107 [US3] Provision the prod environment from the same module set and confirm only documented per-environment differences — S1, FR-002
 - [X] T108 [US3] Confirm SC-005: time a trunk merge to live-in-dev against the 15-minute budget with zero human actions — S3, SC-005
-- [ ] T109 [US3] Confirm SC-006: verify a paused prod release leaves prod byte-for-byte unchanged, and that no release proceeds without a recorded approver — S3, SC-006
+- [x] T109 [US3] Confirm SC-006: verify a paused prod release leaves prod byte-for-byte unchanged, and that no release proceeds without a recorded approver — S3, SC-006
 - [X] T110 [US3] Confirm SC-002's prod half: run `ops/teardown.sh prod` and verify it refuses having changed nothing — S1, FR-005a, SC-002
 - [X] T111 [US3] Confirm SC-014: inspect log group retention, cluster backup retention, and the absence of any expiry mechanism on `audit_event` — S4, FR-029a, SC-014
 - [X] T112 [US3] Confirm SC-012: run a repo-wide credential scan and verify no workflow authenticates with a stored key — S2, SC-012
@@ -319,10 +319,10 @@ this only once T104 is green.
 ## Phase 10: Polish & Cross-Cutting Concerns
 
 - [X] T123 [P] Record the four research.md **VERIFY** outcomes — LocalStack tier coverage, RDS Data API viability, Cognito claim behaviour, oasdiff classification — in `AI_WORKFLOW_JOURNAL.md` — Principle I
-- [ ] T124 [P] Review `checklists/scope-and-contracts.md` as its reviewer and mark each of the 48 items, now that the analyze remediation has closed CHK011, CHK012, CHK023/024, CHK026, CHK028, CHK030, CHK032, and CHK043 — Principle I
+- [x] T124 [P] Review `checklists/scope-and-contracts.md` as its reviewer and mark each of the 48 items, now that the analyze remediation has closed CHK011, CHK012, CHK023/024, CHK026, CHK028, CHK030, CHK032, and CHK043 — Principle I
 - [X] T125 [P] Verify FR-054 to FR-057 hold in the built system: no provider SDK leak, delegation recorded, agent path read-only, breaking-change runbook present — FR-054, FR-055, FR-056, FR-057, SC-016, SC-017
 - [X] T126 [P] Write `backend/README.md`, `frontend/README.md`, and `infra/README.md` describing each area's ownership boundary — Principle I
-- [ ] T127 [P] Confirm every merged PR carries a recorded AI review alongside its green CI check, and that no PR merged without one — Principle VII
+- [x] T127 [P] Confirm every merged PR carries a recorded AI review alongside its green CI check, and that no PR merged without one — Principle VII
 - [ ] T128 Re-run `/speckit-analyze` after the last P1 task and before spec 002 begins, resolving any new finding — Governance
 - [X] T129 Decide the dev cost profile (RDS Proxy on/off, min_acu 0 vs 0.5) and record it in `infra/envs/dev/terraform.tfvars` with the reasoning — S1, R-003
 - [X] T130 Correct R-010 in research.md and the FR-005a note: `prevent_destroy` cannot be made conditional in a module shared by dev and prod, so prod protection is two layers, not three. Principle I — fix the spec, do not work around it — Principle I, FR-005a

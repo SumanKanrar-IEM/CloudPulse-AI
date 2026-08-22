@@ -382,3 +382,63 @@ All 11 fixture PRs closed without merging; branches deleted.
 
 **T035 / SC-004.** Wall-clock across six real CI runs this session: 61-78s, well under
 the 10-minute budget. No parallelism tuning needed.
+
+## Session: prod live verification, full teardown, requirements review (2026-08-22/23)
+
+**T107 / T109, verified against a real, paused, then real, completed prod deploy.**
+`infra/bootstrap` had only ever been applied for dev — provisioning prod exposed
+that its OIDC provider is an AWS account-wide singleton and bootstrap has no
+backend of its own. Fixed with a `create_oidc_provider` variable: prod's bootstrap
+apply reuses dev's existing provider via a `data` source instead of trying (and
+failing) to create a second one. Verified in isolation with
+`terraform plan -state=terraform-prod.tfstate` before applying, then confirmed via
+`aws iam list-open-id-connect-providers` that dev's provider/role/bucket were
+untouched afterward. This was the most architecturally significant fix of the
+session and wasn't in the original task list — discovered mid-task (PR #20).
+
+With prod's cost profile mirrored to dev's (PR #19: `enable_rds_proxy=false`,
+`min_acu=0.5`, `max_acu=2`, `enable_observability=false`), dispatched
+`deploy-prod.yml` for real. The `Apply to prod` job — gated by `environment: prod`
+with the maintainer as required reviewer — paused at `pending_deployments`, exactly
+as FR-017 specifies. Independently verified via AWS CLI *while paused*: zero prod
+RDS clusters, zero prod-tagged VPCs, zero prod Lambda functions — the only
+CloudFront distribution and Cognito pool that existed belonged to dev. This is the
+live SC-006 proof (a paused release leaves prod byte-for-byte unchanged), not a
+code-review claim. After manual approval via the GitHub UI, the deploy completed:
+`terraform apply` → migrations → `record_start` (approved_by=$GITHUB_ACTOR,
+approved_at populated — reaching this job at all requires GitHub to have recorded
+that approval) → frontend publish → `record_finish`. Confirmed independently by
+curling the live prod `/health` endpoint (200, `version` matches the deployed SHA).
+
+**Full teardown of both environments, then an independent cost sweep.** Dev:
+`ops/teardown.sh dev` destroyed 48 resources cleanly; the frontend S3 bucket needed
+a manual `aws s3 rm --recursive` first (Terraform can't delete a non-empty bucket)
+and a second destroy pass closed it out — 49 total. Prod: `ops/teardown.sh`
+correctly refuses prod by design (FR-005a), so prod's teardown required the
+documented out-of-band step — `aws rds modify-db-cluster --no-deletion-protection`
+— confirmed by the user before running, then a direct `terraform destroy` in
+`infra/envs/prod` (48 resources). Swept every cost-bearing AWS resource category
+after both destroys completed: RDS, Lambda, VPCs, NAT gateways, EC2, load
+balancers, Elastic IPs, CloudFront, Cognito, API Gateway, VPC endpoints, Secrets
+Manager, EventBridge, SQS, Step Functions — all zero. Only the two bootstrap state
+buckets and their paired (empty, pay-per-request) DynamoDB lock tables remain,
+alongside three AWS-managed (free) KMS default keys. Nothing needed force-destroying.
+
+**T124 — reviewed `checklists/scope-and-contracts.md` against the current spec
+text, item by item**, not a rubber stamp of the prior remediation table. 30/48
+marked satisfied; 18 left open as genuine, accepted gaps for a solo-maintainer
+foundation spec — mostly edge cases (approval expiry, IdP outage, correlation-ID
+validation, name collision) that exist only in the Edge Cases prose with no
+matching FR, plus a few terms (bounded interval, agreed threshold, authorised
+approver) quantified only in Assumptions rather than in the requirement text
+itself. None block the P1 demo path. Documented in a new "Review pass" section in
+the checklist file rather than just flipping boxes.
+
+**T127 — confirmed all 9 merged PRs (#1-5, #17-20)** carry both a green
+`SUCCESS` status rollup and a recorded `COMMENTED` AI review. No PR merged without
+one.
+
+129/130 tasks now closed. The sole remaining item is T128 (re-run
+`/speckit-analyze`), deliberately out of this session's scope — flagged for the
+next joint review rather than run unprompted, since it may surface findings that
+change scope.
