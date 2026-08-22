@@ -1,6 +1,25 @@
 <!--
 Sync Impact Report
 ==================
+Version change: 2.0.0 → 2.0.1 (2026-08-23)
+Bump rationale: PATCH. The v2.0.0 amendment redefined Principle VII to solo delivery with AI
+collaboration but its Sync Impact Report claimed full propagation while missing two spots: the
+opening paragraph ("built by a six-person POD") and the "Development Workflow and Quality Gates"
+section, whose steps 2 and 3 still said "POD assignment" and "Copilot review plus one human
+review" — directly contradicting the redefined Principle VII. Found by `/speckit-analyze` (T128,
+finding F1, flagged CRITICAL because a constitution that contradicts itself has no clear MUST for
+a PR to be checked against). No principle is redefined here; this corrects wording that was
+already supposed to reflect v2.0.0.
+
+Modified sections (wording only, no principle redefinition):
+  - Opening paragraph: "six-person POD" → "sole maintainer working with AI agents"
+  - Development Workflow step 2: "POD assignment" → "the maintainer's own tracking"
+  - Development Workflow step 3: "Copilot review plus one human review" → "a recorded AI review,
+    self-merge on green CI... There is no second human reviewer (Principle VII)"
+
+Added sections: none · Removed sections: none
+
+--- Superseded v2.0.0 report ---
 Version change: 1.0.0 → 2.0.0 (2026-08-22)
 Bump rationale: MAJOR. Principle VII is redefined from six-member POD collaboration to solo
 delivery with AI collaboration, and Principle II is widened to name Claude Code as the permitted
@@ -65,9 +84,10 @@ Deferred TODOs:
 # CloudPulse AI Constitution
 
 CloudPulse AI is a serverless cloud governance, cost, and compliance platform for AWS, built by
-a six-person POD. This constitution governs how the platform is specified, built, reviewed, and
-merged. It is optimized for demonstrable engineering discipline — spec-driven development,
-architectural integrity, coding standards, modularity, and POD collaboration.
+a sole maintainer working with AI agents. This constitution governs how the platform is
+specified, built, reviewed, and merged. It is optimized for demonstrable engineering discipline —
+spec-driven development, architectural integrity, coding standards, modularity, and disciplined
+solo delivery with recorded AI collaboration.
 
 ## Core Principles
 
@@ -246,10 +266,11 @@ growth is the standard way hackathon projects arrive at demo day with nothing ru
    `pods/pod73` the same day.
 2. **Plan and tasks:** `/speckit-plan`, `/speckit-checklist`, `/speckit-tasks`, and
    `/speckit-taskstoissues`, followed by `/speckit-analyze` before any implementation code is
-   written. Tasks are ordered P1-first and exported to GitHub Issues for POD assignment.
+   written. Tasks are ordered P1-first and exported to GitHub Issues for the maintainer's own
+   tracking.
 3. **Implement:** one short-lived `pods/pod73-XXX` branch per task slice. Open a PR referencing
-   the spec and task IDs, take the Copilot review plus one human review, merge on green CI,
-   delete the branch.
+   the spec and task IDs, take a recorded AI review, self-merge on green CI, delete the branch.
+   There is no second human reviewer (Principle VII).
 4. **Required checks:** lint, type check, unit tests, and — for cloud-touching code —
    integration tests with mocked AWS. Secret scanning runs on every PR.
 5. **Definition of done** for any story: acceptance-criteria tests pass, structured logs present
@@ -286,4 +307,4 @@ principle regardless of how well the code is written. Complexity that appears to
 principle MUST either be justified in the PR description and accepted at review, or removed. Runtime development guidance lives in `SPECKIT_PLAYBOOK.md`, which is subordinate to
 this document.
 
-**Version**: 2.0.0 | **Ratified**: 2026-08-22 | **Last Amended**: 2026-08-22
+**Version**: 2.0.1 | **Ratified**: 2026-08-22 | **Last Amended**: 2026-08-23
