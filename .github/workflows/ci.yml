@@ -175,6 +175,10 @@ jobs:
     timeout-minutes: 5
     permissions:
       contents: read
+      # gitleaks lists the PR's commits to scope its scan. Without this it gets a 403
+      # "Resource not accessible by integration" and fails -- which looks alarmingly
+      # like a real finding until you read the log.
+      pull-requests: read
     steps:
       - uses: actions/checkout@v4
         with:

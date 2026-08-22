@@ -16,9 +16,20 @@ from app.api.main import openapi_document
 from app.models.core import AppUser
 
 FORBIDDEN_OPERATION_FRAGMENTS = (
-    "register", "signup", "sign_up", "createuser", "create_user",
-    "setpassword", "set_password", "changepassword", "resetpassword",
-    "assignrole", "assign_role", "setrole", "set_role", "grantrole",
+    "register",
+    "signup",
+    "sign_up",
+    "createuser",
+    "create_user",
+    "setpassword",
+    "set_password",
+    "changepassword",
+    "resetpassword",
+    "assignrole",
+    "assign_role",
+    "setrole",
+    "set_role",
+    "grantrole",
 )
 
 

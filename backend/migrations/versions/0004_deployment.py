@@ -24,16 +24,32 @@ depends_on: str | Sequence[str] | None = None
 def upgrade() -> None:
     op.create_table(
         "deployment",
-        sa.Column("id", postgresql.UUID(as_uuid=True), server_default=sa.text("gen_random_uuid()"), nullable=False),
-        sa.Column("environment", postgresql.ENUM(name="deployment_environment", create_type=False), nullable=False),
+        sa.Column(
+            "id",
+            postgresql.UUID(as_uuid=True),
+            server_default=sa.text("gen_random_uuid()"),
+            nullable=False,
+        ),
+        sa.Column(
+            "environment",
+            postgresql.ENUM(name="deployment_environment", create_type=False),
+            nullable=False,
+        ),
         sa.Column("git_sha", sa.String(40), nullable=False),
         sa.Column("triggered_by", sa.String(200), nullable=False),
         sa.Column("approved_by", sa.String(200), nullable=True),
         sa.Column("approved_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("self_approved", sa.Boolean(), server_default=sa.text("false"), nullable=False),
         sa.Column("migration_revision", sa.String(64), nullable=True),
-        sa.Column("status", postgresql.ENUM(name="deployment_status", create_type=False), nullable=False),
-        sa.Column("started_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.Column(
+            "status", postgresql.ENUM(name="deployment_status", create_type=False), nullable=False
+        ),
+        sa.Column(
+            "started_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
         sa.Column("finished_at", sa.DateTime(timezone=True), nullable=True),
         sa.PrimaryKeyConstraint("id", name="pk_deployment"),
         # FR-017 / FR-018: a prod deployment row cannot exist without a recorded

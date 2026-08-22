@@ -22,7 +22,8 @@ from app.api.routers import health
 @pytest.fixture
 def client(monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
     monkeypatch.setattr(
-        health, "_check_database_sync",
+        health,
+        "_check_database_sync",
         lambda: health.DependencyCheck(name="database", status="healthy"),
     )
     with TestClient(create_app(), raise_server_exceptions=False) as c:
@@ -52,7 +53,7 @@ def test_a_valid_inbound_id_is_honoured(client: TestClient) -> None:
         "%0d%0aInjected: header",
         "x" * 5000,
         "",
-        "550e8400-e29b-41d4-a716",          # truncated UUID
+        "550e8400-e29b-41d4-a716",  # truncated UUID
         "<script>alert(1)</script>",
     ],
 )
@@ -67,7 +68,7 @@ def test_a_malformed_inbound_id_is_discarded_and_replaced(
     response = client.get("/health", headers={CORRELATION_HEADER: malformed})
     returned = response.headers[CORRELATION_HEADER]
 
-    uuid.UUID(returned)                     # a real UUID was generated
+    uuid.UUID(returned)  # a real UUID was generated
     assert returned != malformed
     assert malformed not in response.text or not malformed
 

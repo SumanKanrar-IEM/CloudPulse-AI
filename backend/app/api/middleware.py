@@ -45,9 +45,7 @@ class CorrelationIdMiddleware(BaseHTTPMiddleware):
     async def dispatch(
         self, request: Request, call_next: Callable[[Request], Awaitable[Response]]
     ) -> Response:
-        correlation_id, inherited = parse_correlation_id(
-            request.headers.get(CORRELATION_HEADER)
-        )
+        correlation_id, inherited = parse_correlation_id(request.headers.get(CORRELATION_HEADER))
         request.state.correlation_id = correlation_id
 
         started = time.perf_counter()

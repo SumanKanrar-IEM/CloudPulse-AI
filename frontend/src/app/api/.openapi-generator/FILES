@@ -1,5 +1,4 @@
 .gitignore
-README.md
 api.base.service.ts
 api.module.ts
 api/api.ts
@@ -9,7 +8,6 @@ api/system.service.ts
 api/system.serviceInterface.ts
 configuration.ts
 encoder.ts
-git_push.sh
 index.ts
 model/current-user.ts
 model/dependency-check.ts

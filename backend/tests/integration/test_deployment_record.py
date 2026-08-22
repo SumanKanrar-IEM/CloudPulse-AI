@@ -64,9 +64,12 @@ def test_prod_with_a_full_approval_is_accepted(migrated: Engine) -> None:
             )
         )
     with migrated.connect() as conn:
-        assert conn.execute(
-            text("SELECT count(*) FROM deployment WHERE environment = 'prod'")
-        ).scalar_one() == 1
+        assert (
+            conn.execute(
+                text("SELECT count(*) FROM deployment WHERE environment = 'prod'")
+            ).scalar_one()
+            == 1
+        )
 
 
 def test_dev_needs_no_approver(migrated: Engine) -> None:

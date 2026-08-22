@@ -84,8 +84,10 @@ def handler(event: dict[str, Any], context: Any = None) -> dict[str, Any]:
                 "no single role resolved; issuing token without a role claim",
                 extra={
                     "reason": (
-                        "claim_absent" if not groups
-                        else "multiple_mapped_groups" if matched > 1
+                        "claim_absent"
+                        if not groups
+                        else "multiple_mapped_groups"
+                        if matched > 1
                         else "no_mapped_group"
                     ),
                     "matched_count": matched,
@@ -94,9 +96,9 @@ def handler(event: dict[str, Any], context: Any = None) -> dict[str, Any]:
             # No claim suppression, no default. The application refuses (FR-032a).
             return event
 
-        event.setdefault("response", {}).setdefault(
-            "claimsOverrideDetails", {}
-        ).setdefault("claimsToAddOrOverride", {})[ROLE_CLAIM] = role
+        event.setdefault("response", {}).setdefault("claimsOverrideDetails", {}).setdefault(
+            "claimsToAddOrOverride", {}
+        )[ROLE_CLAIM] = role
 
         logger.info("role claim stamped", extra={"role": role})
         return event

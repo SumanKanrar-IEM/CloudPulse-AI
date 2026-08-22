@@ -1,6 +1,6 @@
 """The uniform error envelope (FR-043).
 
-Every error response from every endpoint — including those specs 002–006 add later —
+Every error response from every endpoint — including those specs 002-006 add later —
 uses this shape. Registering handlers centrally rather than returning error bodies from
 route code is what makes SC-009's "100% of error responses conform" achievable: a route
 cannot accidentally invent its own shape, because routes do not build error bodies at
@@ -118,8 +118,7 @@ ERROR_RESPONSES: dict[int | str, dict[str, Any]] = {
     404: {
         "model": ErrorEnvelope,
         "description": (
-            "Target record does not exist, or the caller is not entitled to know that "
-            "it does."
+            "Target record does not exist, or the caller is not entitled to know that " "it does."
         ),
     },
     422: {"model": ErrorEnvelope, "description": "Request body or parameters failed validation."},
@@ -195,9 +194,7 @@ def register_exception_handlers(app: FastAPI) -> None:
         return _respond(request, exc.code, exc.status_code, exc.message, exc.details)
 
     @app.exception_handler(RequestValidationError)
-    async def _validation_error(
-        request: Request, exc: RequestValidationError
-    ) -> JSONResponse:
+    async def _validation_error(request: Request, exc: RequestValidationError) -> JSONResponse:
         # Strip the location kind (body/query/path/header/cookie) so the field name
         # is what a client developer actually needs to fix, not where FastAPI found it.
         location_kinds = {"body", "query", "path", "header", "cookie"}
@@ -245,7 +242,13 @@ def register_exception_handlers(app: FastAPI) -> None:
 
 
 __all__ = [
-    "AppError", "ErrorCode", "register_exception_handlers",
-    "build_envelope", "correlation_id_of",
-    "ErrorEnvelope", "ErrorBody", "ErrorDetail", "ERROR_RESPONSES",
+    "AppError",
+    "ErrorCode",
+    "register_exception_handlers",
+    "build_envelope",
+    "correlation_id_of",
+    "ErrorEnvelope",
+    "ErrorBody",
+    "ErrorDetail",
+    "ERROR_RESPONSES",
 ]

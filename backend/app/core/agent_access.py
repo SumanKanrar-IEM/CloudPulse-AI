@@ -44,7 +44,9 @@ class AgentPrincipal(Principal):
 
     __slots__ = ("agent_id",)
 
-    def __init__(self, *, agent_id: str, tenant_id: uuid.UUID, correlation_id: uuid.UUID | None = None) -> None:
+    def __init__(
+        self, *, agent_id: str, tenant_id: uuid.UUID, correlation_id: uuid.UUID | None = None
+    ) -> None:
         super().__init__(
             subject=f"agent:{agent_id}",
             email="",
@@ -83,7 +85,9 @@ def enforce_agent_read_only(request: Request, principal: Principal) -> None:
         raise AppError(ErrorCode.FORBIDDEN, status_code=status.HTTP_403_FORBIDDEN)
 
 
-def build_agent_principal(claims: dict[str, Any], correlation_id: uuid.UUID | None = None) -> AgentPrincipal:
+def build_agent_principal(
+    claims: dict[str, Any], correlation_id: uuid.UUID | None = None
+) -> AgentPrincipal:
     """Construct an agent principal from validated token claims.
 
     The tenant is taken from the token, never from a request parameter — an agent that
@@ -108,6 +112,9 @@ def build_agent_principal(claims: dict[str, Any], correlation_id: uuid.UUID | No
 
 
 __all__ = [
-    "AgentPrincipal", "build_agent_principal", "enforce_agent_read_only",
-    "READ_ONLY_METHODS", "AGENT_CLAIM",
+    "AgentPrincipal",
+    "build_agent_principal",
+    "enforce_agent_read_only",
+    "READ_ONLY_METHODS",
+    "AGENT_CLAIM",
 ]

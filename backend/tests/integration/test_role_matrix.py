@@ -15,7 +15,6 @@ Runs against a real PostgreSQL container because `/me` performs a just-in-time
 from __future__ import annotations
 
 import uuid
-from collections.abc import Iterator
 from typing import Any
 
 import pytest
@@ -26,10 +25,12 @@ from sqlalchemy import Engine, text
 
 from app.api.errors import register_exception_handlers
 from app.api.middleware import CorrelationIdMiddleware
-from app.core.config import Role
 from app.core.security import (
-    GROUPS_CLAIM, Principal, get_principal,
-    require_admin, require_operator, require_viewer,
+    GROUPS_CLAIM,
+    Principal,
+    require_admin,
+    require_operator,
+    require_viewer,
 )
 
 pytestmark = pytest.mark.integration
@@ -83,7 +84,7 @@ def matrix_app(tenant_id: uuid.UUID) -> tuple[TestClient, _ClaimStager]:
 
     stager = _ClaimStager(app)
     client = TestClient(stager, raise_server_exceptions=False)
-    client.base_url = client.base_url  # noqa: PLW0127 - keep httpx happy
+    client.base_url = client.base_url
     return client, stager
 
 
@@ -113,12 +114,12 @@ def _call(
 MATRIX: list[tuple[str, list[str] | None, bool, dict[str, int]]] = [
     # (label, groups, authenticated, {path: expected status})
     ("unauthenticated", None, False, {"admin": 401, "operator": 401, "read": 401}),
-    ("viewer",          VIEWER,          True,  {"admin": 403, "operator": 403, "read": 200}),
-    ("operator",        OPERATOR,        True,  {"admin": 403, "operator": 200, "read": 200}),
-    ("admin",           ADMIN,           True,  {"admin": 200, "operator": 200, "read": 200}),
+    ("viewer", VIEWER, True, {"admin": 403, "operator": 403, "read": 200}),
+    ("operator", OPERATOR, True, {"admin": 403, "operator": 200, "read": 200}),
+    ("admin", ADMIN, True, {"admin": 200, "operator": 200, "read": 200}),
     # The two that catch a naive implementation:
-    ("no mapped group", NO_MAPPED_GROUP, True,  {"admin": 403, "operator": 403, "read": 403}),
-    ("multiple groups", MULTIPLE_GROUPS, True,  {"admin": 403, "operator": 403, "read": 403}),
+    ("no mapped group", NO_MAPPED_GROUP, True, {"admin": 403, "operator": 403, "read": 403}),
+    ("multiple groups", MULTIPLE_GROUPS, True, {"admin": 403, "operator": 403, "read": 403}),
 ]
 
 PATHS = {"admin": "/admin-action", "operator": "/operator-action", "read": "/read-only-action"}
@@ -140,8 +141,11 @@ def test_role_matrix(
     """SC-008: 100% of cells produce the expected allow or refuse."""
     for action, want in expected.items():
         got = _call(
-            matrix_app, PATHS[action], groups,
-            authenticated=authenticated, tenant_id=tenant_id,
+            matrix_app,
+            PATHS[action],
+            groups,
+            authenticated=authenticated,
+            tenant_id=tenant_id,
         )
         assert got == want, f"{label} -> {action}: expected {want}, got {got}"
 
@@ -153,7 +157,9 @@ def test_no_governance_data_reaches_a_caller_without_a_resolved_role(
     client, stager = matrix_app
     for groups in (NO_MAPPED_GROUP, MULTIPLE_GROUPS, []):
         stager.claims = {
-            "sub": "s", "email": "e@x.y", GROUPS_CLAIM: groups,
+            "sub": "s",
+            "email": "e@x.y",
+            GROUPS_CLAIM: groups,
             "custom:tenant_id": str(tenant_id),
         }
         response = client.get(PATHS["read"])
@@ -170,7 +176,9 @@ def test_refusals_are_indistinguishable_between_no_group_and_many(
     bodies = []
     for groups in (NO_MAPPED_GROUP, MULTIPLE_GROUPS):
         stager.claims = {
-            "sub": "s", "email": "e@x.y", GROUPS_CLAIM: groups,
+            "sub": "s",
+            "email": "e@x.y",
+            GROUPS_CLAIM: groups,
             "custom:tenant_id": str(tenant_id),
         }
         body = client.get(PATHS["read"]).json()["error"]
@@ -183,7 +191,11 @@ def test_the_matrix_covers_every_caller_kind_sc008_names() -> None:
     """Guard against a row being deleted and the suite still passing."""
     labels = {row[0] for row in MATRIX}
     assert labels == {
-        "unauthenticated", "viewer", "operator", "admin",
-        "no mapped group", "multiple groups",
+        "unauthenticated",
+        "viewer",
+        "operator",
+        "admin",
+        "no mapped group",
+        "multiple groups",
     }
     assert len(MATRIX) * len(PATHS) == 18

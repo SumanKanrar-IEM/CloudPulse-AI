@@ -28,9 +28,7 @@ def terraform() -> str:
 
 def _block(source: str, resource: str, name: str) -> str:
     """Extract one resource block."""
-    match = re.search(
-        rf'resource\s+"{resource}"\s+"{name}"\s*\{{(.*?)\n\}}', source, re.DOTALL
-    )
+    match = re.search(rf'resource\s+"{resource}"\s+"{name}"\s*\{{(.*?)\n\}}', source, re.DOTALL)
     assert match, f"{resource}.{name} not found"
     return match.group(1)
 
@@ -72,12 +70,8 @@ def test_dlq_alarm_fires_on_any_message(terraform: str) -> None:
     assert "GreaterThanThreshold" in block
 
 
-@pytest.mark.parametrize(
-    "alarm", ["api_errors", "scan_failures", "dlq_depth"]
-)
-def test_failure_count_alarms_treat_missing_data_as_healthy(
-    terraform: str, alarm: str
-) -> None:
+@pytest.mark.parametrize("alarm", ["api_errors", "scan_failures", "dlq_depth"])
+def test_failure_count_alarms_treat_missing_data_as_healthy(terraform: str, alarm: str) -> None:
     """No traffic genuinely means no errors, for a COUNT metric.
 
     Leaving this at the default would park the alarm in INSUFFICIENT_DATA — which never

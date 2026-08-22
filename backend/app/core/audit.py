@@ -24,9 +24,19 @@ from app.models.core import AuditEvent
 REDACTED: Final[str] = "[redacted]"
 SENSITIVE_KEYS: Final[frozenset[str]] = frozenset(
     {
-        "password", "passwd", "secret", "token", "access_key", "secret_key",
-        "secret_access_key", "session_token", "authorization", "api_key",
-        "private_key", "credential", "credentials",
+        "password",
+        "passwd",
+        "secret",
+        "token",
+        "access_key",
+        "secret_key",
+        "secret_access_key",
+        "session_token",
+        "authorization",
+        "api_key",
+        "private_key",
+        "credential",
+        "credentials",
     }
 )
 
@@ -44,8 +54,7 @@ def _redact(payload: dict[str, Any] | None) -> dict[str, Any] | None:
     def _walk(value: Any) -> Any:
         if isinstance(value, dict):
             return {
-                k: (REDACTED if k.lower() in SENSITIVE_KEYS else _walk(v))
-                for k, v in value.items()
+                k: (REDACTED if k.lower() in SENSITIVE_KEYS else _walk(v)) for k, v in value.items()
             }
         if isinstance(value, list):
             return [_walk(v) for v in value]
@@ -92,7 +101,7 @@ def write_audit_event(
         correlation_id=correlation_id,
         payload=_redact(payload),
     )
-    session.add(event)   # stamps tenant_id (FR-030)
+    session.add(event)  # stamps tenant_id (FR-030)
     session.flush()
     return event
 

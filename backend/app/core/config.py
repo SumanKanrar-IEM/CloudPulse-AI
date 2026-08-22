@@ -96,4 +96,5 @@ class Settings(BaseSettings):
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
     """Cached settings, resolved once per Lambda execution context."""
-    return Settings()  # type: ignore[call-arg]  # values come from the environment
+    # Values come from the environment; pydantic-settings resolves them.
+    return Settings()

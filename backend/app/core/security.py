@@ -127,9 +127,7 @@ def _claims_from(request: Request) -> dict[str, Any]:
         return staged
 
     scope_event = request.scope.get("aws.event") or {}
-    authorizer = (
-        scope_event.get("requestContext", {}).get("authorizer", {}).get("jwt", {})
-    )
+    authorizer = scope_event.get("requestContext", {}).get("authorizer", {}).get("jwt", {})
     claims = authorizer.get("claims")
     return claims if isinstance(claims, dict) else {}
 
@@ -228,7 +226,14 @@ require_operator = require_role(Role.ADMIN, Role.OPERATOR)
 require_viewer = require_role(Role.ADMIN, Role.OPERATOR, Role.VIEWER)
 
 __all__ = [
-    "Principal", "CurrentPrincipal", "resolve_role", "get_principal", "require_role",
-    "require_admin", "require_operator", "require_viewer",
-    "GROUPS_CLAIM", "DEFAULT_GROUP_ROLE_MAP",
+    "Principal",
+    "CurrentPrincipal",
+    "resolve_role",
+    "get_principal",
+    "require_role",
+    "require_admin",
+    "require_operator",
+    "require_viewer",
+    "GROUPS_CLAIM",
+    "DEFAULT_GROUP_ROLE_MAP",
 ]

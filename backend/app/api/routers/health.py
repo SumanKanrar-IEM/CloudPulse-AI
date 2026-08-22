@@ -68,7 +68,7 @@ def _check_database_sync() -> DependencyCheck:
         return DependencyCheck(
             name="database",
             status="unhealthy",
-            detailMessage=f"unreachable ({type(exc).__name__})",
+            detail_message=f"unreachable ({type(exc).__name__})",
         )
 
 
@@ -88,14 +88,14 @@ async def _check_database() -> DependencyCheck:
         return DependencyCheck(
             name="database",
             status="unhealthy",
-            detailMessage=f"timed out after {DEPENDENCY_TIMEOUT_SECONDS}s",
+            detail_message=f"timed out after {DEPENDENCY_TIMEOUT_SECONDS}s",
         )
     except Exception as exc:
         logger.warning("database health check errored", extra={"error_type": type(exc).__name__})
         return DependencyCheck(
             name="database",
             status="unhealthy",
-            detailMessage=f"check failed ({type(exc).__name__})",
+            detail_message=f"check failed ({type(exc).__name__})",
         )
 
 
@@ -127,13 +127,15 @@ async def get_health(request: Request, response: Response) -> dict[str, Any]:
     settings = None
     try:
         settings = get_settings()
-    except Exception:  # configuration itself may be incomplete; still answer
-        pass
+    except Exception as exc:
+        # Configuration itself may be incomplete -- report unknown version rather than
+        # failing the health check. FR-042: this endpoint always answers.
+        logger.warning("settings unavailable", extra={"error_type": type(exc).__name__})
 
     return HealthResponse(
         status="healthy" if healthy else "unhealthy",
         checks=checks,
-        correlationId=str(getattr(request.state, "correlation_id", "")),
+        correlation_id=str(getattr(request.state, "correlation_id", "")),
         version=settings.git_sha if settings else None,
     ).model_dump(by_alias=True, exclude_none=True)
 

@@ -32,12 +32,15 @@ from app.core.logging import logger
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
 ALLOWED_COMMANDS = frozenset(
     {
-        "upgrade", "current", "history",
+        "upgrade",
+        "current",
+        "history",
         # Deployment recording shares this Lambda because it faces the same
         # constraint: the deployment table is in the private subnet and the CI runner
         # cannot reach it (R-002). A second Lambda would duplicate the VPC config, the
         # role and the package for two functions the pipeline always calls together.
-        "record_start", "record_finish",
+        "record_start",
+        "record_finish",
     }
 )
 

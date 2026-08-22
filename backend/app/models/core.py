@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from enum import StrEnum
 from typing import Any
 
 from sqlalchemy import (
@@ -31,7 +32,7 @@ from app.models import enums
 from app.models.base import Base, TenantScoped, Timestamps, UUIDPrimaryKey
 
 
-def _pg_enum(py_enum: type[enums.StrEnum], name: str) -> Enum:
+def _pg_enum(py_enum: type[StrEnum], name: str) -> Enum:
     """Native PostgreSQL enum, storing values rather than member names."""
     return Enum(py_enum, name=name, values_callable=lambda e: [m.value for m in e])
 
@@ -380,6 +381,15 @@ class Scan(UUIDPrimaryKey, Timestamps, TenantScoped, Base):
 
 
 __all__ = [
-    "Tenant", "AppUser", "AuditEvent", "Deployment", "CloudAccount",
-    "Resource", "Rule", "Finding", "Sda", "ResourceOwner", "Scan",
+    "Tenant",
+    "AppUser",
+    "AuditEvent",
+    "Deployment",
+    "CloudAccount",
+    "Resource",
+    "Rule",
+    "Finding",
+    "Sda",
+    "ResourceOwner",
+    "Scan",
 ]

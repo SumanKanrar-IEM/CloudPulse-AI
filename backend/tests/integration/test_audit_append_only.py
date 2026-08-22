@@ -30,7 +30,9 @@ def seeded(clean_database: Engine, alembic_config) -> tuple[Engine, uuid.UUID, u
     tenant_id = uuid.uuid4()
     event_id = uuid.uuid4()
     with clean_database.begin() as conn:
-        conn.execute(text("INSERT INTO tenant (id, name) VALUES (:i, 'AuditTest')"), {"i": tenant_id})
+        conn.execute(
+            text("INSERT INTO tenant (id, name) VALUES (:i, 'AuditTest')"), {"i": tenant_id}
+        )
         conn.execute(
             text(
                 "INSERT INTO audit_event (id, tenant_id, actor_label, action, target_type) "
@@ -104,34 +106,42 @@ def test_the_trigger_exists_on_the_real_table(seeded: tuple[Engine, uuid.UUID, u
     """Layer 2, verified structurally rather than inferred from behaviour."""
     engine, _, _ = seeded
     with engine.connect() as conn:
-        triggers = conn.execute(
-            text(
-                "SELECT tgname FROM pg_trigger t JOIN pg_class c ON t.tgrelid = c.oid "
-                "WHERE c.relname = 'audit_event' AND NOT t.tgisinternal"
+        triggers = (
+            conn.execute(
+                text(
+                    "SELECT tgname FROM pg_trigger t JOIN pg_class c ON t.tgrelid = c.oid "
+                    "WHERE c.relname = 'audit_event' AND NOT t.tgisinternal"
+                )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
     assert "audit_event_no_update_or_delete" in triggers
 
 
 def test_application_role_lacks_update_and_delete(
-    seeded: tuple[Engine, uuid.UUID, uuid.UUID]
+    seeded: tuple[Engine, uuid.UUID, uuid.UUID],
 ) -> None:
     """Layer 1: the grant itself, independent of the trigger."""
     engine, _, _ = seeded
     with engine.connect() as conn:
-        granted = conn.execute(
-            text(
-                "SELECT privilege_type FROM information_schema.role_table_grants "
-                "WHERE table_name = 'audit_event' AND grantee = 'cloudpulse_app'"
+        granted = (
+            conn.execute(
+                text(
+                    "SELECT privilege_type FROM information_schema.role_table_grants "
+                    "WHERE table_name = 'audit_event' AND grantee = 'cloudpulse_app'"
+                )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
     assert "INSERT" in granted and "SELECT" in granted
     assert "UPDATE" not in granted, "cloudpulse_app must not hold UPDATE on audit_event"
     assert "DELETE" not in granted, "cloudpulse_app must not hold DELETE on audit_event"
 
 
 def test_no_expiry_mechanism_exists_on_audit_event(
-    seeded: tuple[Engine, uuid.UUID, uuid.UUID]
+    seeded: tuple[Engine, uuid.UUID, uuid.UUID],
 ) -> None:
     """FR-029a makes the ABSENCE of a retention mechanism the correct implementation.
 
@@ -141,9 +151,11 @@ def test_no_expiry_mechanism_exists_on_audit_event(
     """
     engine, _, _ = seeded
     with engine.connect() as conn:
-        rules = conn.execute(
-            text("SELECT rulename FROM pg_rules WHERE tablename = 'audit_event'")
-        ).scalars().all()
+        rules = (
+            conn.execute(text("SELECT rulename FROM pg_rules WHERE tablename = 'audit_event'"))
+            .scalars()
+            .all()
+        )
         partitions = conn.execute(
             text(
                 "SELECT count(*) FROM pg_inherits i JOIN pg_class c ON i.inhparent = c.oid "
@@ -154,9 +166,7 @@ def test_no_expiry_mechanism_exists_on_audit_event(
     assert partitions == 0, "audit_event is partitioned; partition dropping would be an expiry path"
 
 
-def test_audit_event_has_no_updated_at_column(
-    seeded: tuple[Engine, uuid.UUID, uuid.UUID]
-) -> None:
+def test_audit_event_has_no_updated_at_column(seeded: tuple[Engine, uuid.UUID, uuid.UUID]) -> None:
     """A row that can never change has no meaningful update time."""
     engine, _, _ = seeded
     columns = {c["name"] for c in inspect(engine).get_columns("audit_event")}

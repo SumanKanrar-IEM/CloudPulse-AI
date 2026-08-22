@@ -27,7 +27,8 @@ def client() -> Iterator[TestClient]:
 @pytest.fixture
 def healthy_db(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
-        health, "_check_database_sync",
+        health,
+        "_check_database_sync",
         lambda: health.DependencyCheck(name="database", status="healthy"),
     )
 
@@ -52,9 +53,7 @@ def test_healthy_response_shape(client: TestClient, healthy_db: None) -> None:
     assert any(c["name"] == "database" for c in body["checks"])
 
 
-def test_unhealthy_dependency_returns_503_not_200(
-    client: TestClient, broken_db: None
-) -> None:
+def test_unhealthy_dependency_returns_503_not_200(client: TestClient, broken_db: None) -> None:
     """FR-042: never report healthy while a dependency is down."""
     response = client.get("/health")
     assert response.status_code == 503
@@ -72,9 +71,7 @@ def test_unhealthy_dependency_still_answers(client: TestClient, broken_db: None)
     assert body["checks"][0]["detailMessage"]
 
 
-def test_health_detail_leaks_no_connection_string(
-    client: TestClient, broken_db: None
-) -> None:
+def test_health_detail_leaks_no_connection_string(client: TestClient, broken_db: None) -> None:
     """FR-046: the driver error carries a host and port. Neither may surface."""
     raw = client.get("/health").text
     for leak in ("db.internal", "5432", "could not connect to server"):

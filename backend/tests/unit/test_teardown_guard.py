@@ -104,9 +104,7 @@ def test_refusal_happens_before_any_tool_is_invoked(
     assert "nothing has been touched" in (result.stdout + result.stderr).lower()
 
 
-def test_refusal_explains_why_not_just_that(
-    script: Path, repo_root: Path, tmp_path: Path
-) -> None:
+def test_refusal_explains_why_not_just_that(script: Path, repo_root: Path, tmp_path: Path) -> None:
     """A refusal a reader cannot act on gets worked around rather than respected."""
     stderr = _run(script, "prod", cwd=repo_root, tmp_path=tmp_path)[0].stderr.lower()
     assert "fr-005a" in stderr
@@ -120,9 +118,7 @@ def test_missing_argument_is_refused(script: Path, repo_root: Path, tmp_path: Pa
     assert "usage" in result.stderr.lower()
 
 
-def test_unknown_environment_is_refused(
-    script: Path, repo_root: Path, tmp_path: Path
-) -> None:
+def test_unknown_environment_is_refused(script: Path, repo_root: Path, tmp_path: Path) -> None:
     """FR-002 permits exactly two environments; anything else is a typo."""
     result, marker = _run(script, "staging", cwd=repo_root, tmp_path=tmp_path)
     assert result.returncode != 0
@@ -153,9 +149,6 @@ def test_script_has_no_bash4_only_syntax(script: Path) -> None:
 
     # Check code, not comments -- the script deliberately *mentions* ${1,,} in the
     # comment explaining why it is avoided.
-    code = [
-        line for line in script.read_text().splitlines()
-        if not line.lstrip().startswith("#")
-    ]
+    code = [line for line in script.read_text().splitlines() if not line.lstrip().startswith("#")]
     offenders = [line.strip() for line in code if "${1,," in line or "${TARGET,," in line]
     assert not offenders, f"bash 4+ case expansion is not portable: {offenders}"

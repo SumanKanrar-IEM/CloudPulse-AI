@@ -37,7 +37,11 @@ def _tenant_id() -> uuid.UUID:
     from app.core.db import get_engine
 
     with get_engine().connect() as conn:
-        return uuid.UUID(str(conn.execute(text("SELECT id FROM tenant ORDER BY created_at LIMIT 1")).scalar_one()))
+        return uuid.UUID(
+            str(
+                conn.execute(text("SELECT id FROM tenant ORDER BY created_at LIMIT 1")).scalar_one()
+            )
+        )
 
 
 def record_start(

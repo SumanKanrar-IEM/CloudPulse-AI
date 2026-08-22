@@ -25,7 +25,7 @@ from sqlalchemy import engine_from_config, pool
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from app.models import Base  # noqa: E402
+from app.models import Base
 
 config = context.config
 if config.config_file_name is not None:
@@ -60,9 +60,7 @@ def _database_url() -> str:
     host = os.environ["CLOUDPULSE_DB_HOST"]
     port = os.environ.get("CLOUDPULSE_DB_PORT", "5432")
     name = os.environ.get("CLOUDPULSE_DB_NAME", "cloudpulse")
-    return (
-        f"postgresql+psycopg://{secret['username']}:{secret['password']}@{host}:{port}/{name}"
-    )
+    return f"postgresql+psycopg://{secret['username']}:{secret['password']}@{host}:{port}/{name}"
 
 
 def run_migrations_offline() -> None:

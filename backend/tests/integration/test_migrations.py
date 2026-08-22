@@ -24,8 +24,17 @@ pytestmark = pytest.mark.integration
 VERSIONS_DIR = Path(__file__).resolve().parents[2] / "migrations" / "versions"
 
 EXPECTED_TABLES = {
-    "tenant", "app_user", "audit_event", "deployment", "cloud_account",
-    "resource", "rule", "finding", "sda", "resource_owner", "scan",
+    "tenant",
+    "app_user",
+    "audit_event",
+    "deployment",
+    "cloud_account",
+    "resource",
+    "rule",
+    "finding",
+    "sda",
+    "resource_owner",
+    "scan",
 }
 
 
@@ -120,9 +129,7 @@ def test_migrations_lose_no_rows_on_a_populated_database(
     tenant_id = uuid.uuid4()
     account_id = uuid.uuid4()
     with clean_database.begin() as conn:
-        conn.execute(
-            text("INSERT INTO tenant (id, name) VALUES (:i, 'Seeded')"), {"i": tenant_id}
-        )
+        conn.execute(text("INSERT INTO tenant (id, name) VALUES (:i, 'Seeded')"), {"i": tenant_id})
         conn.execute(
             text(
                 "INSERT INTO cloud_account (id, tenant_id, aws_account_id, alias, "
@@ -145,12 +152,18 @@ def test_migrations_lose_no_rows_on_a_populated_database(
 
     with clean_database.connect() as conn:
         assert conn.execute(text("SELECT count(*) FROM resource")).scalar_one() == 25
-        assert conn.execute(
-            text("SELECT count(*) FROM cloud_account WHERE id = :i"), {"i": account_id}
-        ).scalar_one() == 1
-        assert conn.execute(
-            text("SELECT count(*) FROM tenant WHERE id = :i"), {"i": tenant_id}
-        ).scalar_one() == 1
+        assert (
+            conn.execute(
+                text("SELECT count(*) FROM cloud_account WHERE id = :i"), {"i": account_id}
+            ).scalar_one()
+            == 1
+        )
+        assert (
+            conn.execute(
+                text("SELECT count(*) FROM tenant WHERE id = :i"), {"i": tenant_id}
+            ).scalar_one()
+            == 1
+        )
 
 
 def test_reversible_revisions_actually_downgrade(clean_database: Engine, alembic_config) -> None:
@@ -168,9 +181,7 @@ def test_reversible_revisions_actually_downgrade(clean_database: Engine, alembic
     assert EXPECTED_TABLES <= set(inspect(clean_database).get_table_names())
 
 
-def test_irreversible_revision_refuses_to_downgrade(
-    clean_database: Engine, alembic_config
-) -> None:
+def test_irreversible_revision_refuses_to_downgrade(clean_database: Engine, alembic_config) -> None:
     """0003 declares REVERSIBLE: no and must behave like it.
 
     Downgrading would restore UPDATE/DELETE on audit_event and drop the immutability

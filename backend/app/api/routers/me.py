@@ -14,14 +14,14 @@ from __future__ import annotations
 from typing import Any
 
 from fastapi import APIRouter
+from pydantic import BaseModel, Field
+from sqlalchemy import select
 
 from app.api.errors import ERROR_RESPONSES
 from app.core.db import tenant_session
 from app.core.logging import logger
 from app.core.security import CurrentPrincipal
 from app.models.core import AppUser
-from pydantic import BaseModel, Field
-from sqlalchemy import select
 
 router = APIRouter(tags=["identity"])
 
@@ -83,11 +83,11 @@ async def get_current_user(principal: CurrentPrincipal) -> dict[str, Any]:
     """
     user_id, display_name = _upsert_user(principal)
     return CurrentUser(
-        userId=user_id,
+        user_id=user_id,
         email=principal.email,
-        displayName=display_name,
+        display_name=display_name,
         role=principal.role.value,
-        tenantId=str(principal.tenant_id),
+        tenant_id=str(principal.tenant_id),
     ).model_dump(by_alias=True, exclude_none=True)
 
 

@@ -20,8 +20,17 @@ from app.core.db import TenantScopeError, TenantSession
 from app.models import Base
 from app.models.base import TenantScoped
 from app.models.core import (
-    AppUser, AuditEvent, CloudAccount, Deployment, Finding,
-    Resource, ResourceOwner, Rule, Scan, Sda, Tenant,
+    AppUser,
+    AuditEvent,
+    CloudAccount,
+    Deployment,
+    Finding,
+    Resource,
+    ResourceOwner,
+    Rule,
+    Scan,
+    Sda,
+    Tenant,
 )
 
 # `tenant` defines the boundary; `deployment` records an act on the platform itself,
@@ -29,8 +38,17 @@ from app.models.core import (
 DELIBERATELY_UNSCOPED = {"tenant", "deployment"}
 
 ALL_MODELS = [
-    AppUser, AuditEvent, CloudAccount, Deployment, Finding,
-    Resource, ResourceOwner, Rule, Scan, Sda, Tenant,
+    AppUser,
+    AuditEvent,
+    CloudAccount,
+    Deployment,
+    Finding,
+    Resource,
+    ResourceOwner,
+    Rule,
+    Scan,
+    Sda,
+    Tenant,
 ]
 
 
@@ -43,9 +61,9 @@ def test_every_table_is_tenant_scoped_or_deliberately_not(model: type) -> None:
     """
     table = model.__table__
     if table.name in DELIBERATELY_UNSCOPED:
-        assert "tenant_id" not in table.c, (
-            f"{table.name} is listed as deliberately unscoped but has a tenant_id"
-        )
+        assert (
+            "tenant_id" not in table.c
+        ), f"{table.name} is listed as deliberately unscoped but has a tenant_id"
         return
 
     assert "tenant_id" in table.c, f"{table.name} is missing tenant_id (FR-030)"
@@ -105,9 +123,11 @@ def test_scoped_query_applies_the_tenant_filter() -> None:
     where = stmt.whereclause
     assert where is not None, "scoped() produced no WHERE clause (FR-030)"
 
-    params = [
-        p.value for p in where.right.__dict__.get("_bindparams", {}).values()
-    ] if hasattr(where.right, "_bindparams") else [getattr(where.right, "value", None)]
+    params = (
+        [p.value for p in where.right.__dict__.get("_bindparams", {}).values()]
+        if hasattr(where.right, "_bindparams")
+        else [getattr(where.right, "value", None)]
+    )
     assert tenant_id in params, f"tenant filter does not bind the tenant id: {params}"
     assert "tenant_id" in str(where)
 
@@ -129,7 +149,9 @@ def test_add_stamps_the_tenant() -> None:
             recorded.append(obj)
 
     session = TenantSession(session=_FakeSession(), tenant_id=tenant_id)  # type: ignore[arg-type]
-    resource = Resource(arn="arn:aws:s3:::x", resource_type="AWS::S3::Bucket", service="s3", region="us-east-1")
+    resource = Resource(
+        arn="arn:aws:s3:::x", resource_type="AWS::S3::Bucket", service="s3", region="us-east-1"
+    )
     session.add(resource)
     assert resource.tenant_id == tenant_id
     assert recorded == [resource]
@@ -139,8 +161,11 @@ def test_add_refuses_a_row_belonging_to_another_tenant() -> None:
     """Cross-tenant writes fail loudly rather than being silently re-stamped."""
     session = TenantSession(session=object(), tenant_id=uuid.uuid4())  # type: ignore[arg-type]
     foreign = Resource(
-        tenant_id=uuid.uuid4(), arn="arn:aws:s3:::y",
-        resource_type="AWS::S3::Bucket", service="s3", region="us-east-1",
+        tenant_id=uuid.uuid4(),
+        arn="arn:aws:s3:::y",
+        resource_type="AWS::S3::Bucket",
+        service="s3",
+        region="us-east-1",
     )
     with pytest.raises(TenantScopeError, match="refusing to write"):
         session.add(foreign)
@@ -154,9 +179,9 @@ def test_audit_event_has_no_updated_at() -> None:
 def test_deployment_requires_an_approver_for_prod() -> None:
     """FR-017/FR-018 enforced in the database, not in application code."""
     checks = [c.name for c in Deployment.__table__.constraints if hasattr(c, "sqltext")]
-    assert any("approver" in (name or "") for name in checks), (
-        f"deployment is missing the prod-approval CHECK constraint; found {checks}"
-    )
+    assert any(
+        "approver" in (name or "") for name in checks
+    ), f"deployment is missing the prod-approval CHECK constraint; found {checks}"
 
 
 def test_finding_pins_the_rule_version() -> None:
@@ -168,9 +193,16 @@ def test_finding_pins_the_rule_version() -> None:
 def test_all_ten_governance_entities_exist() -> None:
     """FR-024: the full shape, so specs 002-006 build against a settled schema."""
     expected = {
-        "tenant", "app_user", "audit_event", "deployment", "cloud_account",
-        "resource", "rule", "finding", "sda", "resource_owner", "scan",
+        "tenant",
+        "app_user",
+        "audit_event",
+        "deployment",
+        "cloud_account",
+        "resource",
+        "rule",
+        "finding",
+        "sda",
+        "resource_owner",
+        "scan",
     }
-    assert expected <= set(Base.metadata.tables), (
-        f"missing: {expected - set(Base.metadata.tables)}"
-    )
+    assert expected <= set(Base.metadata.tables), f"missing: {expected - set(Base.metadata.tables)}"

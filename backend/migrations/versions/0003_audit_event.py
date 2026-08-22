@@ -55,7 +55,12 @@ CREATE TRIGGER audit_event_no_update_or_delete
 def upgrade() -> None:
     op.create_table(
         "audit_event",
-        sa.Column("id", postgresql.UUID(as_uuid=True), server_default=sa.text("gen_random_uuid()"), nullable=False),
+        sa.Column(
+            "id",
+            postgresql.UUID(as_uuid=True),
+            server_default=sa.text("gen_random_uuid()"),
+            nullable=False,
+        ),
         sa.Column("tenant_id", postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column("actor_user_id", postgresql.UUID(as_uuid=True), nullable=True),
         sa.Column("actor_label", sa.String(320), nullable=False),
@@ -64,11 +69,28 @@ def upgrade() -> None:
         sa.Column("target_id", sa.String(2048), nullable=True),
         sa.Column("correlation_id", postgresql.UUID(as_uuid=True), nullable=True),
         sa.Column("payload", postgresql.JSONB(), nullable=True),
-        sa.Column("occurred_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
+        sa.Column(
+            "occurred_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.Column(
+            "created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
+        ),
         sa.PrimaryKeyConstraint("id", name="pk_audit_event"),
-        sa.ForeignKeyConstraint(["tenant_id"], ["tenant.id"], name="fk_audit_event_tenant_id_tenant", ondelete="RESTRICT"),
-        sa.ForeignKeyConstraint(["actor_user_id"], ["app_user.id"], name="fk_audit_event_actor_user_id_app_user", ondelete="RESTRICT"),
+        sa.ForeignKeyConstraint(
+            ["tenant_id"],
+            ["tenant.id"],
+            name="fk_audit_event_tenant_id_tenant",
+            ondelete="RESTRICT",
+        ),
+        sa.ForeignKeyConstraint(
+            ["actor_user_id"],
+            ["app_user.id"],
+            name="fk_audit_event_actor_user_id_app_user",
+            ondelete="RESTRICT",
+        ),
     )
     op.create_index("ix_audit_event_tenant_id", "audit_event", ["tenant_id"])
     op.create_index("ix_audit_event_tenant_occurred", "audit_event", ["tenant_id", "occurred_at"])

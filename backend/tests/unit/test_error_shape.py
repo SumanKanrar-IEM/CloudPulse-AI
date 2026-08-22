@@ -27,7 +27,7 @@ def client() -> Iterator[TestClient]:
     app = create_app()
 
     @app.get("/_t/validation")
-    async def _validation(n: int = Query()) -> dict[str, int]:  # noqa: B008
+    async def _validation(n: int = Query()) -> dict[str, int]:
         return {"n": n}
 
     @app.get("/_t/{code}")

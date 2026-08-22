@@ -29,9 +29,9 @@ def test_absent_claim_is_not_treated_as_an_empty_list() -> None:
     """
     from app.core.security import _normalise_groups
 
-    assert _normalise_groups(None) is None          # claim absent
-    assert _normalise_groups([]) == []              # claim present, empty
-    assert _normalise_groups("") == []              # flattened empty string
+    assert _normalise_groups(None) is None  # claim absent
+    assert _normalise_groups([]) == []  # claim present, empty
+    assert _normalise_groups("") == []  # flattened empty string
 
 
 def test_no_default_role_exists_anywhere() -> None:
@@ -44,9 +44,9 @@ def test_no_default_role_exists_anywhere() -> None:
     from app.core import security
 
     source = inspect.getsource(security.resolve_role)
-    assert "return Role." not in source, (
-        "resolve_role must never return a hardcoded Role -- that would be a default"
-    )
+    assert (
+        "return Role." not in source
+    ), "resolve_role must never return a hardcoded Role -- that would be a default"
 
 
 @pytest.mark.parametrize(
@@ -87,9 +87,13 @@ def test_missing_subject_is_unauthorized_not_forbidden() -> None:
     """
     from starlette.requests import Request
 
-    scope = {"type": "http", "headers": [], "state": {"claims": {GROUPS_CLAIM: ["cloudpulse-admins"]}}}
+    scope = {
+        "type": "http",
+        "headers": [],
+        "state": {"claims": {GROUPS_CLAIM: ["cloudpulse-admins"]}},
+    }
     request = Request(scope)
-    request.state.claims = {GROUPS_CLAIM: ["cloudpulse-admins"]}   # no "sub"
+    request.state.claims = {GROUPS_CLAIM: ["cloudpulse-admins"]}  # no "sub"
 
     with pytest.raises(AppError) as exc:
         get_principal(request)

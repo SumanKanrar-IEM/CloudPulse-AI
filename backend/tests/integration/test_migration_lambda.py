@@ -8,7 +8,6 @@ leaves the schema untouched."
 
 from __future__ import annotations
 
-import os
 from typing import Any
 
 import pytest
@@ -39,6 +38,7 @@ def test_a_failing_revision_returns_not_ok(
     An uncaught exception surfaces as a Lambda invocation error, which is harder to
     gate on than `ok: false`.
     """
+
     def _boom(*_a: Any, **_k: Any) -> None:
         raise RuntimeError("simulated migration failure")
 

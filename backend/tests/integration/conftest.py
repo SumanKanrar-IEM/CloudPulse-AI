@@ -22,7 +22,9 @@ BACKEND_ROOT = Path(__file__).resolve().parents[2]
 try:
     # Moved in newer testcontainers; keep the legacy path as a fallback so the suite
     # runs on either version rather than skipping silently.
-    from testcontainers.community.postgres import PostgresContainer  # type: ignore[import-not-found]
+    from testcontainers.community.postgres import (
+        PostgresContainer,  # type: ignore[import-not-found]
+    )
 except ImportError:  # pragma: no cover
     try:
         from testcontainers.postgres import PostgresContainer  # type: ignore[no-redef]

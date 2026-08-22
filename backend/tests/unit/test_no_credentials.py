@@ -35,14 +35,23 @@ SCAN_SUFFIXES = {".py", ".ts", ".js", ".tf", ".tfvars", ".yml", ".yaml", ".json"
 # Files whose purpose is to define, test, or allowlist credential patterns.
 # See the rule in _files_to_scan before adding to this set.
 SCANNER_OWN_FIXTURES = {
-    "test_no_credentials.py",   # defines the patterns it searches for
-    "test_log_redaction.py",    # asserts secret-shaped values ARE redacted (FR-046)
-    ".gitleaks.toml",           # its allowlist must name what it allows
+    "test_no_credentials.py",  # defines the patterns it searches for
+    "test_log_redaction.py",  # asserts secret-shaped values ARE redacted (FR-046)
+    ".gitleaks.toml",  # its allowlist must name what it allows
 }
 
 SKIP_DIRS = {
-    ".git", ".venv", "venv", "node_modules", "__pycache__", ".terraform",
-    ".mypy_cache", ".ruff_cache", ".pytest_cache", "dist", "build",
+    ".git",
+    ".venv",
+    "venv",
+    "node_modules",
+    "__pycache__",
+    ".terraform",
+    ".mypy_cache",
+    ".ruff_cache",
+    ".pytest_cache",
+    "dist",
+    "build",
     # The fixtures exist precisely to contain a fake credential (T020).
     "ci-fixtures",
 }

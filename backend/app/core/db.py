@@ -165,6 +165,9 @@ def tenant_session(tenant_id: uuid.UUID) -> Iterator[TenantSession]:
 
 
 __all__ = [
-    "TenantSession", "TenantScopeError", "tenant_session",
-    "get_engine", "build_database_url",
+    "TenantSession",
+    "TenantScopeError",
+    "tenant_session",
+    "get_engine",
+    "build_database_url",
 ]

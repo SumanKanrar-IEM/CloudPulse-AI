@@ -15,8 +15,11 @@ import pytest
 from app.api.errors import AppError
 from app.core import agent_access
 from app.core.agent_access import (
-    AGENT_CLAIM, READ_ONLY_METHODS, AgentPrincipal,
-    build_agent_principal, enforce_agent_read_only,
+    AGENT_CLAIM,
+    READ_ONLY_METHODS,
+    AgentPrincipal,
+    build_agent_principal,
+    enforce_agent_read_only,
 )
 from app.core.config import Role
 from app.core.security import Principal
@@ -72,7 +75,7 @@ def test_tenant_comes_from_the_token_not_a_parameter() -> None:
     assert principal.tenant_id == TENANT
 
     with pytest.raises(AppError):
-        build_agent_principal({AGENT_CLAIM: "a1"})               # no tenant
+        build_agent_principal({AGENT_CLAIM: "a1"})  # no tenant
     with pytest.raises(AppError):
         build_agent_principal({AGENT_CLAIM: "a1", "custom:tenant_id": "not-a-uuid"})
 
@@ -104,4 +107,6 @@ def test_the_module_holds_no_cloud_credential_path() -> None:
 def test_agents_are_identifiable() -> None:
     """A route that must refuse agents specifically needs to be able to tell."""
     assert _agent().is_agent is True
-    assert not hasattr(Principal(subject="u", email="", role=Role.VIEWER, tenant_id=TENANT), "agent_id")
+    assert not hasattr(
+        Principal(subject="u", email="", role=Role.VIEWER, tenant_id=TENANT), "agent_id"
+    )

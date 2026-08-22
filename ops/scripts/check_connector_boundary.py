@@ -85,9 +85,15 @@ def main() -> int:
     violations: list[str] = []
     checked = 0
 
+    # Our source only. Build artefacts stage vendored third-party packages (boto3,
+    # s3transfer, ...) which legitimately import botocore -- scanning them would report
+    # every dependency as a boundary violation. CI never sees these directories; this
+    # keeps the local run honest too.
+    SKIP_ROOTS = (".venv/", "venv/", "build/", "dist/", "site-packages/", "__pycache__/")
+
     for path in sorted(BACKEND.rglob("*.py")):
         rel = path.relative_to(BACKEND).as_posix()
-        if "/.venv/" in f"/{rel}" or rel.startswith(".venv/"):
+        if any(rel.startswith(r) or f"/{r}" in f"/{rel}" for r in SKIP_ROOTS):
             continue
         checked += 1
         if _is_allowed(rel):

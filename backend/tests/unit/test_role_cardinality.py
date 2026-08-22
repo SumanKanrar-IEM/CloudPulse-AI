@@ -101,11 +101,15 @@ def test_the_refusal_reveals_nothing_about_why() -> None:
 
 # --- The two layers must agree (research.md R-004) -------------------------
 
+
 @pytest.mark.parametrize(
     "groups",
     [
-        [], ["cloudpulse-admins"], ["cloudpulse-admins", "cloudpulse-viewers"],
-        ["unmapped"], None,
+        [],
+        ["cloudpulse-admins"],
+        ["cloudpulse-admins", "cloudpulse-viewers"],
+        ["unmapped"],
+        None,
     ],
 )
 def test_both_layers_agree_on_every_case(groups: list[str] | None) -> None:
@@ -122,9 +126,9 @@ def test_both_layers_agree_on_every_case(groups: list[str] | None) -> None:
     except AppError:
         api_role = None
 
-    assert lambda_role == api_role, (
-        f"layers disagree for {groups!r}: lambda={lambda_role}, api={api_role}"
-    )
+    assert (
+        lambda_role == api_role
+    ), f"layers disagree for {groups!r}: lambda={lambda_role}, api={api_role}"
 
 
 def test_both_layers_use_the_same_group_names() -> None:
