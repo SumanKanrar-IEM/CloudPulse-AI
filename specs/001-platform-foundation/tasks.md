@@ -113,7 +113,7 @@ which makes landing it before there is much code to check more important here, n
 - [X] T031 [US2] Add the connector-boundary gate to `ci.yml`, failing any PR where a cloud-provider SDK type is imported outside `backend/connectors/` — S2, FR-054, SC-016
 - [X] T032 [US2] Extend `ci.yml` failure output to name the failing check plus file path and line number wherever the failure is attributable to a location — S2, FR-012
 - [X] T033 [US2] Configure branch protection on `pods/pod73` making all nine checks required, with no administrative bypass, and requiring a recorded AI review before merge — S2, FR-011, SC-003, Principle VII
-- [ ] T034 [US2] Verify each fixture from T020 fails exactly its own check and no other, and that an additive-only contract change passes — S2, SC-003, FR-048a
+- [X] T034 [US2] Verify each fixture from T020 fails exactly its own check and no other, and that an additive-only contract change passes — S2, SC-003, FR-048a
 - [ ] T035 [US2] Measure and record the suite's wall-clock time; tune job parallelism until it reports within 10 minutes — S2, FR-014, SC-004
 
 **Checkpoint**: The trunk is defended. Every later phase merges through this gate.
@@ -274,7 +274,7 @@ then attempt a prod release and confirm it halts until approved.
 - [X] T105 [US3] Record approver identity and time, plus the `self_approved` flag when the approver is the author, as an audit event — S3, FR-018, Assumptions
 - [X] T106 [US3] Implement failure handling meeting all three FR-021 conditions — previous version still serving, schema at a revision it supports, deployment status recorded `failed` — and surface the failure to the maintainer — S3, FR-021
 - [ ] T107 [US3] Provision the prod environment from the same module set and confirm only documented per-environment differences — S1, FR-002
-- [ ] T108 [US3] Confirm SC-005: time a trunk merge to live-in-dev against the 15-minute budget with zero human actions — S3, SC-005
+- [X] T108 [US3] Confirm SC-005: time a trunk merge to live-in-dev against the 15-minute budget with zero human actions — S3, SC-005
 - [ ] T109 [US3] Confirm SC-006: verify a paused prod release leaves prod byte-for-byte unchanged, and that no release proceeds without a recorded approver — S3, SC-006
 - [X] T110 [US3] Confirm SC-002's prod half: run `ops/teardown.sh prod` and verify it refuses having changed nothing — S1, FR-005a, SC-002
 - [X] T111 [US3] Confirm SC-014: inspect log group retention, cluster backup retention, and the absence of any expiry mechanism on `audit_event` — S4, FR-029a, SC-014
