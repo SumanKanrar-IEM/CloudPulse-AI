@@ -186,9 +186,14 @@ jobs:
       - uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Narrow allowlist for the two places that hold credential-SHAPED strings
-          # on purpose: ops/ci-fixtures/ and the scanner's own self-test.
+          # Narrow path allowlist for the files that hold credential-SHAPED strings on
+          # purpose: ops/ci-fixtures/ and the two tests that assert detection/redaction.
           GITLEAKS_CONFIG: ${{ github.workspace }}/.gitleaks.toml
+          # Pinned to the version the config was actually verified against. The action
+          # defaulted to 8.24.3, which silently ignores the [[allowlists]] array form --
+          # producing a scan that looked configured but exempted nothing. Pinning means
+          # what CI runs is what was tested locally.
+          GITLEAKS_VERSION: "8.30.1"
       - name: Pattern scan (local mirror of tests/unit/test_no_credentials.py)
         uses: actions/setup-python@v5
         with:
