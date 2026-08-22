@@ -238,7 +238,7 @@ In repository settings, protect `pods/pod73`:
 
 - require all CI checks (FR-011 — no administrative bypass, no exceptions);
 - block direct pushes;
-- do **not** require a human approval — there is no second human. Constitution v2.0.0
+- do **not** require a human approval — there is no second human. Constitution
   Principle VII makes the gate **green CI + a recorded AI review**.
 
 ---
