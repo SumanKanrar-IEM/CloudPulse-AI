@@ -117,19 +117,34 @@ def resolve_role(
 
 
 def _claims_from(request: Request) -> dict[str, Any]:
-    """Claims placed on the request by the API Gateway JWT authorizer.
+    """Claims verified by ``handlers.authorizer_handler`` and passed as authorizer context.
 
     In AWS, Mangum surfaces them under the requestContext. Locally and in tests they
     are set directly on request.state by the test harness.
+
+    The Lambda authorizer (FR-034, FR-043) never denies at the gateway -- an invalid or
+    missing token still reaches here, flagged ``valid: "false"`` with no claim fields
+    attached, so this returns an empty claims dict and the caller falls through to the
+    same "no subject" refusal below. That is deliberate: it is what lets a rejected token
+    get the app's uniform error envelope instead of API Gateway's fixed 401 body.
     """
     staged = getattr(request.state, "claims", None)
     if isinstance(staged, dict):
         return staged
 
     scope_event = request.scope.get("aws.event") or {}
-    authorizer = scope_event.get("requestContext", {}).get("authorizer", {}).get("jwt", {})
-    claims = authorizer.get("claims")
-    return claims if isinstance(claims, dict) else {}
+    authorizer = scope_event.get("requestContext", {}).get("authorizer", {}).get("lambda", {})
+    if not isinstance(authorizer, dict) or authorizer.get("valid") != "true":
+        return {}
+
+    claims: dict[str, Any] = {"sub": authorizer.get("sub")}
+    if "email" in authorizer:
+        claims["email"] = authorizer["email"]
+    if "tenant_id" in authorizer:
+        claims["custom:tenant_id"] = authorizer["tenant_id"]
+    if authorizer.get("groups_present") == "true":
+        claims[GROUPS_CLAIM] = authorizer.get("groups", "")
+    return claims
 
 
 def _normalise_groups(raw: Any) -> list[str] | None:

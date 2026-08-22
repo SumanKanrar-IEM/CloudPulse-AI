@@ -252,20 +252,36 @@
   3. **Aurora `16.4` no longer exists.** Valid at planning time, deprecated by first apply. Pinned
      to `16.14`, staying on major 16 deliberately so the Testcontainers suite (`postgres:16-alpine`)
      tests the same major the platform runs on.
-  4. **FR-043 / SC-009 gap (still open).** Every pre-authorizer rejection returns API Gateway's
-     `{"message":"Unauthorized"}`, not the uniform envelope. Authenticated errors DO use the
-     envelope correctly, so the gap is scoped precisely to requests the JWT authorizer rejects
-     before they reach the app. HTTP APIs cannot customise that response, so the options are a
-     Lambda authorizer or a spec amendment - a decision, not a fix.
+  4. **FR-043 / SC-009 gap, fixed 2026-08-23.** Every pre-authorizer rejection returned API
+     Gateway's `{"message":"Unauthorized"}`, not the uniform envelope. Chose the Lambda authorizer
+     over a spec amendment (research.md R-004 addendum). `handlers/authorizer_handler.py` performs
+     the same signature/issuer/audience/expiry checks the native JWT authorizer did, but always
+     returns `isAuthorized: true` -- a failed check is recorded as `context.valid: "false"` rather
+     than denied at the gateway, so the request reaches the app and gets refused there instead,
+     through the same `AppError(UNAUTHORIZED)` path every other failure already uses. Covered by
+     14 new unit tests: `test_authorizer_handler.py` (signature/issuer/audience/expiry, including
+     that an unverified token still returns `isAuthorized: true` with no claim data attached) and
+     `test_claims_from_authorizer_context.py` (the load-bearing one -- proves an unverified context
+     yields zero claims, not a leaked `sub`).
 
   **FR-032a verified end to end against a real Cognito pool**, which is the result that matters
   most: no mapped group -> 403, viewer -> 200 viewer, **two groups -> 403 refused rather than
   resolved**, admin -> 200 admin. The naive "pick the first group" implementation would have passed
   three of those four.
 
-  **Two smaller findings:** `/me` returns an empty `email` because the access token carries no email
-  claim (the ID token does); and the API Gateway access-log format uses
-  `$context.error.messageString` for correlationId, which is the wrong variable and logs `"-"`.
+  **Two smaller findings, both fixed 2026-08-23:**
+  - `/me` returned an empty `email` because the access token carries no email claim (the ID token
+    does). Not a platform bug -- the frontend token-attachment code doesn't exist yet (a later
+    spec's job) and access tokens never carry email by design. Documented as a requirement on
+    whichever client sends the Authorization header, in `infra/modules/identity/main.tf` next to
+    the app client that issues both token types.
+  - The API Gateway access-log format used `$context.error.messageString` for `correlationId`,
+    which is empty outside a gateway-level error and logged `"-"` on every normal request. HTTP
+    APIs cannot read an integration's response headers back into the access log, so the app's own
+    `X-Correlation-Id` was never recoverable there regardless of which `$context` variable was used.
+    Renamed the field to `requestId` (`$context.requestId`, always populated) and had
+    `app.api.middleware` log that same id alongside the app's `correlation_id`, so the two log
+    groups can still be cross-referenced by a shared field for SC-010.
 
   **SC-010 note:** `filter-log-events` did not index a new low-volume group within 2 minutes, but
   **CloudWatch Logs Insights found the record in 2 seconds** with all fields intact. Insights is the

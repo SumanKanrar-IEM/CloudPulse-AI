@@ -111,6 +111,19 @@ until expiry with no server-side re-check.
 **Impacts**: FR-031a, FR-032, FR-032a, FR-034, SC-008. Directly satisfies the "no group / two
 groups" edge cases.
 
+**Addendum (2026-08-23): the JWT authorizer was replaced with a Lambda authorizer.** Not because
+this decision was wrong for FR-032a -- it wasn't, and the two-layer cardinality design above is
+unchanged. It was replaced because of a gap FR-032a's design never addressed: HTTP APIs give the
+native JWT authorizer no way to customise its 401, so a request it rejects gets API Gateway's fixed
+`{"message":"Unauthorized"}` instead of FR-043's uniform envelope (found during T107/T109 live prod
+verification). `handlers/authorizer_handler.py` performs the same signature/issuer/audience/expiry
+checks the native authorizer did, but always returns `isAuthorized: true` -- a failed check is
+recorded as `context.valid: "false"` and the request reaches the app, which raises its own
+`AppError(UNAUTHORIZED)` for the same envelope every other failure uses. The added-latency and
+lost-caching costs noted above as reasons against a Lambda authorizer are accepted now that FR-043
+compliance requires one; `authorizer_result_ttl_in_seconds = 300` on the authorizer resource claws
+back most of the caching this section worried about losing.
+
 ---
 
 ## R-005 — Role re-derivation within the one-hour bound

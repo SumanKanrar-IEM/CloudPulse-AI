@@ -127,6 +127,14 @@ resource "aws_cognito_user_pool_client" "web" {
 
   read_attributes  = ["email", "name"]
   write_attributes = ["name"]
+
+  # Whichever client ends up sending the Authorization header (the future frontend
+  # sign-in flow, or a manual verification session) MUST send the ID token, not the
+  # access token: Cognito's access token never carries `email`, so `/me` would return
+  # an empty email if the caller sent that one instead (found during live verification).
+  # The Lambda authorizer (handlers/authorizer_handler.py) accepts either -- both are
+  # RS256-signed by this same pool -- but only the ID token can satisfy FR-034's
+  # "human-readable name" use of the Principal.
 }
 
 resource "aws_cognito_user_pool_domain" "this" {
