@@ -194,11 +194,14 @@ jobs:
           # producing a scan that looked configured but exempted nothing. Pinning means
           # what CI runs is what was tested locally.
           GITLEAKS_VERSION: "8.30.1"
-      - name: Pattern scan (local mirror of tests/unit/test_no_credentials.py)
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-      - run: pip install -e "./backend[dev]" && pytest tests/unit/test_no_credentials.py
+      # Installed from the repo root -- `./backend[dev]` is relative to the workspace,
+      # not to the working-directory of the step that runs pytest.
+      - run: pip install -e "./backend[dev]"
+      - name: Pattern scan (local mirror of tests/unit/test_no_credentials.py)
+        run: pytest tests/unit/test_no_credentials.py
         working-directory: backend
 
   # --- 7. API contract compatibility (FR-048b, SC-003) ---------------------
