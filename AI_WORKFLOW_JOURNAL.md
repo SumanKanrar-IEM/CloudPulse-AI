@@ -466,3 +466,39 @@ one.
 `/speckit-analyze`), deliberately out of this session's scope — flagged for the
 next joint review rather than run unprompted, since it may surface findings that
 change scope.
+
+## T128 -- /speckit-analyze re-run and remediation (2026-08-23)
+
+Re-ran `/speckit-analyze` against the current state of spec.md, plan.md, and tasks.md.
+FR/SC-to-task coverage cross-checked mechanically: all 73 FR keys and all 17 SC keys
+have >=1 referencing task -- zero orphaned-requirement findings. Six real findings
+surfaced instead, all now resolved:
+
+- **F1 CRITICAL** -- the constitution's own opening paragraph and Development
+  Workflow section still described the six-person POD process ("Copilot review plus
+  one human review"), directly contradicting Principle VII's v2.0.0 redefinition to
+  solo delivery. A constitution that contradicts itself gives a PR reviewer no single
+  MUST to check against. Amended to v2.0.1 (PATCH, wording only) --
+  [PR #25](https://github.com/SumanKanrar-IEM/CloudPulse-AI/pull/25).
+- **F2 HIGH** -- PRs #23 and #24 (the `identity_sources` fix and the `DEV_AUTO_DEPLOY`
+  toggle) merged with zero task ID in their bodies, violating Principle I. Retroactive
+  tasks T131-T134 added tracing #22-#24 --
+  [PR #26](https://github.com/SumanKanrar-IEM/CloudPulse-AI/pull/26).
+- **F3/F4 MEDIUM** -- five stale "JWT authorizer" references and one Tier Summary
+  overclaim (SC-016/017 attributed to Phases 1-8 when they're actually T125 in Phase
+  10), both fixed in PR #26.
+- **G1/G2 MEDIUM** -- no automated gate exercised the authorizer's actual AWS-level
+  wiring (`infra/tests/test_authorizer_wiring.sh` added), and `DEV_AUTO_DEPLOY` was
+  undocumented in the provisioning runbook (fixed). Both in PR #26.
+
+**Closing F2's root cause, not just its symptom.** Retroactive task tracing fixes the
+historical record but does nothing to stop the next untracked PR. Added a
+`pr-task-reference` CI gate requiring every PR body to cite a `T\d{3}` task ID --
+[PR #27](https://github.com/SumanKanrar-IEM/CloudPulse-AI/pull/27) -- and wired it into
+`pods/pod73`'s required status checks. Deliberately does not accept an FR-/SC-
+reference as a substitute: PR #24 cited `FR-015` and still had no tracing task, which
+is direct proof that check alone would not have prevented F2. Verified live, not just
+by inspection: opened a throwaway PR with no task ID, confirmed
+`mergeStateStatus: BLOCKED`, closed it without merging.
+
+T128 marked complete. 130/130 tasks closed.
