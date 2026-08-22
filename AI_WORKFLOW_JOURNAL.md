@@ -502,3 +502,26 @@ by inspection: opened a throwaway PR with no task ID, confirmed
 `mergeStateStatus: BLOCKED`, closed it without merging.
 
 T128 marked complete. 130/130 tasks closed.
+
+## T136 -- lessons learned turned into standing playbook rules (2026-08-23)
+
+Every real blocker hit across this session -- OIDC sub-claim format, the bootstrap
+singleton, Aurora version drift, the non-ASCII Terraform trap, `/dev/stdout` invoke
+corruption, the JWT-vs-Lambda-authorizer gap, `identity_sources`, cost-profile decisions,
+the DEV_AUTO_DEPLOY toggle, orphaned log groups and manual snapshots, stale-terminology
+drift, the constitution's own propagation gap -- is now written into
+`SPECKIT_PLAYBOOK.md` §0.5 as a standing checklist, not left as something only this
+session's transcript remembers. Threaded pointers through §1 (constitution amendments
+must grep-verify their own propagation claim), §2 (spec 1's status corrected to reflect
+full merge + live verification, not just analyze completion), §4 (every plan must state
+a cost profile per new billable resource and append a pointer to §0.5), §6 (every task
+list must include a live-verify-then-teardown pair, not just a "confirm it works" task),
+and §8 (analyze should run a second time after each spec's P1 implementation, not only
+before it -- that second run is what caught F1-F4/G1/G2, a different failure shape than
+the pre-implementation run's).
+
+The goal stated for this pass: someone running this playbook from scratch on spec 2
+should hit as few of these as possible, not zero -- some (an unanticipated AWS API
+behavior, say) are genuinely undiscoverable until they happen. The ones that were
+discoverable in advance (cost gating, the authorizer pattern, the OIDC bootstrap
+singleton, the log-group/snapshot sweep) now are.

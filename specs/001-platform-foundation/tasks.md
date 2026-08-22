@@ -333,6 +333,7 @@ this only once T104 is green.
 - [X] T133 [US3] Gate dev auto-deploy behind the `DEV_AUTO_DEPLOY` repository variable (default `false`) so a routine trunk merge cannot silently re-provision a deliberately torn-down dev environment and restart billing — FR-015 amended in spec.md to record this as deliberate. Retroactively added: [PR #24](https://github.com/SumanKanrar-IEM/CloudPulse-AI/pull/24) merged without a task reference — S3, FR-015
 - [X] T134 Document the `DEV_AUTO_DEPLOY` toggle in `ops/runbooks/provisioning.md`, next to `AWS_DEPLOY_ROLE_ARN` — FR-006 requires every operator-supplied value to be documented, and this one was not — S1, FR-006
 - [X] T135 Add the `pr-task-reference` CI gate requiring every PR body to cite a task ID, and add it to `pods/pod73`'s required status checks — closes F2's root cause (untracked PRs) rather than only its symptom (untraced ones). Deliberately requires a `T\d{3}` task ID, not an FR-/SC- reference: PR #24 cited FR-015 and still had no tracing task, proving that alone insufficient. Verified live with a throwaway PR carrying no task ID (`mergeStateStatus: BLOCKED`), closed without merging — Principle I, Principle VII
+- [X] T136 Turn every real blocker, apply-time failure, and process gap from spec 1's implementation into a standing rule in `SPECKIT_PLAYBOOK.md` §0.5, and thread pointers to it through §1, §2, §4, §6, and §8 so specs 2–6 apply the lessons from the start instead of rediscovering them — Principle I, Governance
 
 ---
 
