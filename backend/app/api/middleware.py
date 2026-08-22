@@ -25,6 +25,20 @@ from app.core.logging import logger
 CORRELATION_HEADER = "X-Correlation-Id"
 
 
+def _api_gateway_request_id(request: Request) -> str | None:
+    """The id API Gateway's access log records for this same request (SC-010).
+
+    The access log has no way to read back the app's own correlation id (HTTP APIs
+    cannot reference an integration response from `$context`), so it logs its own
+    `requestId` instead. Logging that same value here, alongside the app's
+    `correlation_id`, is what lets the two log groups be cross-referenced by a shared
+    field rather than leaving the access log's id orphaned.
+    """
+    scope_event = request.scope.get("aws.event") or {}
+    request_id = scope_event.get("requestContext", {}).get("requestId")
+    return str(request_id) if request_id else None
+
+
 def parse_correlation_id(raw: str | None) -> tuple[uuid.UUID, bool]:
     """Return ``(id, inherited)``.
 
@@ -47,6 +61,7 @@ class CorrelationIdMiddleware(BaseHTTPMiddleware):
     ) -> Response:
         correlation_id, inherited = parse_correlation_id(request.headers.get(CORRELATION_HEADER))
         request.state.correlation_id = correlation_id
+        api_gateway_request_id = _api_gateway_request_id(request)
 
         started = time.perf_counter()
         try:
@@ -60,6 +75,7 @@ class CorrelationIdMiddleware(BaseHTTPMiddleware):
                     "method": request.method,
                     "path": request.url.path,
                     "correlation_id": str(correlation_id),
+                    "api_gateway_request_id": api_gateway_request_id,
                     "duration_ms": round((time.perf_counter() - started) * 1000, 2),
                 },
             )
@@ -79,6 +95,7 @@ class CorrelationIdMiddleware(BaseHTTPMiddleware):
                 "duration_ms": duration_ms,
                 "correlation_id": str(correlation_id),
                 "correlation_inherited": inherited,
+                "api_gateway_request_id": api_gateway_request_id,
             },
         )
         return response

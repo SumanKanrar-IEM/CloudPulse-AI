@@ -25,6 +25,10 @@ dependencies = [
     "psycopg[binary]>=3.2,<4",
     "aws-lambda-powertools>=3.0,<4",
     "boto3>=1.35,<2",
+    # Verifies Cognito JWTs in the Lambda authorizer (handlers/authorizer_handler.py),
+    # which replaced API Gateway's native JWT authorizer so a rejected token still gets
+    # FR-043's uniform error envelope instead of API Gateway's fixed 401 body.
+    "pyjwt[crypto]>=2.9,<3",
 ]
 
 [project.optional-dependencies]
@@ -34,7 +38,6 @@ dev = [
     "moto[all]>=5.0,<6",
     "testcontainers[postgres]>=4.8,<5",
     "httpx>=0.27,<0.28",
-    "pyjwt[crypto]>=2.9,<3",
     "ruff>=0.6,<0.7",
     "mypy>=1.11,<2",
     "types-boto3",
