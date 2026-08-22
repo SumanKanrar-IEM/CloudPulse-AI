@@ -1,0 +1,136 @@
+%% CloudPulse AI — governance record ERD (FR-028)
+%%
+%% MUST be updated in the same pull request as any schema change. CI enforces this:
+%% the `erd-current` job fails a PR that touches backend/migrations/versions/ without
+%% touching ops/erd/.
+%%
+%% Source of truth for the shape: backend/app/models/core.py and the migrations.
+%% This diagram documents it; it does not define it.
+
+erDiagram
+    TENANT ||--o{ APP_USER : "owns"
+    TENANT ||--o{ AUDIT_EVENT : "owns"
+    TENANT ||--o{ CLOUD_ACCOUNT : "owns"
+    TENANT ||--o{ RESOURCE : "owns"
+    TENANT ||--o{ RULE : "owns"
+    TENANT ||--o{ FINDING : "owns"
+    TENANT ||--o{ SDA : "owns"
+    TENANT ||--o{ RESOURCE_OWNER : "owns"
+    TENANT ||--o{ SCAN : "owns"
+
+    APP_USER ||--o{ AUDIT_EVENT : "acted as"
+    CLOUD_ACCOUNT ||--o{ RESOURCE : "contains"
+    CLOUD_ACCOUNT ||--o{ SCAN : "scanned by"
+    RESOURCE ||--o{ RESOURCE : "parent of"
+    RESOURCE ||--o{ FINDING : "fails"
+    RULE ||--o{ FINDING : "produces"
+    RESOURCE ||--|| RESOURCE_OWNER : "attributed to"
+
+    TENANT {
+        uuid id PK
+        text name UK
+        enum status "active|suspended"
+    }
+    APP_USER {
+        uuid id PK
+        uuid tenant_id FK
+        text cognito_sub UK
+        text email
+        text display_name
+        timestamptz last_seen_at
+    }
+    AUDIT_EVENT {
+        uuid id PK
+        uuid tenant_id FK
+        uuid actor_user_id FK "null for system actors"
+        text actor_label
+        text action
+        text target_type
+        text target_id
+        uuid correlation_id
+        jsonb payload "redacted"
+        timestamptz occurred_at
+    }
+    DEPLOYMENT {
+        uuid id PK
+        enum environment "dev|prod"
+        text git_sha
+        text triggered_by
+        text approved_by "required for prod"
+        timestamptz approved_at "required for prod"
+        bool self_approved
+        text migration_revision
+        enum status
+    }
+    CLOUD_ACCOUNT {
+        uuid id PK
+        uuid tenant_id FK
+        text aws_account_id UK
+        text alias
+        enum connection_mode "local|assume_role"
+        text role_arn
+        text external_id_ref "Secrets Manager REFERENCE"
+        text_array scan_regions
+        enum status
+    }
+    RESOURCE {
+        uuid id PK
+        uuid tenant_id FK
+        uuid cloud_account_id FK
+        text arn UK
+        text resource_type
+        text service
+        text region
+        jsonb tags "GIN indexed"
+        uuid parent_resource_id FK
+        timestamptz first_seen_at
+        timestamptz last_seen_at
+    }
+    RULE {
+        uuid id PK
+        uuid tenant_id FK
+        text key UK
+        int version UK
+        jsonb definition "rules-as-data"
+        bool enabled
+        timestamptz effective_from
+    }
+    FINDING {
+        uuid id PK
+        uuid tenant_id FK
+        uuid resource_id FK
+        uuid rule_id FK
+        int rule_version "pinned"
+        enum severity
+        enum status "open|resolved|suppressed"
+        timestamptz opened_at
+        timestamptz resolved_at
+    }
+    SDA {
+        uuid id PK
+        uuid tenant_id FK
+        text name UK
+        text owner_email
+        text team
+        jsonb tag_values
+    }
+    RESOURCE_OWNER {
+        uuid id PK
+        uuid tenant_id FK
+        uuid resource_id FK
+        text owner_email
+        jsonb evidence
+        enum confidence
+        timestamptz attributed_at
+    }
+    SCAN {
+        uuid id PK
+        uuid tenant_id FK
+        uuid cloud_account_id FK
+        enum trigger "scheduled|manual"
+        enum status
+        int resource_count
+        text snapshot_s3_key
+        timestamptz started_at
+        timestamptz finished_at
+    }

@@ -1,0 +1,11 @@
+# Expected result: ALL GREEN. Proves the contract gate permits additive change
+# (FR-048a) rather than rejecting every edit — the inverse half of SC-003.
+#
+# Adding an OPTIONAL field to an existing schema is additive:
+components:
+  schemas:
+    CurrentUser:
+      properties:
+        lastSeenAt:          # new, and NOT added to `required` -> non-breaking
+          type: string
+          format: date-time

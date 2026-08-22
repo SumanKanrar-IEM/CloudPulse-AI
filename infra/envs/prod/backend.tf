@@ -1,0 +1,22 @@
+# Remote state, created by infra/bootstrap/ (FR-001a).
+# Fill bucket and dynamodb_table from the bootstrap outputs before the first init.
+
+terraform {
+  required_version = ">= 1.15.0, < 2.0.0"
+
+  backend "s3" {
+    # Filled once `infra/bootstrap` is applied with -var="environment=prod".
+    # bucket         = "cloudpulse-tfstate-prod-767828743440"
+    # dynamodb_table = "cloudpulse-tflock-prod"
+    key     = "prod/terraform.tfstate"
+    region  = "us-east-1"
+    encrypt = true
+  }
+
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.60"
+    }
+  }
+}

@@ -1,0 +1,5 @@
+<!-- Breaks: @angular-eslint template a11y rules (FR-047b) -->
+<!-- button with no accessible name; img with no alt; click without keyboard support -->
+<button type="button"></button>
+<img src="chart.png">
+<div (click)="doThing()">Run scan</div>

@@ -1,0 +1,145 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cloudpulse-backend"
+version = "0.1.0"
+description = "CloudPulse AI — serverless cloud governance, cost and compliance platform for AWS"
+requires-python = "==3.12.*"
+
+# Runtime dependencies.
+#
+# Constitution Principle II (NON-NEGOTIABLE): the deployed system runs on AWS managed
+# services only, and the product GenAI layer is Amazon Bedrock Agents exclusively.
+# No non-AWS inference, model-hosting, or agent-framework SDK may appear here or in any
+# other dependency manifest. FR-013a enforces this with an automated CI allowlist gate --
+# see ops/ci-fixtures/ and the `dependency-allowlist` job in .github/workflows/ci.yml.
+dependencies = [
+    "fastapi>=0.115,<0.116",
+    "mangum>=0.19,<0.20",
+    "pydantic>=2.9,<3",
+    "pydantic-settings>=2.5,<3",
+    "sqlalchemy>=2.0,<2.1",
+    "alembic>=1.13,<2",
+    "psycopg[binary]>=3.2,<4",
+    "aws-lambda-powertools>=3.0,<4",
+    "boto3>=1.35,<2",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3,<9",
+    "pytest-cov>=5.0,<6",
+    "moto[all]>=5.0,<6",
+    "testcontainers[postgres]>=4.8,<5",
+    "httpx>=0.27,<0.28",
+    "pyjwt[crypto]>=2.9,<3",
+    "ruff>=0.6,<0.7",
+    "mypy>=1.11,<2",
+    "types-boto3",
+    "types-PyYAML",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["app*", "connectors*", "handlers*"]
+
+# ---------------------------------------------------------------------------
+# ruff -- lint + format. FR-009 check category 1.
+# FR-012: failures must name the file and line, which ruff does by default.
+# ---------------------------------------------------------------------------
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["."]
+
+[tool.ruff.lint]
+select = [
+    "E", "W",    # pycodestyle
+    "F",         # pyflakes
+    "I",         # isort
+    "N",         # pep8-naming
+    "UP",        # pyupgrade
+    "B",         # bugbear
+    "A",         # builtins shadowing
+    "S",         # bandit -- security
+    "T20",       # no print()
+    "RUF",
+]
+ignore = [
+    "S101",   # assert is fine in tests
+    # FastAPI's `Depends()` in an argument default IS the framework's idiom. B008 does
+    # not model that, and rewriting every endpoint to dodge it would make the code
+    # worse, not safer.
+    "B008",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests may use hardcoded fake credentials as fixtures; the credential scan (FR-013)
+# and the ci-fixtures allowlist cover real leaks.
+# S603: the tests invoke our OWN scripts at known repo-relative paths, never user input.
+"tests/**" = ["S105", "S106", "S108", "S603"]
+
+# `from sqlalchemy.dialects.postgresql import UUID as PgUUID` is the standard SQLAlchemy
+# import. N811 objects to the casing, but renaming it would obscure what it is.
+"app/models/*.py" = ["N811"]
+
+# Migrations are a historical record: each one describes the schema at the moment it
+# ran, so they are deliberately verbose and deliberately never refactored.
+# S608: DDL identifiers (role names, table names in GRANT) cannot be parameterised;
+# every value interpolated is a module-level constant, never user input.
+"migrations/versions/*.py" = ["E501", "S608"]
+
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+# FR-054: no cloud-provider SDK type may cross out of backend/connectors/.
+# Enforced repo-wide by the `connector-boundary` CI job; this is the local mirror.
+"botocore.client" = { msg = "Provider SDK types must not leak outside backend/connectors/ (FR-054)." }
+
+# ---------------------------------------------------------------------------
+# mypy -- static typing. FR-009 check category 2.
+# Principle V: typed contracts at every boundary, so strict is the default.
+# ---------------------------------------------------------------------------
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_unreachable = true
+show_error_codes = true
+show_column_numbers = true          # FR-012: name the file, line and column
+plugins = ["pydantic.mypy"]
+
+# Build artefacts shadow real modules (build/typing_extensions.py etc.) and are not
+# source. They only exist locally; CI never sees them.
+exclude = ["^build/", "^dist/"]
+
+[[tool.mypy.overrides]]
+module = ["moto.*", "testcontainers.*", "mangum.*", "alembic.*"]
+ignore_missing_imports = true
+
+# Tests are held to a lower bar than the code they test, deliberately.
+#
+# Principle V asks for typed contracts at every BOUNDARY -- the API schema, the
+# connector interface, the data model. Test internals are not a boundary: they use
+# fakes, monkeypatched fixtures, and pytest's untyped `request`/`tmp_path` machinery.
+# Enforcing `strict` there produces annotation churn that catches nothing, and the
+# pressure to silence it with `Any` makes the tests *less* readable.
+#
+# The production packages (app, connectors, handlers, migrations) remain fully strict.
+[[tool.mypy.overrides]]
+module = ["tests.*"]
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+disallow_untyped_decorators = false
+warn_return_any = false
+disable_error_code = ["type-arg", "arg-type", "attr-defined", "func-returns-value", "unused-ignore"]
+
+# ---------------------------------------------------------------------------
+# pytest -- FR-009 check category 3, FR-010 (no real credentials).
+# ---------------------------------------------------------------------------
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-q --strict-markers --strict-config"
+markers = [
+    "integration: needs Docker (Testcontainers PostgreSQL / LocalStack). Excluded from the unit job.",
+]

@@ -1,0 +1,250 @@
+# GENERATED — DO NOT EDIT.
+#
+# Produced from the FastAPI application's Pydantic models by:
+#     python -c "import yaml; from app.api.main import openapi_document; \
+#                print(yaml.safe_dump(openapi_document(), sort_keys=False))"
+#
+# This is the BINDING contract (FR-048, Principle V). It is generated rather than
+# hand-written so it cannot drift from the code — a hand-edit here is a lie about what
+# the service actually does.
+#
+# CI regenerates it and runs `oasdiff breaking` against this committed copy. Changes
+# must be additive (FR-048a); the five breaking kinds fail the PR (FR-048b). For a
+# genuinely necessary break, follow ops/runbooks/contract-changes.md (FR-048c, FR-057).
+#
+# The hand-authored design-time reference lives at
+# specs/001-platform-foundation/contracts/openapi.yaml. Where the two disagree, THIS
+# file is authoritative — it is what the service returns.
+openapi: 3.1.0
+info:
+  title: CloudPulse AI API
+  description: 'Serverless cloud governance, cost, and compliance platform for AWS.
+
+
+    Every endpoint except `/health` requires a Cognito-issued bearer token. The caller''s
+
+    role is derived from directory group membership on every request and is never
+    stored by
+
+    the platform (FR-031a). A token whose group claim contains zero or more than one
+    mapped
+
+    group is refused (FR-032a).
+
+    '
+  version: 0.1.0
+paths:
+  /health:
+    get:
+      tags:
+      - system
+      summary: Service and dependency health
+      description: Report this service's health and that of its dependencies.
+      operationId: getHealth
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+        '503':
+          description: At least one dependency is unreachable (FR-042)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+        '500':
+          description: Unexpected server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+      security: []
+  /me:
+    get:
+      tags:
+      - identity
+      summary: The signed-in caller and their resolved role
+      description: "Any caller with exactly one resolved role may read this, and no\
+        \ one else.\n\nA caller mapping to zero or multiple directory groups never\
+        \ reaches here \u2014\n`get_principal` raises 403 first (FR-032a)."
+      operationId: getCurrentUser
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CurrentUser'
+        '401':
+          description: No valid identity presented.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Valid identity, but the caller's role does not permit the action
+            -- or the caller maps to zero or multiple directory groups and therefore
+            has no resolvable role (FR-032a, FR-034).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '500':
+          description: Unexpected server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+components:
+  schemas:
+    CurrentUser:
+      properties:
+        userId:
+          type: string
+          title: Userid
+        email:
+          type: string
+          title: Email
+        displayName:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Displayname
+        role:
+          type: string
+          title: Role
+          description: Derived from directory group membership; never stored by the
+            platform.
+        tenantId:
+          type: string
+          title: Tenantid
+      type: object
+      required:
+      - userId
+      - email
+      - role
+      - tenantId
+      title: CurrentUser
+    DependencyCheck:
+      properties:
+        name:
+          type: string
+          title: Name
+        status:
+          type: string
+          enum:
+          - healthy
+          - unhealthy
+          title: Status
+        detailMessage:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Detailmessage
+          description: Never contains credentials, connection strings, or secrets
+            (FR-046).
+      type: object
+      required:
+      - name
+      - status
+      title: DependencyCheck
+    ErrorBody:
+      properties:
+        code:
+          type: string
+          title: Code
+          description: Stable and machine-readable. SCREAMING_SNAKE_CASE.
+        message:
+          type: string
+          title: Message
+          description: Human-readable and safe to display. Never reveals whether a
+            given record exists to a caller not entitled to know (FR-035).
+        correlationId:
+          type: string
+          title: Correlationid
+          description: Matches the id in the structured logs for this request (FR-044).
+        details:
+          anyOf:
+          - items:
+              $ref: '#/components/schemas/ErrorDetail'
+            type: array
+          - type: 'null'
+          title: Details
+          description: Field-level detail. Present for validation failures only.
+      type: object
+      required:
+      - code
+      - message
+      - correlationId
+      title: ErrorBody
+    ErrorDetail:
+      properties:
+        field:
+          type: string
+          title: Field
+        issue:
+          type: string
+          title: Issue
+      type: object
+      required:
+      - field
+      - issue
+      title: ErrorDetail
+      description: One field-level validation problem.
+    ErrorEnvelope:
+      properties:
+        error:
+          $ref: '#/components/schemas/ErrorBody'
+      type: object
+      required:
+      - error
+      title: ErrorEnvelope
+      description: 'The uniform error envelope (FR-043).
+
+
+        Declared as a model, not just built as a dict, so it appears in the **generated**
+
+        OpenAPI document -- which FR-048 makes the binding contract. An envelope that
+        only
+
+        exists at runtime would be invisible to the generated client, leaving every
+
+        consumer to hand-roll the error type.'
+    HealthResponse:
+      properties:
+        status:
+          type: string
+          enum:
+          - healthy
+          - unhealthy
+          title: Status
+        checks:
+          items:
+            $ref: '#/components/schemas/DependencyCheck'
+          type: array
+          title: Checks
+        correlationId:
+          type: string
+          title: Correlationid
+        version:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Version
+      type: object
+      required:
+      - status
+      - checks
+      - correlationId
+      title: HealthResponse
+  securitySchemes:
+    cognitoJwt:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Cognito-issued access token. Validated by the API Gateway JWT authorizer,
+        then re-validated for role cardinality by the application (research.md R-004).
+security:
+- cognitoJwt: []

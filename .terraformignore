@@ -1,0 +1,11 @@
+.git/
+.github/
+specs/
+docs/
+backend/
+frontend/
+agents/
+ops/
+*.md
+.venv/
+__pycache__/

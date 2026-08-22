@@ -1,0 +1,155 @@
+# Continuous delivery to dev (FR-015, FR-016, FR-022, FR-023).
+#
+# A merge to the trunk reaches dev with NO human action (FR-015). SC-005 budgets
+# 15 minutes end to end.
+#
+# Constitution Principle VII: pods/pod73 is the only long-lived branch. This workflow
+# does not reference main or master.
+
+name: Deploy dev
+
+on:
+  push:
+    branches: [pods/pod73]
+  workflow_dispatch:
+
+# FR-022: OIDC federation only. No AWS access key exists anywhere in this repository.
+permissions:
+  contents: read
+  id-token: write
+
+# FR-020: deployments are serialised per environment, so two merges seconds apart
+# cannot interleave and leave dev running a mixture of two versions.
+# cancel-in-progress is deliberately FALSE: cancelling mid-apply is exactly how an
+# environment ends up in the unknown state FR-021 forbids.
+concurrency:
+  group: deploy-dev
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: us-east-1
+  ENVIRONMENT: dev
+  PYTHON_VERSION: "3.12"
+  NODE_VERSION: "20"
+  TERRAFORM_VERSION: "1.15.8"
+
+jobs:
+  deploy:
+    name: Deploy to dev
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: dev
+    outputs:
+      deployment_id: ${{ steps.record_start.outputs.deployment_id }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: cloudpulse-deploy-dev-${{ github.run_id }}
+
+      # --- Build the Lambda package ------------------------------------
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Build the deployment package
+        working-directory: backend
+        run: |
+          mkdir -p build dist
+          pip install --target build --only-binary=:all: --platform manylinux2014_aarch64 \
+            --python-version ${{ env.PYTHON_VERSION }} -r <(pip install -q pip-tools >/dev/null 2>&1; \
+            python -c "import tomllib;print('\n'.join(tomllib.load(open('pyproject.toml','rb'))['project']['dependencies']))")
+          cp -r app connectors handlers migrations alembic.ini build/
+          (cd build && zip -qr ../dist/lambda.zip .)
+          echo "PACKAGE_HASH=$(openssl dgst -sha256 -binary dist/lambda.zip | base64)" >> "$GITHUB_ENV"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Build the frontend
+        working-directory: frontend
+        run: npm ci && npm run build
+
+      # --- Apply infrastructure ----------------------------------------
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+
+      - name: Terraform apply
+        id: apply
+        working-directory: infra/envs/dev
+        run: |
+          terraform init -input=false
+          terraform apply -input=false -auto-approve \
+            -var="package_path=../../../backend/dist/lambda.zip" \
+            -var="package_hash=${PACKAGE_HASH}" \
+            -var="git_sha=${GITHUB_SHA}"
+          {
+            echo "migrate_function=$(terraform output -raw migrate_function_name)"
+            echo "frontend_bucket=$(terraform output -raw frontend_url | sed 's|https://||')"
+            echo "api_endpoint=$(terraform output -raw api_endpoint)"
+          } >> "$GITHUB_OUTPUT"
+
+      # --- Open the deployment record (FR-023) -------------------------
+      - name: Record deployment start
+        id: record_start
+        run: |
+          RESULT=$(aws lambda invoke --function-name "${{ steps.apply.outputs.migrate_function }}" \
+            --cli-binary-format raw-in-base64-out \
+            --payload "$(jq -nc --arg sha "$GITHUB_SHA" --arg who "$GITHUB_ACTOR" \
+              '{command:"record_start",environment:"dev",git_sha:$sha,triggered_by:$who}')" \
+            /dev/stdout)
+          echo "deployment_id=$(echo "$RESULT" | jq -r '.deployment_id')" >> "$GITHUB_OUTPUT"
+
+      # --- Migrations BEFORE traffic shifts (FR-016) -------------------
+      # research.md R-002: the runner cannot reach the private Aurora cluster, so this
+      # goes through a Lambda already inside the VPC. A non-zero result fails the
+      # deployment here, before the new API version serves anything.
+      - name: Apply database migrations
+        id: migrate
+        run: |
+          RESULT=$(aws lambda invoke --function-name "${{ steps.apply.outputs.migrate_function }}" \
+            --cli-binary-format raw-in-base64-out \
+            --payload '{"command":"upgrade","revision":"head"}' /dev/stdout)
+          echo "$RESULT"
+          if [ "$(echo "$RESULT" | jq -r '.ok')" != "true" ]; then
+            echo "::error::Migration failed. The previous service version is still serving (FR-021)."
+            exit 1
+          fi
+
+      - name: Publish the frontend
+        run: |
+          aws s3 sync frontend/dist/cloudpulse "s3://$(cd infra/envs/dev && terraform output -raw frontend_url | sed 's|https://||')" --delete || \
+          aws s3 sync frontend/dist/cloudpulse "s3://cloudpulse-dev-frontend-$(aws sts get-caller-identity --query Account --output text)" --delete
+
+      - name: Smoke test
+        run: |
+          for i in $(seq 1 10); do
+            if curl -fsS "${{ steps.apply.outputs.api_endpoint }}/health" | jq -e '.status == "healthy"'; then
+              exit 0
+            fi
+            sleep 6
+          done
+          echo "::error::/health did not report healthy after deployment"
+          exit 1
+
+      # --- Close the record, on success AND on failure (FR-021) --------
+      # `if: always()` is load-bearing: leaving a row in `running` fails FR-021's third
+      # condition, and a stuck record is indistinguishable from one still in progress.
+      - name: Record deployment outcome
+        if: always() && steps.record_start.outputs.deployment_id != ''
+        run: |
+          STATUS=$([ "${{ job.status }}" = "success" ] && echo succeeded || echo failed)
+          aws lambda invoke --function-name "${{ steps.apply.outputs.migrate_function }}" \
+            --cli-binary-format raw-in-base64-out \
+            --payload "$(jq -nc --arg id "${{ steps.record_start.outputs.deployment_id }}" \
+              --arg st "$STATUS" '{command:"record_finish",deployment_id:$id,status:$st}')" \
+            /dev/stdout

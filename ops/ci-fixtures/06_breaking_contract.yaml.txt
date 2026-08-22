@@ -1,0 +1,21 @@
+# Breaks: oasdiff (FR-048b). Apply ONE of these to contracts/openapi.yaml:
+#
+#   a) remove a field:        delete `correlationId` from ErrorEnvelope.error
+#   b) rename a field:        `correlationId` -> `traceId`
+#   c) remove an endpoint:    delete the /me path
+#   d) newly-required param:  add `required: [tenantId]` to an existing query object
+#   e) narrow a type:         CurrentUser.displayName  string -> integer
+#
+# All five are breaking per FR-048b. The additive-then-remove route for a genuinely
+# necessary break is in ops/runbooks/contract-changes.md (FR-048c, FR-057).
+paths:
+  /me:
+    get:
+      operationId: getCurrentUser
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [userId, email, role, tenantId, mfaEnabled]   # newly required -> breaking

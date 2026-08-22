@@ -1,0 +1,11 @@
+# Files the generator must NOT write, so hand-maintained content survives regeneration.
+#
+# Everything else in this directory IS generated and must never be hand-edited --
+# CI regenerates and fails the PR on any diff (FR-048).
+
+# Our own DO-NOT-EDIT notice. The generator ships its own README; keeping ours means
+# the guidance a developer reads is the guidance that applies to this repo.
+README.md
+
+# A push helper we do not use; leaving it generated would show as drift after deletion.
+git_push.sh

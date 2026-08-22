@@ -1,0 +1,9 @@
+# Breaks: dependency-allowlist (FR-013a, Principle II).
+# Add any one of these to backend/pyproject.toml [project].dependencies:
+#   "langchain>=0.3,<0.4"        -> non-AWS agent framework
+#   "openai>=1.0,<2"             -> third-party model host
+#   "anthropic>=0.34,<1"         -> third-party model host (Claude Code is dev-time only)
+# Verified: ops/scripts/check_dependencies.py exits 1 on each, 0 once reverted.
+dependencies = [
+    "langchain>=0.3,<0.4",
+]

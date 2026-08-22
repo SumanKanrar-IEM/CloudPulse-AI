@@ -1,0 +1,207 @@
+openapi: 3.1.0
+
+# CloudPulse AI — API skeleton contract (spec 001, platform foundation).
+#
+# THIS FILE IS THE DESIGN-TIME REFERENCE. The binding artifact at runtime is the document
+# generated from the FastAPI application's Pydantic v2 models during CI (FR-048). This copy
+# records the shape specs 2-6 must extend and is what oasdiff compares the first generated
+# document against.
+#
+# Contract rules (FR-048a, FR-048b, FR-048c):
+#   - No version prefix. One evolving document.
+#   - Additive changes only: new endpoints, new OPTIONAL fields, widened types.
+#   - CI fails on: removed/renamed field, removed endpoint, newly-required parameter,
+#     narrowed type.
+#   - A genuinely necessary breaking change ships as add-new + remove-old in a later PR.
+
+info:
+  title: CloudPulse AI API
+  version: 0.1.0
+  description: |
+    Serverless cloud governance, cost, and compliance platform for AWS.
+
+    Every endpoint except `/health` requires a Cognito-issued bearer token. The caller's role is
+    derived from directory group membership on every request and is never stored by the platform
+    (FR-031a). A token whose group claim contains zero or more than one mapped group is refused
+    (FR-032a).
+
+servers:
+  - url: https://{apiId}.execute-api.{region}.amazonaws.com
+    variables:
+      apiId: { default: replaced-per-environment }
+      region: { default: us-east-1 }
+
+tags:
+  - name: system
+    description: Health and metadata. Owned by spec 001.
+  - name: identity
+    description: Current caller. Owned by spec 001.
+
+security:
+  - cognitoJwt: []
+
+paths:
+  /health:
+    get:
+      tags: [system]
+      operationId: getHealth
+      summary: Service and dependency health
+      description: |
+        Public. Reports the service's own health and that of its data store dependency.
+        Returns 503 with `status: unhealthy` when a dependency is unreachable — it never
+        reports healthy on a failed dependency and never fails to answer (FR-041, FR-042).
+      security: []
+      responses:
+        '200':
+          description: Healthy
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HealthResponse' }
+        '503':
+          description: Unhealthy — at least one dependency is unreachable
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HealthResponse' }
+
+  /me:
+    get:
+      tags: [identity]
+      operationId: getCurrentUser
+      summary: The signed-in caller and their resolved role
+      description: |
+        Returns the caller's identity and the role derived from their directory group claim.
+        A caller mapping to no group, or to more than one, receives 403 rather than a default
+        role (FR-032a).
+      responses:
+        '200':
+          description: The current caller
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CurrentUser' }
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+components:
+
+  securitySchemes:
+    cognitoJwt:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Cognito-issued access token. Validated by the API Gateway JWT authorizer, then
+        re-validated for role cardinality by the application (see research.md R-004).
+
+  schemas:
+
+    HealthResponse:
+      type: object
+      required: [status, checks, correlationId]
+      properties:
+        status:
+          type: string
+          enum: [healthy, unhealthy]
+        checks:
+          type: array
+          items: { $ref: '#/components/schemas/DependencyCheck' }
+        correlationId:
+          type: string
+          format: uuid
+        version:
+          type: string
+          description: Deployed git sha.
+
+    DependencyCheck:
+      type: object
+      required: [name, status]
+      properties:
+        name:
+          type: string
+          examples: [database]
+        status:
+          type: string
+          enum: [healthy, unhealthy]
+        detailMessage:
+          type: string
+          description: Never contains credentials, connection strings, or secrets (FR-046).
+
+    Role:
+      type: string
+      description: Derived from directory group membership; never stored by the platform.
+      enum: [admin, operator, viewer]
+
+    CurrentUser:
+      type: object
+      required: [userId, email, role, tenantId]
+      properties:
+        userId: { type: string, format: uuid }
+        email: { type: string, format: email }
+        displayName: { type: string }
+        role: { $ref: '#/components/schemas/Role' }
+        tenantId: { type: string, format: uuid }
+
+    # ------------------------------------------------------------------
+    # The uniform error envelope (FR-043). EVERY error response from EVERY
+    # endpoint added by specs 2-6 uses this shape. Changing it is a breaking
+    # change to every consumer at once — treat it as frozen.
+    # ------------------------------------------------------------------
+    ErrorEnvelope:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message, correlationId]
+          properties:
+            code:
+              type: string
+              description: Stable, machine-readable. SCREAMING_SNAKE_CASE.
+              examples: [VALIDATION_FAILED, FORBIDDEN, NOT_FOUND, INTERNAL_ERROR]
+            message:
+              type: string
+              description: |
+                Human-readable and safe to display. Never reveals whether a given record exists
+                to a caller not entitled to know (FR-035).
+            correlationId:
+              type: string
+              format: uuid
+              description: Matches the id in the structured logs for this request (FR-044).
+            details:
+              type: array
+              description: Field-level detail. Present for validation failures only.
+              items:
+                type: object
+                required: [field, issue]
+                properties:
+                  field: { type: string }
+                  issue: { type: string }
+
+  responses:
+    Unauthorized:
+      description: No valid identity presented.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    Forbidden:
+      description: |
+        Valid identity, but the caller's role does not permit the action — or the caller maps to
+        zero or multiple directory groups and therefore has no resolvable role (FR-032a, FR-034).
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    NotFound:
+      description: Target record does not exist, or the caller is not entitled to know that it does.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    ValidationFailed:
+      description: Request body or parameters failed validation.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    InternalError:
+      description: Unexpected server error. Message is generic; detail is in the logs.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
