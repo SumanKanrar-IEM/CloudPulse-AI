@@ -92,6 +92,19 @@ variable "github_repo_id" {
   default     = "1338836612"
 }
 
+variable "create_oidc_provider" {
+  type        = bool
+  description = <<-DESC
+    Whether this apply creates the account-wide GitHub OIDC provider, or looks up one
+    created by an earlier bootstrap of a different environment.
+
+    true for the FIRST environment ever bootstrapped in this account (dev, in this
+    project's history). false for every environment after that -- the provider is a
+    per-account singleton and a second `resource` block for the same URL fails outright.
+  DESC
+  default     = true
+}
+
 locals {
   state_bucket = "cloudpulse-tfstate-${var.environment}-${data.aws_caller_identity.current.account_id}"
   lock_table   = "cloudpulse-tflock-${var.environment}"

@@ -4,14 +4,37 @@
 # There is no IAM user, no access key, and no AWS secret stored in GitHub. The single
 # repository variable this produces is a role *ARN* — an identifier, not a credential.
 
+# The OIDC provider is an ACCOUNT-WIDE singleton: AWS refuses a second
+# `aws_iam_openid_connect_provider` for the same URL in one account. Bootstrap has no
+# backend of its own (see the note at the top of main.tf), so its state is local to
+# whoever runs it -- which means a naive second run, for a second environment, using
+# a fresh local state would try to CREATE a duplicate provider and fail, or worse, if
+# accidentally pointed at the FIRST environment's state file, would rename and replace
+# resources that environment's live deploy role depends on.
+#
+# `create_oidc_provider` breaks that: true (the default, for the first environment
+# bootstrapped in an account) creates it; false (every environment after the first)
+# looks the existing one up by URL instead. Both branches resolve to the same
+# `local.oidc_provider_arn`, so nothing downstream needs to know which happened.
 data "tls_certificate" "github" {
-  url = "https://token.actions.githubusercontent.com/.well-known/openid-configuration"
+  count = var.create_oidc_provider ? 1 : 0
+  url   = "https://token.actions.githubusercontent.com/.well-known/openid-configuration"
 }
 
 resource "aws_iam_openid_connect_provider" "github" {
+  count           = var.create_oidc_provider ? 1 : 0
   url             = "https://token.actions.githubusercontent.com"
   client_id_list  = ["sts.amazonaws.com"]
-  thumbprint_list = [data.tls_certificate.github.certificates[0].sha1_fingerprint]
+  thumbprint_list = [data.tls_certificate.github[0].certificates[0].sha1_fingerprint]
+}
+
+data "aws_iam_openid_connect_provider" "existing" {
+  count = var.create_oidc_provider ? 0 : 1
+  url   = "https://token.actions.githubusercontent.com"
+}
+
+locals {
+  oidc_provider_arn = var.create_oidc_provider ? aws_iam_openid_connect_provider.github[0].arn : data.aws_iam_openid_connect_provider.existing[0].arn
 }
 
 data "aws_iam_policy_document" "deploy_assume_role" {
@@ -21,7 +44,7 @@ data "aws_iam_policy_document" "deploy_assume_role" {
 
     principals {
       type        = "Federated"
-      identifiers = [aws_iam_openid_connect_provider.github.arn]
+      identifiers = [local.oidc_provider_arn]
     }
 
     condition {
