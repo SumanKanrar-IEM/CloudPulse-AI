@@ -63,8 +63,16 @@ class Settings(BaseSettings):
     )
 
     # --- identity (FR-031, FR-034)
-    cognito_user_pool_id: str = Field(min_length=1)
-    cognito_client_id: str = Field(min_length=1)
+    #
+    # Optional, not required: JWT validation happens entirely at the API Gateway
+    # authorizer layer (Terraform), and no Python code currently reads either field --
+    # they are declared for spec 002+ (e.g. admin operations against the user pool).
+    # The migration and pre-token Lambdas share this Settings model but have no
+    # Cognito configuration in their environment; making these required blocked
+    # every non-API Lambda from resolving settings at all, including the deployment
+    # recorder that specs T023/T108 depend on.
+    cognito_user_pool_id: str | None = None
+    cognito_client_id: str | None = None
 
     # --- observability (FR-045, FR-046a)
     log_level: str = Field(default="INFO")

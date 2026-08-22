@@ -117,7 +117,7 @@ jobs:
             /tmp/record_start.json
           cat /tmp/record_start.json
           if [ "$(jq -r '.ok' /tmp/record_start.json)" != "true" ]; then
-            echo "::error::Could not record the deployment: $(jq -r '.error // \"unknown error\"' /tmp/record_start.json)"
+            echo "::error::Could not record the deployment: $(jq -r '.error // "unknown error"' /tmp/record_start.json)"
             exit 1
           fi
           echo "deployment_id=$(jq -r '.deployment_id' /tmp/record_start.json)" >> "$GITHUB_OUTPUT"
