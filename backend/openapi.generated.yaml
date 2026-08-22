@@ -120,6 +120,11 @@ components:
         tenantId:
           type: string
           title: Tenantid
+        lastSeenAt:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Lastseenat
       type: object
       required:
       - userId

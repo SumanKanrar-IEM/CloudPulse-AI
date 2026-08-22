@@ -34,6 +34,9 @@ class CurrentUser(BaseModel):
         description="Derived from directory group membership; never stored by the platform."
     )
     tenant_id: str = Field(alias="tenantId")
+    # T034 fixture 11: OPTIONAL field added, not added to `required` -- additive per
+    # FR-048a. Proves the contract gate permits growth rather than rejecting every edit.
+    last_seen_at: str | None = Field(default=None, alias="lastSeenAt")
 
     model_config = {"populate_by_name": True}
 
