@@ -35,13 +35,23 @@ data "aws_iam_policy_document" "deploy_assume_role" {
     # Without the `sub` condition any repository on GitHub could assume this role.
     # Constitution Principle VII makes `pods/pod73` the only long-lived branch, so
     # the trust is narrowed to it — a pull request from a fork cannot deploy.
+    # Listed in BOTH the plain repo:OWNER/REPO:... form and GitHub's current default
+    # immutable-ID form repo:OWNER@OWNER_ID/REPO@REPO_ID:... (see the owner/repo id
+    # variables in main.tf for why). A trust policy written for only the old form is
+    # silently rejected by STS with no indication the claim format is the mismatch.
     condition {
       test     = "StringLike"
       variable = "token.actions.githubusercontent.com:sub"
-      values = [
+      values = compact([
         "repo:${var.github_repository}:ref:refs/heads/pods/pod73",
         "repo:${var.github_repository}:environment:${var.environment}",
-      ]
+        var.github_owner_id != "" && var.github_repo_id != "" ? (
+          "repo:${split("/", var.github_repository)[0]}@${var.github_owner_id}/${split("/", var.github_repository)[1]}@${var.github_repo_id}:ref:refs/heads/pods/pod73"
+        ) : "",
+        var.github_owner_id != "" && var.github_repo_id != "" ? (
+          "repo:${split("/", var.github_repository)[0]}@${var.github_owner_id}/${split("/", var.github_repository)[1]}@${var.github_repo_id}:environment:${var.environment}"
+        ) : "",
+      ])
     }
   }
 }

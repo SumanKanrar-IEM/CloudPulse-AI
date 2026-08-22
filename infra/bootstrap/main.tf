@@ -67,6 +67,31 @@ variable "github_repository" {
   default     = "SumanKanrar-IEM/CloudPulse-AI"
 }
 
+# GitHub now embeds the numeric owner and repository IDs in the OIDC `sub` claim by
+# default (confirmed via `gh api repos/OWNER/REPO/actions/oidc/customization/sub`,
+# which returns `use_default: true` alongside a `sub_claim_prefix` that already
+# contains "@<owner_id>/<repo>@<repo_id>"). This is separate from the opt-in
+# "immutable subject" toggle -- it is GitHub's current default, and a trust policy
+# written against the old plain `repo:OWNER/REPO:...` format is silently rejected
+# with a generic "Not authorized to perform sts:AssumeRoleWithWebIdentity", which
+# gives no hint that the claim format is the problem.
+#
+# Both forms are supported below so this keeps working whichever way GitHub's
+# default moves next. Find the current values with:
+#   gh api user -q .id
+#   gh api repos/<owner>/<repo> -q .id
+variable "github_owner_id" {
+  type        = string
+  description = "Numeric GitHub user/org id. Empty skips the immutable-ID trust condition."
+  default     = "25535680"
+}
+
+variable "github_repo_id" {
+  type        = string
+  description = "Numeric GitHub repository id. Empty skips the immutable-ID trust condition."
+  default     = "1338836612"
+}
+
 locals {
   state_bucket = "cloudpulse-tfstate-${var.environment}-${data.aws_caller_identity.current.account_id}"
   lock_table   = "cloudpulse-tflock-${var.environment}"
