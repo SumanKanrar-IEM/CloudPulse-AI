@@ -80,10 +80,8 @@ class ErrorBody(BaseModel):
             "exists to a caller not entitled to know (FR-035)."
         )
     )
-    correlation_id: str = Field(
-        alias="correlationId",
-        description="Matches the id in the structured logs for this request (FR-044).",
-    )
+    # T034 fixture 06: field REMOVED to prove oasdiff catches a breaking removal
+    # (FR-048b). correlation_id: str = Field(alias="correlationId", ...)
     details: list[ErrorDetail] | None = Field(
         default=None, description="Field-level detail. Present for validation failures only."
     )

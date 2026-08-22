@@ -161,10 +161,6 @@ components:
           title: Message
           description: Human-readable and safe to display. Never reveals whether a
             given record exists to a caller not entitled to know (FR-035).
-        correlationId:
-          type: string
-          title: Correlationid
-          description: Matches the id in the structured logs for this request (FR-044).
         details:
           anyOf:
           - items:
@@ -177,7 +173,6 @@ components:
       required:
       - code
       - message
-      - correlationId
       title: ErrorBody
     ErrorDetail:
       properties:
