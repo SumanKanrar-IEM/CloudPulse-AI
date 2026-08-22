@@ -99,6 +99,29 @@ jobs:
             echo "api_endpoint=$(terraform output -raw api_endpoint)"
           } >> "$GITHUB_OUTPUT"
 
+      # --- Migrations BEFORE traffic shifts, and before the deployment record
+      # (FR-016) ----------------------------------------------------------
+      # research.md R-002: the runner cannot reach the private Aurora cluster, so this
+      # goes through a Lambda already inside the VPC. A non-zero result fails the
+      # deployment here, before the new API version serves anything.
+      #
+      # Runs BEFORE "Record deployment start", not after: the deployment record looks
+      # up the seeded tenant, and on a brand-new database that row -- and the table
+      # itself -- do not exist until migrations create them. Recording first would be
+      # a chicken-and-egg failure on every environment's very first deployment.
+      # `command.upgrade(head)` is idempotent, so this is a no-op on every later run.
+      - name: Apply database migrations
+        id: migrate
+        run: |
+          aws lambda invoke --function-name "${{ steps.apply.outputs.migrate_function }}" \
+            --cli-binary-format raw-in-base64-out \
+            --payload '{"command":"upgrade","revision":"head"}' /tmp/migrate.json
+          cat /tmp/migrate.json
+          if [ "$(jq -r '.ok' /tmp/migrate.json)" != "true" ]; then
+            echo "::error::Migration failed. The previous service version is still serving (FR-021)."
+            exit 1
+          fi
+
       # --- Open the deployment record (FR-023) -------------------------
       - name: Record deployment start
         id: record_start
@@ -121,22 +144,6 @@ jobs:
             exit 1
           fi
           echo "deployment_id=$(jq -r '.deployment_id' /tmp/record_start.json)" >> "$GITHUB_OUTPUT"
-
-      # --- Migrations BEFORE traffic shifts (FR-016) -------------------
-      # research.md R-002: the runner cannot reach the private Aurora cluster, so this
-      # goes through a Lambda already inside the VPC. A non-zero result fails the
-      # deployment here, before the new API version serves anything.
-      - name: Apply database migrations
-        id: migrate
-        run: |
-          aws lambda invoke --function-name "${{ steps.apply.outputs.migrate_function }}" \
-            --cli-binary-format raw-in-base64-out \
-            --payload '{"command":"upgrade","revision":"head"}' /tmp/migrate.json
-          cat /tmp/migrate.json
-          if [ "$(jq -r '.ok' /tmp/migrate.json)" != "true" ]; then
-            echo "::error::Migration failed. The previous service version is still serving (FR-021)."
-            exit 1
-          fi
 
       - name: Publish the frontend
         run: |
