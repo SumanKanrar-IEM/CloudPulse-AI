@@ -25,6 +25,7 @@ dependencies = [
     "psycopg[binary]>=3.2,<4",
     "aws-lambda-powertools>=3.0,<4",
     "boto3>=1.35,<2",
+    "langchain>=0.3,<0.4",  # T034 fixture 09 -- deliberately banned
 ]
 
 [project.optional-dependencies]
