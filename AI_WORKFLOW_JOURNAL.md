@@ -40,6 +40,14 @@
   while the principle listed only Copilot, which made the project non-compliant with its own
   constitution on paper. `TODO(POD_MEMBER_NAMES)` removed rather than filled — there is no POD to
   name. Governance: amendments now approved by the sole maintainer, still via PR with an AI review.
+- **Amended to v2.0.1 (2026-08-23, PATCH):** `/speckit-analyze` (T128, finding F1, CRITICAL)
+  caught that the v2.0.0 amendment's own Sync Impact Report had claimed full propagation while
+  missing two spots — the opening paragraph ("built by a six-person POD") and the Development
+  Workflow section (step 2: "POD assignment"; step 3: "Copilot review plus one human review") —
+  both still describing the six-person process, directly contradicting the redefined Principle
+  VII. A constitution that contradicts itself gives a PR reviewer no single MUST to check
+  against, which is why this was flagged CRITICAL rather than a routine wording nit. No principle
+  redefined; wording only. [PR #25](https://github.com/SumanKanrar-IEM/CloudPulse-AI/pull/25).
 
 ## 2. Specification (6 feature specs, sequential solo pipeline)
 

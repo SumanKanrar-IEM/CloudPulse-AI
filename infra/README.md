@@ -11,7 +11,7 @@ environment that is not a variable, it belongs in the module.
 | `modules/network/` | VPC, private subnets, VPC endpoints (no NAT gateway) |
 | `modules/database/` | Aurora Serverless v2, RDS Proxy, RDS-managed credential |
 | `modules/identity/` | Cognito pool, three role groups, app client |
-| `modules/api/` | HTTP API, JWT authorizer, api/migrate/pre-token Lambdas |
+| `modules/api/` | HTTP API, Lambda authorizer, api/migrate/pre-token/authorizer Lambdas |
 | `modules/frontend/` | S3 origin + CloudFront with OAC |
 | `modules/storage/` | raw scan snapshot bucket |
 | `modules/observability/` | **P2** — dashboard and alarms; default off |

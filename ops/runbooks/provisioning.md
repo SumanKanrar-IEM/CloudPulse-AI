@@ -167,7 +167,21 @@ reaches a CI runner (R-002).
 
 ## 4. Deploy the application — *tasks T100–T101*
 
-Merging to `pods/pod73` deploys dev automatically. There is nothing to do here.
+Merging to `pods/pod73` deploys dev automatically, **provided the `DEV_AUTO_DEPLOY` repository
+variable is `true`** (task T133). It defaults to `false` on a fresh account so a routine merge
+never silently re-provisions — and re-bills — a torn-down environment. Check or set it:
+
+```bash
+gh variable list                                  # look for DEV_AUTO_DEPLOY
+gh variable set DEV_AUTO_DEPLOY --body "true"      # turn auto-deploy on
+gh variable set DEV_AUTO_DEPLOY --body "false"     # turn it back off
+```
+
+With the variable `false`, deploy dev explicitly instead:
+
+```bash
+gh workflow run "Deploy dev" --ref pods/pod73
+```
 
 ---
 
