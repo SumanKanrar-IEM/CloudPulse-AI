@@ -342,3 +342,28 @@ jobs:
             exit 1
           fi
           echo "erd-current: OK (migrations=$MIGRATIONS, erd=$ERD)"
+
+  # --- PR body must cite a task ID (Principle I, Principle VII) ------------
+  # Two PRs (#23, #24) merged in the same session with no task ID anywhere in the
+  # body -- found by /speckit-analyze (T128, finding F2). An FR-/SC- reference alone
+  # is deliberately NOT accepted here: #24 cited FR-015 and still had no tracing task
+  # in tasks.md, which is exactly the gap Principle I's "no PR merges that introduces
+  # application behavior with no referenced task" exists to close.
+  pr-task-reference:
+    name: pr-task-reference
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: PR body must cite at least one task ID
+        env:
+          # Passed via env, never interpolated into the script directly -- the body is
+          # PR-author-controlled text, and templating it into the run: string would be
+          # a script-injection vector.
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          if ! grep -qE 'T[0-9]{3}' <<< "$PR_BODY"; then
+            echo "::error::Principle I requires every PR to cite a task ID (e.g. T131) in its description. An FR-xxx or SC-xxx reference alone is not enough -- that already let untracked work merge once."
+            exit 1
+          fi
+          echo "pr-task-reference: OK"
