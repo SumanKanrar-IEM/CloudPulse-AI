@@ -1,0 +1,14 @@
+// Global styles.
+//
+// FR-047a requires a visible focus indicator on every focused control. Browsers
+// vary and some component libraries suppress the default outline, so it is set
+// once here rather than trusted per-component.
+:focus-visible {
+  outline: 3px solid #005fcc;
+  outline-offset: 2px;
+}
+
+body {
+  margin: 0;
+  font-family: Roboto, "Helvetica Neue", sans-serif;
+}

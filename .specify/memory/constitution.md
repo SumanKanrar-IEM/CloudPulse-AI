@@ -1,6 +1,34 @@
 <!--
 Sync Impact Report
 ==================
+Version change: 1.0.0 → 2.0.0 (2026-08-22)
+Bump rationale: MAJOR. Principle VII is redefined from six-member POD collaboration to solo
+delivery with AI collaboration, and Principle II is widened to name Claude Code as the permitted
+development-time engine. Both redefinitions invalidate wording that earlier work was written
+against (six named spec owners, mandatory second-human review), which is precisely the MAJOR
+trigger in the versioning policy below.
+
+Modified principles:
+  - II. AWS-Native and GitHub-Native → II. AWS-Native Runtime and GitHub-Native Delivery
+    (adds Claude Code as the permitted development-time Spec Kit engine; keeps the product
+    GenAI layer restricted to Amazon Bedrock Agents; keeps every non-AWS AI runtime out of the
+    deployed system)
+  - VII. Trunk-Based POD Collaboration → VII. Solo Trunk-Based Delivery with AI Collaboration
+    (single maintainer; automated AI review replaces the second-human merge gate; the six-owner
+    table is removed and spec ownership becomes sequential authorship)
+  - VIII. Honest Prioritization (amended: "recorded POD amendment" → "recorded amendment")
+
+Resolved from v1.0.0:
+  - TODO(POD_MEMBER_NAMES) is removed rather than filled — there is no POD to name.
+
+Governance changes:
+  - Amendment approval moves from "all six POD members" to the sole maintainer, recorded in
+    AI_WORKFLOW_JOURNAL.md §1
+  - Compliance wording updated for automated AI review
+
+Added sections: none · Removed sections: spec-ownership table under Principle VII
+
+--- Superseded v1.0.0 report ---
 Version change: (unratified template) → 1.0.0
 Bump rationale: Initial ratification. The previous file was an unpopulated scaffold with no
 adopted principles, so this is the first governing version rather than an amendment.
@@ -59,22 +87,31 @@ unfilled outcome after its phase completes.
 Rationale: the POD is judged on spec-driven development. Specs that lag behind code are
 evidence of the opposite, and a journal written after the fact is not evidence at all.
 
-### II. AWS-Native and GitHub-Native (NON-NEGOTIABLE)
+### II. AWS-Native Runtime and GitHub-Native Delivery (NON-NEGOTIABLE)
 
-All runtime components MUST run on AWS managed services. The entire GenAI layer MUST be
-implemented with Amazon Bedrock Agents — agents, action groups, and guardrails. Third-party
-model hosts, non-AWS agent frameworks, and non-AWS orchestration runtimes are prohibited in the
-deployed system. All engineering tooling MUST be GitHub-native: GitHub Actions for CI/CD, GitHub
-Copilot for AI-assisted development and review, GitHub Spec Kit for the spec lifecycle, and
-GitHub Issues/Projects for work tracking. No component of the platform, and no required step of
-the delivery pipeline, may depend on any other AI vendor's runtime.
+**Runtime.** All runtime components MUST run on AWS managed services. The entire product GenAI
+layer MUST be implemented with Amazon Bedrock Agents — agents, action groups, and guardrails.
+Third-party model hosts, non-AWS agent frameworks, and non-AWS orchestration runtimes are
+prohibited in the deployed system. No component the user can reach may depend on any non-AWS AI
+vendor's runtime.
 
-Testable: the dependency manifests and infrastructure code contain no non-AWS inference or agent
-SDKs; every deployed compute, storage, queue, and model call resolves to an AWS service; every
-required workflow runs in GitHub Actions.
+**Delivery.** All engineering tooling MUST be GitHub-native: GitHub Actions for CI/CD, GitHub
+Spec Kit for the spec lifecycle, and GitHub Issues/Projects for work tracking.
 
-Rationale: an AWS-native, GitHub-native stack is a hard constraint of the engagement, and a
-single-vendor runtime keeps the architecture reviewable end to end.
+**Development-time AI.** Claude Code is the permitted engine for driving the Spec Kit lifecycle
+and for AI-assisted implementation and review, alongside GitHub Copilot. This is a
+development-time tool, not a runtime dependency: nothing it produces may cause the deployed
+system to call a non-AWS model. The boundary is absolute — an authoring tool may be Anthropic's;
+a running component may not be.
+
+Testable: dependency manifests and infrastructure code contain no non-AWS inference or agent
+SDKs, enforced by an automated allowlist gate in CI; every deployed compute, storage, queue, and
+model call resolves to an AWS service; every required workflow runs in GitHub Actions.
+
+Rationale: the AWS-native runtime is a hard constraint of the engagement. Naming the
+development-time engine explicitly closes a gap the earlier wording left open — the lifecycle was
+already being driven by Claude Code while the principle listed only Copilot, which made the
+project's own tooling non-compliant on paper.
 
 ### III. Zero Stored Credentials (NON-NEGOTIABLE)
 
@@ -142,32 +179,32 @@ required check; no merge commit exists whose head check was failing or bypassed.
 Rationale: an always-green trunk is what makes trunk-based development safe with six people
 merging daily, and it is the cheapest possible evidence of coding standards.
 
-### VII. Trunk-Based POD Collaboration
+### VII. Solo Trunk-Based Delivery with AI Collaboration
 
 `pods/pod73` is the only long-lived branch and MUST always be releasable. Every pull request
 targets it. All working branches MUST follow the `pods/pod73-XXX` naming pattern. Work happens on
-short-lived branches merged via PR the same day wherever possible. Every PR MUST receive a GitHub
-Copilot review plus at least one human review from another POD member. PRs MUST stay small and
-MUST reference their spec and task IDs in the description. Each of the six feature specs has
-exactly one named owner from the six-member POD, and that owner runs its full speckit lifecycle.
+short-lived branches merged via PR the same day wherever possible. PRs MUST stay small and MUST
+reference their spec and task IDs in the description.
 
-Spec ownership — TODO(POD_MEMBER_NAMES): replace each role with the owning member's name.
+**Review.** The project is built by a single maintainer working with AI agents, so there is no
+second human to review. Every PR MUST therefore receive at least one automated AI review — an
+agentic PR checker or GitHub Copilot review — before merge, and that review MUST check the change
+against this constitution. Self-merge is permitted **only** after CI is green and an AI review is
+recorded on the PR. A PR with no recorded review MUST NOT be merged, however small.
 
-| Spec | Feature | Owner |
-| --- | --- | --- |
-| 001 | platform-foundation | DevOps |
-| 002 | account-onboarding-and-discovery | BE2 |
-| 003 | tag-compliance-and-ownership | BE1 |
-| 004 | governance-dashboard | FE |
-| 005 | cost-and-utilization | BE3 / full-stack |
-| 006 | ai-insights-agent | AI engineer |
+**Ownership.** The six feature specs are authored sequentially in dependency order (001 →
+006) by the sole maintainer, each pipelined fully — specify, clarify, plan, checklist, tasks,
+analyze — before the next begins, so every merged spec is context for its successors.
 
-Testable: no branch outside the `pods/pod73-XXX` pattern is pushed; every merged PR has both a
-Copilot review and a human approval recorded; every merged PR body cites at least one spec or
-task ID; each spec directory has exactly one owner named in the journal.
+Testable: no branch outside the `pods/pod73-XXX` pattern is pushed; every merged PR carries a
+recorded AI review and a green CI check; every merged PR body cites at least one spec or task ID;
+no spec begins before its predecessor's analyze run is clean.
 
-Rationale: POD collaboration is graded on observable git and review history. Long-lived side
-branches and self-merges erase that evidence and cause integration pain in a two-week window.
+Rationale: a single maintainer loses the second pair of eyes, so the automated review is not a
+nicety — it is the only remaining check between a mistake and the trunk. Making it mandatory and
+recorded keeps the merge history as auditable evidence, which is what the assessment reads.
+Sequential authoring replaces parallel ownership: it costs wall-clock time but means each spec is
+written with its predecessors already settled.
 
 ### VIII. Honest Prioritization
 
@@ -177,11 +214,11 @@ MUST NOT block, destabilize, or take dependency ownership of any P1 path — if 
 a P1 flow, the P2 change is reverted, not the P1 flow patched around it.
 
 Testable: every functional requirement in every spec carries a P1 or P2 marker; no task added
-after plan approval is marked P1 without a recorded POD amendment; the P1 demo path passes its
+after plan approval is marked P1 without a recorded amendment; the P1 demo path passes its
 end-to-end check independently of any P2 feature being present.
 
 Rationale: an honest, frozen critical path is what makes a two-week build land. Silent scope
-growth is the standard way hackathon PODs arrive at demo day with nothing runnable.
+growth is the standard way hackathon projects arrive at demo day with nothing runnable.
 
 ## Technology and Security Constraints
 
@@ -227,10 +264,10 @@ This constitution supersedes all ad-hoc practice. Where a habit, a tool default,
 shortcut conflicts with a principle here, the principle wins; the alternative is to amend the
 constitution, not to work around it.
 
-**Amendments.** Any POD member may propose an amendment as a pull request that changes this file
-and states the rationale and version bump in the PR description. An amendment merges only with
-approval from all six POD members. Amendments take effect on merge and MUST be recorded in
-`AI_WORKFLOW_JOURNAL.md` §1.
+**Amendments.** An amendment is proposed as a pull request that changes this file and states the
+rationale and version bump in the PR description. The sole maintainer approves it, and the PR
+MUST carry an AI review as with any other change. Amendments take effect on merge and MUST be
+recorded in `AI_WORKFLOW_JOURNAL.md` §1.
 
 **Versioning.** This document follows semantic versioning:
 
@@ -243,11 +280,10 @@ approval from all six POD members. Amendments take effect on merge and MUST be r
 
 **Compliance.** `/speckit-analyze` MUST be run against each spec's artifacts before
 implementation begins, and MUST check spec, plan, and tasks against these principles; violations
-are resolved before the first implementation task starts. Every pull request review — Copilot and
-human alike — MUST check the change against this constitution, and a reviewer MUST reject any PR
-that violates a principle regardless of how well the code is written. Complexity that appears to
-violate a principle MUST either be justified in the PR description and accepted by a reviewer, or
-removed. Runtime development guidance lives in `SPECKIT_PLAYBOOK.md`, which is subordinate to
+are resolved before the first implementation task starts. Every pull request review — automated or
+otherwise — MUST check the change against this constitution and MUST reject any PR that violates a
+principle regardless of how well the code is written. Complexity that appears to violate a
+principle MUST either be justified in the PR description and accepted at review, or removed. Runtime development guidance lives in `SPECKIT_PLAYBOOK.md`, which is subordinate to
 this document.
 
-**Version**: 1.0.0 | **Ratified**: 2026-08-22 | **Last Amended**: 2026-08-22
+**Version**: 2.0.0 | **Ratified**: 2026-08-22 | **Last Amended**: 2026-08-22

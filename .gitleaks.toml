@@ -1,0 +1,39 @@
+# gitleaks configuration for the secret-scan CI job (FR-013, SC-012).
+#
+# Two places in this repository contain credential-*shaped* strings on purpose. Both
+# are inert and neither grants anything, but without an allowlist they would fail the
+# build on false positives — and a gate that cries wolf gets ignored, which is worse
+# than no gate.
+#
+# Everything else is scanned with the default ruleset. Narrow paths only: this file
+# must never grow into a way of silencing a real finding.
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = """
+ops/ci-fixtures/ deliberately contains one broken sample per CI check category so each
+gate can be proven to fail independently (SC-003, task T034). Fixture 08 carries AWS's
+own published EXAMPLE access key. These files are never imported, built or deployed.
+"""
+paths = ['''^ops/ci-fixtures/.*''']
+
+[[allowlists]]
+description = """
+Files whose purpose is to detect or redact credentials, and which therefore must
+contain credential-SHAPED fixtures:
+
+  test_no_credentials.py  -- asserts its own AKIA pattern still matches. A scanner
+                             that silently stopped matching looks identical to a
+                             clean repository; that test defends against it.
+  test_log_redaction.py   -- asserts secret-shaped values ARE redacted from logs
+                             (FR-046). It must contain the shapes to prove it.
+
+Every fixture is an inert, published example. Listed by exact path, never by
+directory: a broad exclusion is how a credential scanner quietly stops working.
+"""
+paths = [
+  '''^backend/tests/unit/test_no_credentials\.py$''',
+  '''^backend/tests/unit/test_log_redaction\.py$''',
+]

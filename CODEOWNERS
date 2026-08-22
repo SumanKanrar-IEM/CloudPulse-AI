@@ -1,0 +1,19 @@
+# CloudPulse AI — code ownership
+#
+# Constitution v2.0.0, Principle VII: the project is delivered by a single maintainer
+# working with AI agents. There is no second human reviewer, so this file exists to make
+# the review requirement enforced by the repository rather than by habit: every path has
+# a named owner, so every PR requests a review rather than merging silently.
+#
+# The merge gate is: green CI + at least one recorded AI review. A PR with no recorded
+# review MUST NOT be merged, however small.
+
+*                       @SumanKanrar-IEM
+
+# Spec artifacts — changes here are governance changes, not code changes.
+/.specify/memory/        @SumanKanrar-IEM
+/specs/                  @SumanKanrar-IEM
+/AI_WORKFLOW_JOURNAL.md  @SumanKanrar-IEM
+
+# Generated output — never hand-edited; CI fails on drift (FR-048).
+/frontend/src/app/api/   @SumanKanrar-IEM

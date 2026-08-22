@@ -1,1 +1,67 @@
+# ---- OS / editor ----
 .DS_Store
+Thumbs.db
+*.swp
+*.tmp
+.idea/
+.vscode/
+
+# ---- Python (backend) ----
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+dist/
+build/
+
+# ---- Node / Angular (frontend) ----
+node_modules/
+frontend/dist/
+frontend/.angular/
+frontend/coverage/
+*.log
+npm-debug.log*
+
+# ---- Terraform (infra) ----
+# Never commit state: it contains resource identifiers and can contain secrets.
+.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+# .terraform.lock.hcl IS committed, deliberately: it pins exact provider versions so
+# CI resolves the same ones as local. Ignoring it would break FR-003's "applying
+# unchanged definitions reports no changes" guarantee.
+#
+# tfvars ARE committed for dev/prod (they hold no secrets by FR-007);
+# any local override file is not.
+*.auto.tfvars
+*.local.tfvars
+
+# ---- Secrets (constitution Principle III: zero stored credentials) ----
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+!**/*.public.key
+credentials
+.aws/
+
+# ---- Playwright ----
+frontend/test-results/
+frontend/playwright-report/
+
+# ---- Office lock files ----
+~$*

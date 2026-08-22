@@ -1,0 +1,206 @@
+# Continuous delivery to prod, behind an explicit approval gate
+# (FR-017, FR-018, FR-019, FR-020, FR-021).
+#
+# **How the gate actually works.** The `environment: prod` on the deploy job is what
+# pauses the run — GitHub holds it until a required reviewer approves. Everything before
+# that point is read-only: the plan job builds and plans but applies nothing, so
+# FR-019's "leaves prod completely unchanged until approved" holds structurally rather
+# than by careful step ordering.
+#
+# Manual dispatch only. Prod does not deploy on a merge — that is the whole point of
+# the distinction FR-015 and FR-017 draw between the two environments.
+
+name: Deploy prod
+
+on:
+  workflow_dispatch:
+    inputs:
+      git_sha:
+        description: "Commit to deploy. Must already be on pods/pod73."
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+# FR-020: serialised. cancel-in-progress false — cancelling mid-apply is how an
+# environment reaches the unknown state FR-021 forbids.
+concurrency:
+  group: deploy-prod
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: us-east-1
+  ENVIRONMENT: prod
+  PYTHON_VERSION: "3.12"
+  NODE_VERSION: "20"
+  TERRAFORM_VERSION: "1.15.8"
+
+jobs:
+  # --- Stage 1: plan only. No approval required, because nothing is applied. ---
+  plan:
+    name: Plan (read-only)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.git_sha }}
+
+      - name: Refuse a commit that is not on the trunk
+        run: |
+          git fetch origin pods/pod73 --depth=100
+          if ! git merge-base --is-ancestor "${{ inputs.git_sha }}" origin/pods/pod73; then
+            echo "::error::${{ inputs.git_sha }} is not an ancestor of pods/pod73. Prod only ever runs code that reached the trunk."
+            exit 1
+          fi
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: cloudpulse-plan-prod-${{ github.run_id }}
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+
+      - name: Terraform plan
+        working-directory: infra/envs/prod
+        run: |
+          terraform init -input=false
+          terraform plan -input=false -var="git_sha=${{ inputs.git_sha }}" -no-color | tee plan.txt
+
+      - name: Publish the plan for the approver to read
+        uses: actions/upload-artifact@v4
+        with:
+          name: prod-plan
+          path: infra/envs/prod/plan.txt
+          retention-days: 7
+
+  # --- Stage 2: apply. PAUSES here until a reviewer approves (FR-017). ---
+  deploy:
+    name: Apply to prod
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    # THE GATE. Configure the `prod` GitHub Environment with a required reviewer;
+    # without that, this line pauses nothing and FR-017 is unmet. See T033.
+    environment:
+      name: prod
+      url: ${{ steps.apply.outputs.api_endpoint }}
+    outputs:
+      deployment_id: ${{ steps.record_start.outputs.deployment_id }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.git_sha }}
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: cloudpulse-deploy-prod-${{ github.run_id }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Build the deployment package
+        working-directory: backend
+        run: |
+          mkdir -p build dist
+          pip install --target build --only-binary=:all: --platform manylinux2014_aarch64 \
+            --python-version ${{ env.PYTHON_VERSION }} \
+            -r <(python -c "import tomllib;print('\n'.join(tomllib.load(open('pyproject.toml','rb'))['project']['dependencies']))")
+          cp -r app connectors handlers migrations alembic.ini build/
+          (cd build && zip -qr ../dist/lambda.zip .)
+          echo "PACKAGE_HASH=$(openssl dgst -sha256 -binary dist/lambda.zip | base64)" >> "$GITHUB_ENV"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Build the frontend
+        working-directory: frontend
+        run: npm ci && npm run build
+
+      # --- Open the record BEFORE applying (FR-018) --------------------
+      # The approver is github.actor: reaching this job means GitHub recorded their
+      # approval on the environment. The database CHECK constraint refuses a prod row
+      # without both approved_by and approved_at, so an unapproved prod deployment
+      # cannot be recorded even if this step were somehow reordered.
+      - name: Record deployment start with the approver
+        id: record_start
+        run: |
+          MIGRATE_FN=$(cd infra/envs/prod && terraform init -input=false >/dev/null && terraform output -raw migrate_function_name)
+          echo "migrate_function=$MIGRATE_FN" >> "$GITHUB_OUTPUT"
+          RESULT=$(aws lambda invoke --function-name "$MIGRATE_FN" \
+            --cli-binary-format raw-in-base64-out \
+            --payload "$(jq -nc --arg sha "${{ inputs.git_sha }}" --arg who "$GITHUB_ACTOR" \
+              --arg at "$(date -u +%Y-%m-%dT%H:%M:%S+00:00)" \
+              '{command:"record_start",environment:"prod",git_sha:$sha,triggered_by:$who,approved_by:$who,approved_at:$at}')" \
+            /dev/stdout)
+          echo "$RESULT"
+          if [ "$(echo "$RESULT" | jq -r '.ok')" != "true" ]; then
+            echo "::error::Could not record the deployment. FR-018 requires a recorded approver before prod changes."
+            exit 1
+          fi
+          echo "deployment_id=$(echo "$RESULT" | jq -r '.deployment_id')" >> "$GITHUB_OUTPUT"
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+
+      - name: Terraform apply
+        id: apply
+        working-directory: infra/envs/prod
+        run: |
+          terraform init -input=false
+          terraform apply -input=false -auto-approve \
+            -var="package_path=../../../backend/dist/lambda.zip" \
+            -var="package_hash=${PACKAGE_HASH}" \
+            -var="git_sha=${{ inputs.git_sha }}"
+          echo "api_endpoint=$(terraform output -raw api_endpoint)" >> "$GITHUB_OUTPUT"
+
+      - name: Apply database migrations
+        run: |
+          RESULT=$(aws lambda invoke --function-name "${{ steps.record_start.outputs.migrate_function }}" \
+            --cli-binary-format raw-in-base64-out \
+            --payload '{"command":"upgrade","revision":"head"}' /dev/stdout)
+          echo "$RESULT"
+          if [ "$(echo "$RESULT" | jq -r '.ok')" != "true" ]; then
+            echo "::error::Migration failed. The previous version is still serving (FR-021)."
+            exit 1
+          fi
+
+      - name: Publish the frontend
+        run: |
+          aws s3 sync frontend/dist/cloudpulse \
+            "s3://cloudpulse-prod-frontend-$(aws sts get-caller-identity --query Account --output text)" --delete
+
+      - name: Smoke test
+        run: |
+          for i in $(seq 1 15); do
+            if curl -fsS "${{ steps.apply.outputs.api_endpoint }}/health" | jq -e '.status == "healthy"'; then
+              exit 0
+            fi
+            sleep 8
+          done
+          echo "::error::/health did not report healthy after deployment"
+          exit 1
+
+      - name: Record deployment outcome
+        if: always() && steps.record_start.outputs.deployment_id != ''
+        run: |
+          STATUS=$([ "${{ job.status }}" = "success" ] && echo succeeded || echo failed)
+          aws lambda invoke --function-name "${{ steps.record_start.outputs.migrate_function }}" \
+            --cli-binary-format raw-in-base64-out \
+            --payload "$(jq -nc --arg id "${{ steps.record_start.outputs.deployment_id }}" \
+              --arg st "$STATUS" '{command:"record_finish",deployment_id:$id,status:$st}')" \
+            /dev/stdout

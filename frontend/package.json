@@ -1,0 +1,46 @@
+{
+  "name": "cloudpulse-frontend",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "start": "ng serve",
+    "build": "ng build",
+    "test": "ng test",
+    "lint": "ng lint",
+    "e2e": "playwright test",
+    "generate:api": "openapi-generator-cli generate -i ../backend/openapi.generated.yaml -g typescript-angular -o src/app/api --additional-properties=ngVersion=18.0.0,providedInRoot=true,fileNaming=kebab-case,withInterfaces=true"
+  },
+  "dependencies": {
+    "@angular/animations": "^18.2.0",
+    "@angular/cdk": "^18.2.0",
+    "@angular/common": "^18.2.0",
+    "@angular/compiler": "^18.2.0",
+    "@angular/core": "^18.2.0",
+    "@angular/forms": "^18.2.0",
+    "@angular/material": "^18.2.0",
+    "@angular/platform-browser": "^18.2.0",
+    "@angular/router": "^18.2.0",
+    "ng2-charts": "^6.0.1",
+    "chart.js": "^4.4.0",
+    "rxjs": "~7.8.0",
+    "tslib": "^2.7.0",
+    "zone.js": "~0.14.10"
+  },
+  "devDependencies": {
+    "@angular-devkit/build-angular": "^18.2.0",
+    "@angular/cli": "^18.2.0",
+    "@angular/compiler-cli": "^18.2.0",
+    "@angular-eslint/builder": "^18.3.0",
+    "@angular-eslint/eslint-plugin": "^18.3.0",
+    "@angular-eslint/eslint-plugin-template": "^18.3.0",
+    "@angular-eslint/schematics": "^18.3.0",
+    "@angular-eslint/template-parser": "^18.3.0",
+    "@axe-core/playwright": "^4.10.0",
+    "@openapitools/openapi-generator-cli": "^2.13.4",
+    "@playwright/test": "^1.47.0",
+    "@typescript-eslint/eslint-plugin": "^8.5.0",
+    "@typescript-eslint/parser": "^8.5.0",
+    "eslint": "^8.57.0",
+    "typescript": "~5.5.4"
+  }
+}

@@ -1,0 +1,325 @@
+# CloudPulse AI — pull request gate.
+#
+# FR-008: runs automatically on every PR, no human action.
+# FR-009: nine check categories, each independently failable (SC-003).
+# FR-011: a failing check blocks merge for everyone, with no bypass. That is enforced
+#         by branch protection on pods/pod73, not by this file — see task T033.
+# FR-014/SC-004: the suite must report within 10 minutes, so jobs run in parallel and
+#         each one caches its own toolchain.
+#
+# Constitution Principle VII: pods/pod73 is the only long-lived branch. No trigger in
+# this repository references main or master.
+
+name: CI
+
+on:
+  pull_request:
+    branches: [pods/pod73]
+  push:
+    branches: [pods/pod73]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: "3.12"
+  NODE_VERSION: "20"
+  # Must match .terraform-version and the required_version constraint in the root
+  # modules. State written by a newer Terraform cannot be read by an older one, so a
+  # drift between local and CI breaks the pipeline the first time it deploys.
+  TERRAFORM_VERSION: "1.15.8"
+
+jobs:
+  # --- 1. Code style (FR-009) ----------------------------------------------
+  lint:
+    name: lint (ruff)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+      - run: pip install -e "./backend[dev]"
+      # FR-012: ruff names the file and line by default; --output-format=github
+      # surfaces it as an inline PR annotation so no local re-run is needed.
+      - run: ruff check --output-format=github .
+        working-directory: backend
+      - run: ruff format --check .
+        working-directory: backend
+
+  # --- 2. Static typing (FR-009) -------------------------------------------
+  typecheck:
+    name: typecheck (mypy)
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+      - run: pip install -e "./backend[dev]"
+      # show_column_numbers is set in pyproject: file, line AND column (FR-012).
+      - run: mypy .
+        working-directory: backend
+
+  # --- 3. Backend unit tests (FR-009, FR-010) ------------------------------
+  test:
+    name: test (pytest + moto)
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    # FR-010: no real cloud credentials are available to this job, and none are
+    # accepted. conftest.py strips inherited ones and substitutes moto sentinels,
+    # so a test that tries to reach AWS fails rather than succeeding quietly.
+    env:
+      AWS_ACCESS_KEY_ID: testing
+      AWS_SECRET_ACCESS_KEY: testing
+      AWS_SESSION_TOKEN: testing
+      AWS_DEFAULT_REGION: us-east-1
+      AWS_EC2_METADATA_DISABLED: "true"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+      - run: pip install -e "./backend[dev]"
+      - run: pytest tests/unit -m "not integration" --junitxml=junit.xml
+        working-directory: backend
+
+  # --- 3b. Integration tests (Principle VI) --------------------------------
+  # Cloud-touching code gets integration tests with mocked AWS. Split by dependency
+  # per research.md R-007: Testcontainers PostgreSQL for the database (a real engine
+  # is the only thing that proves FR-026), LocalStack for the services its free tier
+  # actually covers, moto for everything else.
+  integration:
+    name: integration (testcontainers + localstack)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      AWS_ACCESS_KEY_ID: testing
+      AWS_SECRET_ACCESS_KEY: testing
+      AWS_DEFAULT_REGION: us-east-1
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+      - run: pip install -e "./backend[dev]"
+      - name: Run integration tests
+        working-directory: backend
+        # Skips cleanly while tests/integration/ is still empty (Phase 5 fills it).
+        run: pytest tests/integration -m integration || [ $? -eq 5 ]
+
+  # --- 4. Frontend build + accessibility lint (FR-009, FR-047b) ------------
+  frontend:
+    name: frontend (build + a11y lint)
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+        working-directory: frontend
+      # FR-047b: accessibility violations fail the PR. These rules catch missing
+      # labels, roles and alt text — they do NOT prove keyboard operability or
+      # focus visibility, which stay a reviewer's responsibility.
+      - run: npm run lint
+        working-directory: frontend
+      - run: npm run build
+        working-directory: frontend
+
+  # --- 5. Infrastructure validation (FR-009) -------------------------------
+  terraform-validate:
+    name: terraform (fmt + validate)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        env: [dev, prod]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+      - run: terraform fmt -check -recursive infra/
+      # -backend=false: validation needs no state and therefore no AWS credentials.
+      - run: terraform init -backend=false
+        working-directory: infra/envs/${{ matrix.env }}
+      - run: terraform validate
+        working-directory: infra/envs/${{ matrix.env }}
+
+  # --- 6. Secret scanning (FR-013, SC-012) ---------------------------------
+  secret-scan:
+    name: secret-scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # gitleaks needs history to scan the whole diff range
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Narrow allowlist for the two places that hold credential-SHAPED strings
+          # on purpose: ops/ci-fixtures/ and the scanner's own self-test.
+          GITLEAKS_CONFIG: ${{ github.workspace }}/.gitleaks.toml
+      - name: Pattern scan (local mirror of tests/unit/test_no_credentials.py)
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - run: pip install -e "./backend[dev]" && pytest tests/unit/test_no_credentials.py
+        working-directory: backend
+
+  # --- 7. API contract compatibility (FR-048b, SC-003) ---------------------
+  contract-compat:
+    name: contract-compat (oasdiff)
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+      - run: pip install -e "./backend[dev]"
+
+      # The binding artifact is generated from the Pydantic models, never
+      # hand-written — that is what makes it a contract rather than documentation
+      # (Principle V). Until the FastAPI app lands (T071) the committed design-time
+      # contract stands in for it.
+      - name: Generate the PR's OpenAPI document
+        working-directory: backend
+        run: |
+          if [ -f app/api/main.py ]; then
+            python -c "import json,yaml; from app.api.main import app; \
+              open('/tmp/pr-openapi.yaml','w').write(yaml.safe_dump(app.openapi(), sort_keys=False))"
+          else
+            cp openapi.generated.yaml /tmp/pr-openapi.yaml
+          fi
+
+      - name: Fetch the trunk's contract
+        run: |
+          git fetch origin pods/pod73 --depth=1
+          # The committed GENERATED document is the baseline — it is what the trunk's
+          # service actually returns. The hand-authored design-time reference under
+          # specs/ is not authoritative for this comparison.
+          git show origin/pods/pod73:backend/openapi.generated.yaml \
+            > /tmp/base-openapi.yaml 2>/dev/null || cp /tmp/pr-openapi.yaml /tmp/base-openapi.yaml
+
+      - name: Fail if the committed generated contract is stale
+        working-directory: backend
+        run: |
+          python -c "import yaml; from app.api.main import openapi_document; \
+            print(yaml.safe_dump(openapi_document(), sort_keys=False))" > /tmp/fresh.yaml
+          python - <<'EOF'
+          import sys, yaml
+          committed = yaml.safe_load(open("openapi.generated.yaml"))
+          fresh = yaml.safe_load(open("/tmp/fresh.yaml"))
+          if committed != fresh:
+              sys.exit(
+                  "::error::backend/openapi.generated.yaml is stale. Regenerate it in "
+                  "this PR — the contract must match the code (FR-048)."
+              )
+          print("committed contract matches the code")
+          EOF
+
+      - name: Install oasdiff
+        run: |
+          curl -sSL https://raw.githubusercontent.com/oasdiff/oasdiff/main/install.sh | sh
+
+      # FR-048b: fails on a removed or renamed field, a removed endpoint, a
+      # newly-required parameter, or a narrowed type. FR-048a: additive change passes.
+      # The route forward for a genuinely necessary break is add-new-then-remove-old,
+      # documented in ops/runbooks/contract-changes.md (FR-048c, FR-057).
+      - name: Fail on breaking changes
+        run: oasdiff breaking /tmp/base-openapi.yaml /tmp/pr-openapi.yaml --fail-on ERR
+
+  # --- 8. Generated client drift (FR-048, Principle V) ---------------------
+  client-drift:
+    name: client-drift
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Regenerate the client and fail on any diff
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run generate:api
+          # A hand-edit under src/app/api/ is a merge-blocking drift failure, not a
+          # convenience — the contract is the source of truth, not the client.
+          git diff --exit-code -- src/app/api/ || {
+            echo "::error::frontend/src/app/api/ is generated. Change the Pydantic models, not the client (FR-048)."
+            exit 1
+          }
+
+  # --- 9a. Dependency allowlist (FR-013a, Principle II, SC-016) ------------
+  dependency-allowlist:
+    name: dependency-allowlist
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      # Principle II is NON-NEGOTIABLE and its Testable clause demands an automated
+      # gate, not a README. The product GenAI layer is Amazon Bedrock Agents only.
+      - run: python ops/scripts/check_dependencies.py
+
+  # --- 9b. Connector boundary (FR-054, SC-016) -----------------------------
+  connector-boundary:
+    name: connector-boundary
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      # Nothing to catch until spec 002 writes the first connector. It must still be
+      # green from the day it ships — the point is that the leak becomes impossible
+      # before the code that would leak exists.
+      - run: python ops/scripts/check_connector_boundary.py
+
+  # --- ERD accompaniment (FR-028) ------------------------------------------
+  erd-current:
+    name: erd-current
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: A schema change must carry an ERD change
+        run: |
+          git fetch origin "${{ github.base_ref }}" --depth=50
+          BASE="origin/${{ github.base_ref }}"
+          MIGRATIONS=$(git diff --name-only "$BASE"...HEAD -- backend/migrations/versions/ | wc -l)
+          ERD=$(git diff --name-only "$BASE"...HEAD -- ops/erd/ | wc -l)
+          if [ "$MIGRATIONS" -gt 0 ] && [ "$ERD" -eq 0 ]; then
+            echo "::error::FR-028: this PR changes the schema but not ops/erd/. The ERD must be updated in the same PR."
+            exit 1
+          fi
+          echo "erd-current: OK (migrations=$MIGRATIONS, erd=$ERD)"
