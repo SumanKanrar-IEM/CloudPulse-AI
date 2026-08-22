@@ -3,6 +3,16 @@ output "frontend_url" {
   value       = module.frontend.url
 }
 
+output "frontend_bucket" {
+  description = "S3 origin bucket name, for the deploy workflow's `aws s3 sync` (distinct from frontend_url, which is the CloudFront domain)."
+  value       = module.frontend.bucket_name
+}
+
+output "cloudfront_distribution_id" {
+  description = "For invalidating the CDN cache after a frontend publish."
+  value       = module.frontend.distribution_id
+}
+
 output "database_endpoint" {
   description = "What the application connects to (proxy when enabled)."
   value       = module.database.connection_endpoint
