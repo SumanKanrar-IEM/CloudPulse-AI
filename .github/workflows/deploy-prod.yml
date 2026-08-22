@@ -130,33 +130,13 @@ jobs:
         working-directory: frontend
         run: npm ci && npm run build
 
-      # --- Open the record BEFORE applying (FR-018) --------------------
-      # The approver is github.actor: reaching this job means GitHub recorded their
-      # approval on the environment. The database CHECK constraint refuses a prod row
-      # without both approved_by and approved_at, so an unapproved prod deployment
-      # cannot be recorded even if this step were somehow reordered.
-      - name: Record deployment start with the approver
-        id: record_start
-        run: |
-          MIGRATE_FN=$(cd infra/envs/prod && terraform init -input=false >/dev/null && terraform output -raw migrate_function_name)
-          echo "migrate_function=$MIGRATE_FN" >> "$GITHUB_OUTPUT"
-          # A real file, never /dev/stdout: the CLI's own status metadata
-          # ({"StatusCode":200,...}) and the Lambda's payload would otherwise
-          # concatenate onto the same stream into two JSON documents on one line,
-          # and jq would silently evaluate .deployment_id against both.
-          aws lambda invoke --function-name "$MIGRATE_FN" \
-            --cli-binary-format raw-in-base64-out \
-            --payload "$(jq -nc --arg sha "${{ inputs.git_sha }}" --arg who "$GITHUB_ACTOR" \
-              --arg at "$(date -u +%Y-%m-%dT%H:%M:%S+00:00)" \
-              '{command:"record_start",environment:"prod",git_sha:$sha,triggered_by:$who,approved_by:$who,approved_at:$at}')" \
-            /tmp/record_start.json
-          cat /tmp/record_start.json
-          if [ "$(jq -r '.ok' /tmp/record_start.json)" != "true" ]; then
-            echo "::error::Could not record the deployment. FR-018 requires a recorded approver before prod changes."
-            exit 1
-          fi
-          echo "deployment_id=$(jq -r '.deployment_id' /tmp/record_start.json)" >> "$GITHUB_OUTPUT"
-
+      # --- Apply infrastructure (the approval gate already ran) ---------
+      # `environment: prod` on this job is what enforces FR-017/FR-019: the job does
+      # not even START until a required reviewer approves in the GitHub UI, so
+      # nothing below this line runs against prod without that approval already
+      # having happened. Recording the approver is still done explicitly, next, as
+      # the durable audit trail (FR-018) -- the environment gate is what enforces the
+      # approval, this record is what proves it happened.
       - uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: ${{ env.TERRAFORM_VERSION }}
@@ -171,14 +151,24 @@ jobs:
             -var="package_hash=${PACKAGE_HASH}" \
             -var="git_sha=${{ inputs.git_sha }}"
           {
+            echo "migrate_function=$(terraform output -raw migrate_function_name)"
             echo "api_endpoint=$(terraform output -raw api_endpoint)"
             echo "frontend_bucket=$(terraform output -raw frontend_bucket)"
             echo "cloudfront_id=$(terraform output -raw cloudfront_distribution_id)"
           } >> "$GITHUB_OUTPUT"
 
+      # --- Migrations BEFORE the deployment record (FR-016) --------------
+      # research.md R-002: the runner cannot reach the private Aurora cluster, so this
+      # goes through a Lambda already inside the VPC.
+      #
+      # Runs BEFORE "Record deployment start", not after: the deployment record looks
+      # up the seeded tenant, and on prod's first-ever deployment that row -- and the
+      # table itself -- do not exist until migrations create them. Recording first
+      # would be a chicken-and-egg failure on the very first prod deploy.
+      # `command.upgrade(head)` is idempotent, so this is a no-op on every later run.
       - name: Apply database migrations
         run: |
-          aws lambda invoke --function-name "${{ steps.record_start.outputs.migrate_function }}" \
+          aws lambda invoke --function-name "${{ steps.apply.outputs.migrate_function }}" \
             --cli-binary-format raw-in-base64-out \
             --payload '{"command":"upgrade","revision":"head"}' /tmp/migrate.json
           cat /tmp/migrate.json
@@ -186,6 +176,32 @@ jobs:
             echo "::error::Migration failed. The previous version is still serving (FR-021)."
             exit 1
           fi
+
+      # --- Record the deployment, with the approver (FR-018) -------------
+      # The approver is github.actor: reaching this job means GitHub recorded their
+      # approval on the `prod` environment gate. The database CHECK constraint
+      # refuses a prod row without both approved_by and approved_at, so an
+      # unapproved prod deployment cannot be recorded even if this step were somehow
+      # reordered or run standalone.
+      - name: Record deployment start with the approver
+        id: record_start
+        run: |
+          # A real file, never /dev/stdout: the CLI's own status metadata
+          # ({"StatusCode":200,...}) and the Lambda's payload would otherwise
+          # concatenate onto the same stream into two JSON documents on one line,
+          # and jq would silently evaluate .deployment_id against both.
+          aws lambda invoke --function-name "${{ steps.apply.outputs.migrate_function }}" \
+            --cli-binary-format raw-in-base64-out \
+            --payload "$(jq -nc --arg sha "${{ inputs.git_sha }}" --arg who "$GITHUB_ACTOR" \
+              --arg at "$(date -u +%Y-%m-%dT%H:%M:%S+00:00)" \
+              '{command:"record_start",environment:"prod",git_sha:$sha,triggered_by:$who,approved_by:$who,approved_at:$at}')" \
+            /tmp/record_start.json
+          cat /tmp/record_start.json
+          if [ "$(jq -r '.ok' /tmp/record_start.json)" != "true" ]; then
+            echo "::error::Could not record the deployment: $(jq -r '.error // "unknown error"' /tmp/record_start.json)"
+            exit 1
+          fi
+          echo "deployment_id=$(jq -r '.deployment_id' /tmp/record_start.json)" >> "$GITHUB_OUTPUT"
 
       - name: Publish the frontend
         run: |
@@ -208,7 +224,7 @@ jobs:
         if: always() && steps.record_start.outputs.deployment_id != ''
         run: |
           STATUS=$([ "${{ job.status }}" = "success" ] && echo succeeded || echo failed)
-          aws lambda invoke --function-name "${{ steps.record_start.outputs.migrate_function }}" \
+          aws lambda invoke --function-name "${{ steps.apply.outputs.migrate_function }}" \
             --cli-binary-format raw-in-base64-out \
             --payload "$(jq -nc --arg id "${{ steps.record_start.outputs.deployment_id }}" \
               --arg st "$STATUS" '{command:"record_finish",deployment_id:$id,status:$st}')" \
