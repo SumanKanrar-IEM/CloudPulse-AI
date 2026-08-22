@@ -355,15 +355,29 @@ jobs:
     timeout-minutes: 2
     if: github.event_name == 'pull_request'
     steps:
-      - name: PR body must cite at least one task ID
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      # A spec's own /speckit-specify, /speckit-clarify, and /speckit-plan PRs necessarily
+      # precede tasks.md's existence -- there is no task ID to cite yet for a PR that only
+      # touches specs/. Those PRs may cite the spec directory instead (e.g. "spec 002" or
+      # "002-account-onboarding-and-discovery"). Any PR touching anything outside specs/
+      # still requires a real T\d{3} task ID -- found live authoring spec 2's own first PR.
+      - name: PR body must cite a task ID, or a spec ID if this PR only touches specs/
         env:
-          # Passed via env, never interpolated into the script directly -- the body is
-          # PR-author-controlled text, and templating it into the run: string would be
-          # a script-injection vector.
           PR_BODY: ${{ github.event.pull_request.body }}
         run: |
-          if ! grep -qE 'T[0-9]{3}' <<< "$PR_BODY"; then
-            echo "::error::Principle I requires every PR to cite a task ID (e.g. T131) in its description. An FR-xxx or SC-xxx reference alone is not enough -- that already let untracked work merge once."
-            exit 1
+          git fetch origin "${{ github.base_ref }}" --depth=50
+          CHANGED=$(git diff --name-only "origin/${{ github.base_ref }}"...HEAD)
+          if echo "$CHANGED" | grep -qvE '^specs/'; then
+            if ! grep -qE 'T[0-9]{3}' <<< "$PR_BODY"; then
+              echo "::error::Principle I requires every PR touching code or infra to cite a task ID (e.g. T131) in its description. An FR-xxx or SC-xxx reference alone is not enough -- that already let untracked work merge once."
+              exit 1
+            fi
+          else
+            if ! grep -qE 'T[0-9]{3}|\b0[0-9]{2}-[a-z]' <<< "$PR_BODY"; then
+              echo "::error::This PR only touches specs/ -- cite either a task ID (T131) or the spec directory it belongs to (e.g. 002-account-onboarding-and-discovery)."
+              exit 1
+            fi
           fi
           echo "pr-task-reference: OK"
