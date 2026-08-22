@@ -114,7 +114,7 @@ which makes landing it before there is much code to check more important here, n
 - [X] T032 [US2] Extend `ci.yml` failure output to name the failing check plus file path and line number wherever the failure is attributable to a location — S2, FR-012
 - [X] T033 [US2] Configure branch protection on `pods/pod73` making all nine checks required, with no administrative bypass, and requiring a recorded AI review before merge — S2, FR-011, SC-003, Principle VII
 - [X] T034 [US2] Verify each fixture from T020 fails exactly its own check and no other, and that an additive-only contract change passes — S2, SC-003, FR-048a
-- [ ] T035 [US2] Measure and record the suite's wall-clock time; tune job parallelism until it reports within 10 minutes — S2, FR-014, SC-004
+- [X] T035 [US2] Measure and record the suite's wall-clock time; tune job parallelism until it reports within 10 minutes — S2, FR-014, SC-004
 
 **Checkpoint**: The trunk is defended. Every later phase merges through this gate.
 

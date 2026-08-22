@@ -379,3 +379,6 @@ first pass on both showed `client-drift` failing alongside (or instead of) the
 intended result.
 
 All 11 fixture PRs closed without merging; branches deleted.
+
+**T035 / SC-004.** Wall-clock across six real CI runs this session: 61-78s, well under
+the 10-minute budget. No parallelism tuning needed.
