@@ -48,13 +48,24 @@ def test_raw_customer_tag_values_are_redacted() -> None:
     assert redact({"tag_values": {"sda": "Payments"}})["tag_values"] == REDACTED
 
 
+# Every value below is an inert, published example -- AWS's own documentation key, a
+# JWT of the string "1", a PEM header with no key after it, and a `ghp_` prefix followed
+# by the alphabet. None grants anything.
+#
+# They must be REAL secret SHAPES or the test proves nothing: it asserts that redaction
+# catches secrets embedded in free text, so it needs text a scanner would flag.
+#
+# `gitleaks:allow` is the scanner's own inline annotation. Used here rather than only a
+# path allowlist in .gitleaks.toml because it is version-independent and, more
+# importantly, it sits next to the fixture explaining itself -- a reviewer sees why the
+# exemption exists without opening another file.
 @pytest.mark.parametrize(
     "message",
     [
-        "using key AKIAIOSFODNN7EXAMPLE now",
-        "token eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.c2lnbmF0dXJlSGVyZQ",
-        "-----BEGIN RSA PRIVATE KEY-----",
-        "gh token ghp_abcdefghijklmnopqrstuvwxyz0123456789",
+        "using key AKIAIOSFODNN7EXAMPLE now",  # gitleaks:allow
+        "token eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.c2lnbmF0dXJlSGVyZQ",  # gitleaks:allow
+        "-----BEGIN RSA PRIVATE KEY-----",  # gitleaks:allow
+        "gh token ghp_abcdefghijklmnopqrstuvwxyz0123456789",  # gitleaks:allow
     ],
 )
 def test_secret_shaped_values_in_free_text_are_redacted(message: str) -> None:

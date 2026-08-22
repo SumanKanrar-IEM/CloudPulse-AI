@@ -103,7 +103,7 @@ def test_scanner_actually_matches_a_known_credential_shape() -> None:
     A credential scanner that matches nothing looks identical to a clean repository,
     which is the failure mode worth defending against.
     """
-    sample = "AKIAIOSFODNN7EXAMPLE"  # AWS's own published example key
+    sample = "AKIAIOSFODNN7EXAMPLE"  # gitleaks:allow -- AWS's own published example key
     assert CREDENTIAL_PATTERNS["AWS access key id"].search(sample)
 
 
