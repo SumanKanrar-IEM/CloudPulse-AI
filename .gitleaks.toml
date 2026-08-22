@@ -32,6 +32,10 @@ Files whose purpose is to detect, test, or allowlist credential patterns.
                           silently stopped matching looks identical to a clean repo.
   test_log_redaction.py   asserts secret-shaped values ARE redacted from logs (FR-046).
                           It must contain the shapes to prove it.
+  test_authorizer_wiring.sh  sends a deliberately invalid bearer token to prove a
+                          rejected request still gets the uniform envelope (FR-043);
+                          gitleaks' generic curl-auth-header rule cannot tell that
+                          apart from a real one by shape alone.
 
 Note these must be exempted by PATH, not by inline `gitleaks:allow`: the scan covers git
 HISTORY, and an annotation added today does not exist in yesterday's commit.
@@ -40,4 +44,5 @@ paths = [
   '''^ops/ci-fixtures/''',
   '''^backend/tests/unit/test_no_credentials\.py$''',
   '''^backend/tests/unit/test_log_redaction\.py$''',
+  '''^infra/tests/test_authorizer_wiring\.sh$''',
 ]
