@@ -33,7 +33,9 @@ Monorepo per plan.md: `infra/`, `backend/`, `frontend/`, `agents/`, `ops/`, `.gi
 ## Tier Summary
 
 **P1 (demo-critical, frozen)**: Phases 1–8, T001–T112. Completing these satisfies SC-001 through
-SC-010 and SC-012 through SC-017.
+SC-010 and SC-012 through SC-015. SC-016 and SC-017 are verified in Phase 10 by T125, not by any
+Phase 1–8 task — this line previously overclaimed them (found by `/speckit-analyze`, T128, F4);
+the Phase 8 checkpoint below was always correct.
 **P2 (stretch)**: Phase 9 only, T113–T121. Every P2 task is marked **[P2]** in its description.
 Deleting Phase 9 entirely leaves the P1 demo path intact — that is the Principle VIII check.
 
@@ -238,7 +240,7 @@ mapped group, two mapped groups — and confirm every cell gives the expected al
 - [X] T086 [US5] Write `infra/modules/identity/` — Cognito user pool, app client, and the three groups created from a `map` variable in `terraform.tfvars` — S5, FR-032, FR-039a
 - [X] T087 [US5] Set access and ID token lifetime to 1 hour and refresh token to 8 hours on the app client — S5, FR-036, FR-038, R-005
 - [X] T088 [US5] Write `backend/handlers/pre_token_handler.py`, the Cognito pre-token-generation Lambda, stamping a single role claim only when exactly one mapped group is present — S5, FR-032, R-004
-- [X] T089 [US5] Attach the JWT authorizer to the HTTP API in `infra/modules/api/`, leaving `/health` public — S5, FR-034, FR-041
+- [X] T089 [US5] Attach the JWT authorizer to the HTTP API in `infra/modules/api/`, leaving `/health` public — S5, FR-034, FR-041. **Superseded 2026-08-23 by T131/T132**: the native JWT authorizer type gave API Gateway no way to customise its 401 response, breaking FR-043 for pre-authorizer rejections; replaced with a Lambda authorizer.
 - [X] T090 [US5] Write `backend/app/core/security.py` with a `require_role` dependency that independently re-derives the role from the raw group claim and refuses anything other than exactly one — S5, FR-031a, FR-032a, R-004
 - [X] T091 [US5] Write `backend/app/api/routers/me.py` implementing `GET /me` per contracts/openapi.yaml, with just-in-time `app_user` creation on first authenticated request — S5, FR-034
 - [X] T092 [US5] Wire `write_audit_event` into every administrative and state-changing path — S5, FR-040
@@ -323,9 +325,13 @@ this only once T104 is green.
 - [X] T125 [P] Verify FR-054 to FR-057 hold in the built system: no provider SDK leak, delegation recorded, agent path read-only, breaking-change runbook present — FR-054, FR-055, FR-056, FR-057, SC-016, SC-017
 - [X] T126 [P] Write `backend/README.md`, `frontend/README.md`, and `infra/README.md` describing each area's ownership boundary — Principle I
 - [x] T127 [P] Confirm every merged PR carries a recorded AI review alongside its green CI check, and that no PR merged without one — Principle VII
-- [ ] T128 Re-run `/speckit-analyze` after the last P1 task and before spec 002 begins, resolving any new finding — Governance
+- [X] T128 Re-run `/speckit-analyze` after the last P1 task and before spec 002 begins, resolving any new finding — Governance
 - [X] T129 Decide the dev cost profile (RDS Proxy on/off, min_acu 0 vs 0.5) and record it in `infra/envs/dev/terraform.tfvars` with the reasoning — S1, R-003
 - [X] T130 Correct R-010 in research.md and the FR-005a note: `prevent_destroy` cannot be made conditional in a module shared by dev and prod, so prod protection is two layers, not three. Principle I — fix the spec, do not work around it — Principle I, FR-005a
+- [X] T131 [US6] Replace the native Cognito JWT authorizer with a Lambda authorizer (`handlers/authorizer_handler.py`) so a pre-authorizer rejection uses FR-043's uniform envelope instead of API Gateway's fixed `{"message":"Unauthorized"}` — gap found live during T107/T109's real-pool verification. Retroactively added: [PR #22](https://github.com/SumanKanrar-IEM/CloudPulse-AI/pull/22) merged without a task reference — S6, FR-043, SC-009
+- [X] T132 [US6] Fix the Lambda authorizer's `identity_sources` so it is invoked even when no `Authorization` header is present — a request with zero token bypassed the authorizer entirely and still got the native 401, found live while verifying T131. Retroactively added: [PR #23](https://github.com/SumanKanrar-IEM/CloudPulse-AI/pull/23) merged without a task reference. Also adds `infra/tests/test_authorizer_wiring.sh` — a black-box regression guard for exactly this class of bug (found by `/speckit-analyze`, T128, G1: no automated gate exercised the authorizer's actual AWS-level wiring) — S6, FR-043, SC-009
+- [X] T133 [US3] Gate dev auto-deploy behind the `DEV_AUTO_DEPLOY` repository variable (default `false`) so a routine trunk merge cannot silently re-provision a deliberately torn-down dev environment and restart billing — FR-015 amended in spec.md to record this as deliberate. Retroactively added: [PR #24](https://github.com/SumanKanrar-IEM/CloudPulse-AI/pull/24) merged without a task reference — S3, FR-015
+- [X] T134 Document the `DEV_AUTO_DEPLOY` toggle in `ops/runbooks/provisioning.md`, next to `AWS_DEPLOY_ROLE_ARN` — FR-006 requires every operator-supplied value to be documented, and this one was not — S1, FR-006
 
 ---
 

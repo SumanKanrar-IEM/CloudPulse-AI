@@ -12,7 +12,9 @@ the Aurora-backed governance schema, Cognito identity with three roles, and the 
 whose OpenAPI document is the binding contract for specs 2–6.
 
 The technical approach is a single Python 3.12 API Lambda (FastAPI + Mangum on arm64) behind an
-API Gateway HTTP API with a Cognito JWT authorizer, talking to Aurora Serverless v2 PostgreSQL
+API Gateway HTTP API with a Lambda authorizer verifying Cognito tokens (research.md R-004
+addendum — replaced the native JWT authorizer type so a rejected token still gets FR-043's
+uniform envelope), talking to Aurora Serverless v2 PostgreSQL
 through SQLAlchemy 2 with Alembic migrations applied during deployment. An Angular 18 SPA on
 S3 + CloudFront consumes a client generated from the published OpenAPI schema. Everything is
 Terraform, everything is deployed by GitHub Actions authenticating through OIDC, and nothing
@@ -114,7 +116,7 @@ infra/                              # Terraform — owned by this spec
 │   ├── network/                    # VPC, private subnets, endpoints (no NAT gateway)
 │   ├── database/                   # Aurora Serverless v2, Secrets Manager, deletion protection
 │   ├── identity/                   # Cognito user pool, 3 groups, pre-token-generation Lambda
-│   ├── api/                        # HTTP API, JWT authorizer, API Lambda, migration Lambda
+│   ├── api/                        # HTTP API, Lambda authorizer, API Lambda, migration Lambda
 │   ├── frontend/                   # S3 origin, CloudFront, OAC
 │   └── observability/              # [P2] dashboard, alarms, SNS email topic
 └── envs/
@@ -202,7 +204,7 @@ it leaves every P1 success criterion satisfied (Principle VIII).
 | M2 | Aurora + schema + migrations | P1 | Cluster, Secrets Manager, 10-entity schema, migration Lambda, ERD | SC-007 |
 | M3 | API skeleton | P1 | Health, error envelope, correlation ids, structured logs, published OpenAPI | SC-009, SC-010 |
 | M4 | CD to dev | P1 | `deploy-dev.yml` incl. migration invocation, deployment records | SC-005 |
-| M5 | Cognito identity + role enforcement | P1 | User pool, 3 groups, pre-token Lambda, JWT authorizer, `require_role` | SC-008, SC-013 |
+| M5 | Cognito identity + role enforcement | P1 | User pool, 3 groups, pre-token Lambda, Lambda authorizer, `require_role` | SC-008, SC-013 |
 | M6 | Frontend shell + generated client | P1 | Angular shell, auth flow, CloudFront, generated API client, a11y gate | SC-015 |
 | M7 | Prod environment + approval gate | P1 | Prod stack, deletion protection, backups, `deploy-prod.yml`, retention | SC-002, SC-006, SC-014 |
 | M7a | Architectural boundaries | P1 | Dependency-allowlist gate, connector-package boundary check, agent read-only access path, breaking-change procedure | SC-016, SC-017 |
