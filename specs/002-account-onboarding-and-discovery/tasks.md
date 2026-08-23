@@ -48,10 +48,10 @@ check.
 spec 1 dependency) covers Cloud Control API, Tagging API, and Step Functions; no new Angular
 package either.
 
-- [ ] T001 [P] Create `backend/app/scan/__init__.py` and empty `orchestrator.py`, `discovery.py`, `enrichment.py`, `coverage.py` — S11, FR-014
-- [ ] T002 [P] Create `backend/connectors/aws.py` as an empty stub (implemented in Phase 5) — S11, FR-014
-- [ ] T003 [P] Create `frontend/src/app/features/accounts/` with empty `accounts-list.component.ts`, `account-form.component.ts`, `accounts.service.ts` — S10, FR-010
-- [ ] T004 [P] Create `infra/modules/scan/` with a placeholder `main.tf`, `variables.tf`, `outputs.tf` — S15, FR-023
+- [X] T001 [P] Create `backend/app/scan/__init__.py` and empty `orchestrator.py`, `discovery.py`, `enrichment.py`, `coverage.py` — S11, FR-014
+- [X] T002 [P] Create `backend/connectors/aws.py` as an empty stub (implemented in Phase 5) — S11, FR-014
+- [X] T003 [P] Create `frontend/src/app/features/accounts/` with empty `accounts-list.component.ts`, `account-form.component.ts`, `accounts.service.ts` — S10, FR-010
+- [X] T004 [P] Create `infra/modules/scan/` with a placeholder `main.tf`, `variables.tf`, `outputs.tf` — S15, FR-023
 
 **Checkpoint**: Directory structure exists; no user story work is blocked waiting for scaffolding.
 
