@@ -92,8 +92,8 @@ already written against).
 | VIII. Honest Prioritization | P1/P2 tiered; P1 deliverable without any P2 | PASS | PASS | FR-020 (extended enrichment) and FR-033 (scan history) are this spec's only P2 requirements; dropping both leaves every P1 user story and SC-001–SC-004, SC-006–SC-009 intact (SC-005's coverage-as-data mechanism is P1 foundation, not P2, since P1 enrichment itself depends on it existing). |
 
 **Result: PASS at both gates.** No principle violations, so Complexity Tracking is empty. Two
-design tensions are resolved in research.md rather than by exception — see R-202 (Cloud Control API
-coverage gaps for some resource types) and R-203 (Step Functions Standard vs Express cost/duration
+design tensions are resolved in research.md rather than by exception — see R-201 (Cloud Control API
+coverage gaps for some resource types) and R-207 (Step Functions Standard vs Express cost/duration
 tradeoff).
 
 ## Project Structure
@@ -120,8 +120,11 @@ specs/002-account-onboarding-and-discovery/
 infra/                                     # Terraform — this spec adds one module, extends none
 ├── modules/
 │   ├── scan/                              # NEW — Step Functions state machine, EventBridge
-│   │                                        Scheduler rule, scan-worker Lambdas, IAM roles scoped
-│   │                                        to sts:AssumeRole on cross-account scanner roles only
+│   │   ├── main.tf                        #   Scheduler rule, scan-worker Lambdas, IAM roles scoped
+│   │   │                                     to sts:AssumeRole on cross-account scanner roles only
+│   │   └── scan_workflow.asl.json         #   The state machine's ASL definition, its own file
+│   │                                         (never inlined) so check_stepfunctions_asl.py (T042a,
+│   │                                         research.md R-211) can validate it offline pre-apply
 │   └── api/                               # UNCHANGED — this spec adds routes to the existing
 │                                             API Lambda, not a new one
 └── envs/{dev,prod}/                       # Wires the new scan module in alongside spec 1's modules
@@ -172,7 +175,7 @@ infrastructure is `infra/modules/scan/`; everything else extends an existing mod
 
 Two decisions add real complexity but are each required by a spec requirement rather than chosen
 for convenience, documented with their rejected alternatives in research.md: the Step Functions
-Map fan-out (R-203, required by FR-023's independent-unit-of-work requirement given a single Lambda
+Map fan-out (R-211, required by FR-023's independent-unit-of-work requirement given a single Lambda
 invocation cannot both stay inside its own timeout on a large account and retry only the failed
 portion), and the connector protocol's isolation from both discovery paths — generic Cloud Control
 sweep and targeted enrichment describes — behind one interface (R-201, required by FR-014 and
