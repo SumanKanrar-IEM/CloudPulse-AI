@@ -85,6 +85,9 @@ erDiagram
         uuid parent_resource_id FK
         timestamptz first_seen_at
         timestamptz last_seen_at
+        text state "spec 002, migration 0009"
+        timestamptz deleted_at "soft marker, spec 002 FR-030"
+        jsonb detail "enrichment payload, spec 002 FR-019"
     }
     RULE {
         uuid id PK
