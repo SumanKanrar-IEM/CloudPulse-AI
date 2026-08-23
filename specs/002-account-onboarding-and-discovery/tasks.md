@@ -87,18 +87,19 @@ both refused before storage.
 
 ### Tests for User Story 1
 
-- [ ] T011 [P] [US1] Write `backend/tests/unit/test_account_registration.py` — role-only input, access-key rejection, connection-mode validation — S8, S9, FR-001, FR-006
-- [ ] T012 [P] [US1] Write `backend/tests/unit/test_external_id_generation.py` — platform-generated, unique per account, sufficient entropy, admin-supplied value rejected — S8, FR-003a
-- [ ] T013 [P] [US1] Write `backend/tests/integration/test_cross_account_verification.py` — moto-mocked STS AssumeRole, ExternalId condition required and enforced, dry-run read check — S8, S9, FR-003, FR-007, SC-004
+- [X] T011 [P] [US1] Write `backend/tests/unit/test_account_registration.py` — role-only input, access-key rejection, connection-mode validation — S8, S9, FR-001, FR-006
+- [X] T012 [P] [US1] Write `backend/tests/unit/test_external_id_generation.py` — platform-generated, unique per account, sufficient entropy, admin-supplied value rejected — S8, FR-003a
+- [X] T013 [P] [US1] Write `backend/tests/integration/test_cross_account_verification.py` — moto-mocked STS AssumeRole, ExternalId condition required and enforced, dry-run read check — S8, S9, FR-003, FR-007, SC-004. Note: moto's STS mock does not enforce trust-policy/ExternalId validity (verified empirically — it returns usable credentials for a role that was never deployed), so the ExternalId-mismatch-is-refused assertion is proven in `test_external_id_generation.py` by mocking the AssumeRole boundary directly instead (R-209-style fallback), not through moto here.
 
 ### Implementation for User Story 1
 
-- [ ] T014 [US1] Write `backend/app/scan/verification.py` — dry-run role assumption plus a real read-only action, distinguishing "role not found" from "assumed but no usable access" — S9, FR-005, FR-007
-- [ ] T015 [US1] Write `POST /accounts` in `backend/app/api/routers/accounts.py`, gated `require_role(Role.ADMIN)`, accepting both connection modes — S8, S9, FR-002, FR-006, FR-011a
-- [ ] T016 [US1] Wire platform-generated ExternalId creation and its Secrets Manager storage into registration, writing only the ARN reference to `cloud_account.external_id_ref` — S8, FR-003a, Principle III
-- [ ] T017 [US1] Write the ready-to-deploy cross-account template (CloudFormation) in `infra/modules/scan/cross_account_template.yaml`, scoped read-only, exposed via a new API response field — S8, FR-004, FR-005
-- [ ] T018 [US1] Wire an `audit_event` write on every registration attempt (success and refusal), reusing spec 1's `write_audit_event` helper — S8, FR-040 (spec 1)
-- [ ] T019 [US1] Confirm FR-009: attempt registering the same underlying AWS account twice (same-account then cross-account, and vice versa) and confirm the second is refused with a message identifying the existing record — S9, FR-009
+- [X] T014 [US1] Write `backend/app/scan/verification.py` — dry-run role assumption plus a real read-only action, distinguishing "role not found" from "assumed but no usable access" — S9, FR-005, FR-007
+- [X] T015 [US1] Write `POST /accounts` in `backend/app/api/routers/accounts.py`, gated `require_role(Role.ADMIN)`, accepting both connection modes — S8, S9, FR-002, FR-006, FR-011a
+- [X] T016 [US1] Wire platform-generated ExternalId creation and its Secrets Manager storage into registration, writing only the ARN reference to `cloud_account.external_id_ref` — S8, FR-003a, Principle III
+- [X] T016a [US1] Add `POST /accounts/external-id` (admin-gated), returning a fresh platform-generated ExternalId ahead of registration; extend `contracts/openapi.yaml` additively. **Closes a genuine contract gap found during implementation**: FR-003a requires the platform to generate the ExternalId, but for cross-account mode the admin needs that value *before* deploying the CloudFormation template and getting back a role ARN to pass to `POST /accounts` — the original contract had `POST /accounts` as the only registration-adjacent endpoint, with no way to hand the admin a value ahead of time. The endpoint is deliberately stateless (no persistence) — the round-tripped value is proven genuine by `POST /accounts`'s own AssumeRole verification, which only succeeds if the admin actually deployed a trust policy embedding that exact value; that structural check is what keeps this consistent with FR-003a's "MUST NOT accept an admin-supplied external-id" (the admin relays the platform's value, never chooses one) — S8, FR-003a, FR-004
+- [X] T017 [US1] Write the ready-to-deploy cross-account template (CloudFormation) in `infra/modules/scan/cross_account_template.yaml`, scoped read-only, exposed via a new API response field — S8, FR-004, FR-005. Caught by local `cfn-lint` before this ever reached AWS: Cloud Control API's IAM actions are under the `cloudformation:` prefix, not `cloudcontrol:` — fixed.
+- [X] T018 [US1] Wire an `audit_event` write on every registration attempt (success and refusal), reusing spec 1's `write_audit_event` helper — S8, FR-040 (spec 1). Found and fixed a real bug while testing this: writing the audit event for a *refused* registration inside the same `tenant_session` block as the `raise` caused the context manager's own rollback to silently undo the audit write — split into separate transactions (audit commits, then raise).
+- [X] T019 [US1] Confirm FR-009: attempt registering the same underlying AWS account twice (same-account then cross-account, and vice versa) and confirm the second is refused with a message identifying the existing record — S9, FR-009
 
 **Checkpoint**: An account can be connected, roles-only, verified before acceptance. SC-004 is
 demonstrable.
@@ -120,13 +121,13 @@ required field is visible; confirm an operator or viewer can view but not regist
 
 ### Implementation for User Story 2
 
-- [ ] T022 [US2] Write `GET /accounts` in `accounts.py`, gated `require_role(Role.ADMIN, Role.OPERATOR, Role.VIEWER)`, including the verification-failure reason in the response — S10, FR-010, FR-010a, FR-012
-- [ ] T023 [US2] Write `PATCH /accounts/{id}` (region-list edit), admin-gated — S9, FR-008, FR-011a
-- [ ] T024 [US2] Write `POST /accounts/{id}/deactivate`, admin-gated, refusing a scan-in-progress abort (FR-009b) — S9, FR-009a, FR-011a
-- [ ] T025 [US2] Write `POST /accounts/{id}/reactivate`, admin-gated, no re-verification (Edge Cases) — S9, FR-009c, FR-011a
+- [ ] T022 [US2] Write `GET /accounts` in `accounts.py`, gated `require_role(Role.ADMIN, Role.OPERATOR, Role.VIEWER)`, including the verification-failure reason in the response — S10, FR-010, FR-010a, FR-012. **Partially done in T015's PR**: the route exists and lists every field except `failureReason` -- deferred here since no path before Phase 6 ever produces a `FAILED` account (registration always verifies synchronously before accepting, per FR-007), so there is nothing real to display yet; add the field when Phase 6's scan-failure handling gives `FAILED` a genuine cause to report, rather than speculating now.
+- [X] T023 [US2] Write `PATCH /accounts/{id}` (region-list edit), admin-gated — S9, FR-008, FR-011a. Landed in T015's PR alongside registration -- one router file, natural to build together.
+- [X] T024 [US2] Write `POST /accounts/{id}/deactivate`, admin-gated, refusing a scan-in-progress abort (FR-009b) — S9, FR-009a, FR-011a. Landed in T015's PR.
+- [X] T025 [US2] Write `POST /accounts/{id}/reactivate`, admin-gated, no re-verification (Edge Cases) — S9, FR-009c, FR-011a. Landed in T015's PR.
 - [ ] T026 [US2] Build `frontend/src/app/features/accounts/accounts-list.component.ts` — mode, region list, status, last-scan summary, failure reason, visible to all roles — S10, FR-010, FR-012
 - [ ] T027 [US2] Build `frontend/src/app/features/accounts/account-form.component.ts` — register/deactivate/reactivate actions, disabled (not merely hidden) for non-admin roles per spec 1's role-guard precedent — S9, FR-011, FR-011a
-- [ ] T028 [US2] Regenerate the Angular API client for the new endpoints; confirm `client-drift` CI passes — Principle V
+- [X] T028 [US2] Regenerate the Angular API client for the new endpoints; confirm `client-drift` CI passes — Principle V. Pulled forward into T015's PR: `client-drift` diffs the checked-in client against a fresh regeneration on every PR, so it had to happen the moment the contract grew new endpoints, not wait for Phase 4.
 
 **Checkpoint**: The full account lifecycle (register → view → deactivate → reactivate) is usable
 end to end through the UI.

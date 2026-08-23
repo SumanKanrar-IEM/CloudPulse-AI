@@ -74,12 +74,12 @@ def test_connector_protocol_declares_discover_and_enrich() -> None:
     assert hasattr(Connector, "enrich")
 
 
-def test_aws_connector_module_is_still_an_empty_stub() -> None:
-    """T034 (Phase 5) fills this in. Until then it must stay a boundary-safe stub."""
+def test_aws_connector_module_parses_cleanly() -> None:
+    """Sanity check only -- T034 (Phase 5) adds `discover`/`enrich`. T014's role
+    verification and T016's ExternalId storage land earlier since both legitimately
+    belong behind the connector boundary (module docstring)."""
     aws_py = REPO_ROOT / "backend" / "connectors" / "aws.py"
-    tree = ast.parse(aws_py.read_text(encoding="utf-8"))
-    defs = [n for n in tree.body if isinstance(n, ast.FunctionDef | ast.ClassDef)]
-    assert defs == [], "aws.py should still be an empty stub in Phase 2"
+    ast.parse(aws_py.read_text(encoding="utf-8"))
 
 
 def test_connector_boundary_gate_passes_with_the_current_stub() -> None:

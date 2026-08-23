@@ -23,7 +23,7 @@ from fastapi import FastAPI
 
 from app.api.errors import register_exception_handlers
 from app.api.middleware import CorrelationIdMiddleware
-from app.api.routers import health, me
+from app.api.routers import accounts, health, me
 
 DESCRIPTION = """\
 Serverless cloud governance, cost, and compliance platform for AWS.
@@ -61,8 +61,9 @@ def create_app() -> FastAPI:
 
     app.include_router(health.router)
     app.include_router(me.router)
-    # Routers added by later specs: accounts (002), findings/rules/sda (003),
-    # dashboard reads (004), cost (005), agent-facing reads (006, FR-056).
+    app.include_router(accounts.router)
+    # Routers added by later specs: findings/rules/sda (003), dashboard reads (004),
+    # cost (005), agent-facing reads (006, FR-056).
 
     return app
 

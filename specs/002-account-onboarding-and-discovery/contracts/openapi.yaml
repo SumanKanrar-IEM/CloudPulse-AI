@@ -24,6 +24,46 @@ security:
   - cognitoJwt: []
 
 paths:
+  /accounts/external-id:
+    post:
+      tags: [accounts]
+      operationId: generateExternalId
+      summary: Get a fresh platform-generated ExternalId ahead of cross-account registration
+      description: |
+        FR-003a/FR-004. Admin only. Deliberately stateless -- generates and returns a
+        high-entropy value with no persistence. An admin deploys the cross-account
+        template (T017) with this value, then supplies it back in `POST /accounts`
+        along with the resulting role ARN. The round-tripped value is proven genuine
+        by that call's own AssumeRole verification, which only succeeds if the value
+        is actually embedded in the deployed trust policy -- the platform never
+        accepts an admin-*chosen* value (FR-003a), only relays its own.
+
+        Added during implementation (T016a) to close a contract gap: the original
+        design had no way to hand the admin an ExternalId before they need it to
+        deploy the template, which must happen before a role ARN exists to register.
+      responses:
+        '200':
+          description: A fresh ExternalId, not yet attached to any account
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [externalId, cloudFormationTemplateUrl]
+                properties:
+                  externalId:
+                    type: string
+                    description: Paste into the cross-account template's ExternalId parameter.
+                  cloudFormationTemplateUrl:
+                    type: string
+                    description: |
+                      Where to get the ready-to-deploy template (FR-004). A static
+                      asset shipped with the frontend, not generated per request --
+                      the template is fixed; only the ExternalId parameter varies.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
   /accounts:
     get:
       tags: [accounts]
@@ -265,6 +305,14 @@ components:
         roleArn:
           type: string
           description: Required when connectionMode is assume_role.
+        externalId:
+          type: string
+          description: |
+            Required when connectionMode is assume_role. The value obtained from
+            POST /accounts/external-id and embedded in the deployed cross-account
+            template's trust policy (T016a). Verified structurally, not merely
+            echoed: registration only succeeds if this value actually unlocks the
+            supplied role (connectors/aws.py verify_access).
         scanRegions:
           type: array
           items: { type: string }

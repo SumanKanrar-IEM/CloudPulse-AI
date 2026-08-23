@@ -1,0 +1,80 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >
+  CloudPulse AI cross-account scanner role (spec 002, FR-004). Deployed by an admin
+  into the target AWS account. Grants CloudPulse AI's own identity read-only access,
+  usable only with the platform-issued ExternalId value shown during registration
+  (FR-003, FR-003a). No write, modify, or delete permission is ever granted (FR-005).
+
+Parameters:
+  TrustedPrincipalArn:
+    Type: String
+    Description: >
+      The CloudPulse AI platform's own IAM role ARN (its Lambda execution role) --
+      the only principal this role may ever be assumed by.
+  ExternalId:
+    Type: String
+    Description: >
+      The platform-generated value shown during registration (FR-003a). Never chosen
+      by the admin -- pasted in verbatim from the registration flow.
+    MinLength: 20
+    NoEcho: true
+
+Resources:
+  ScannerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: cloudpulse-scanner
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: !Ref TrustedPrincipalArn
+            Action: sts:AssumeRole
+            # FR-003: usable only by the platform's identity, and only with the
+            # platform-issued external-id value. A role missing this condition is
+            # refused at registration (connectors/aws.py verify_access).
+            Condition:
+              StringEquals:
+                sts:ExternalId: !Ref ExternalId
+      Policies:
+        - PolicyName: cloudpulse-read-only-scan
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              # FR-007's verification read-check, and R-201's whole-account sweep.
+              - Effect: Allow
+                Action:
+                  - tag:GetResources
+                  # Cloud Control API's IAM actions are under the `cloudformation:`
+                  # prefix, not `cloudcontrol:` -- it is built on CloudFormation's
+                  # resource-provider framework (caught by cfn-lint before this ever
+                  # reached a real AWS account).
+                  - cloudformation:ListResources
+                  - cloudformation:GetResource
+                  - sts:GetCallerIdentity
+                Resource: "*"
+              # FR-019's six P1 governance-critical types -- targeted enrichment
+              # describes (research.md R-202). All read-only (Describe/Get/List).
+              - Effect: Allow
+                Action:
+                  - ec2:DescribeInstances
+                  - ec2:DescribeVolumes
+                  - ec2:DescribeAddresses
+                  - s3:GetBucketLocation
+                  - s3:GetBucketTagging
+                  - s3:GetBucketVersioning
+                  - s3:GetEncryptionConfiguration
+                  - s3:ListAllMyBuckets
+                  - rds:DescribeDBInstances
+                  - lambda:GetFunction
+                  - lambda:ListFunctions
+                Resource: "*"
+      # FR-005: no functional requirement in this spec authorizes writing, modifying,
+      # or deleting anything in a scanned account. Every statement above is
+      # Describe/Get/List/GetResources only -- there is no write action to omit.
+
+Outputs:
+  ScannerRoleArn:
+    Description: Supply this as roleArn when registering the account (cross-account mode).
+    Value: !GetAtt ScannerRole.Arn
