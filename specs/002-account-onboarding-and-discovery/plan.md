@@ -48,7 +48,7 @@ Playwright (accounts-view P1 journey, extending spec 1's e2e harness).
 **Target Platform**: AWS Lambda arm64 on Python 3.12 (API Lambda, unchanged; new: scan-orchestration
 Lambdas invoked from Step Functions) · AWS Step Functions Standard workflow (scan fan-out; Standard,
 not Express — a scan can legitimately run longer than Express's 5-minute cap on a large account,
-and Standard's per-state execution history is exactly what FR-032/FR-033's per-unit-of-work
+and Standard's per-state execution history is exactly what FR-023's independent-unit-of-work
 success/fail/retry record needs).
 
 **Project Type**: Web application in the existing monorepo — this spec adds to `backend/app/scan/`
@@ -67,9 +67,10 @@ column (data-model.md). Every table this spec touches is tenant-scoped (spec 1 F
 unchanged). No write, modify, or delete permission against any scanned account, ever (FR-005).
 
 **Scale/Scope**: Demo-scale, matching spec 1's Assumptions — a handful of connected accounts, tens
-of thousands of resources in the largest one (Edge Cases), 2 environments. 33 functional
-requirements, 9 success criteria, 4 P1 user stories (this spec has no P2 user story — S17's scan
-history is P2 but attaches to an existing P1 story rather than standing alone).
+of thousands of resources in the largest one (Edge Cases), 2 environments. 40 functional
+requirements (33 numbered, 7 added during clarification), 9 success criteria, 4 P1 user stories
+(this spec has no P2 user story — S17's scan history is P2 but attaches to an existing P1 story
+rather than standing alone).
 
 ## Constitution Check
 
@@ -108,7 +109,8 @@ specs/002-account-onboarding-and-discovery/
 ├── contracts/
 │   └── openapi.yaml      # Phase 1 output — additive-only diff against spec 1's trunk contract
 ├── checklists/
-│   └── requirements.md   # Spec quality checklist (16/16)
+│   ├── requirements.md         # Spec quality checklist (16/16)
+│   └── scope-and-contracts.md  # Requirements-quality checklist (28 items, reviewer-owned)
 └── tasks.md              # Phase 2 output (/speckit-tasks — NOT created here)
 ```
 

@@ -69,7 +69,7 @@ one. Land them together in one PR.
 - [ ] T006 [P] Write `backend/connectors/base.py` — the `Connector` protocol and `NormalizedResource` shape (data-model.md's FR-014 section) — FR-014, Principle V
 - [ ] T007 [P] Write `backend/app/scan/coverage.py` loading a coverage-definition file at scan-orchestration time (research.md R-203) — FR-021, FR-022
 - [ ] T008 [P] Write `backend/app/scan/coverage_definitions.json` seeded with the six P1 governance-critical types (FR-019) mapped to their enrichment function names — FR-019, FR-021
-- [ ] T009 Extend `backend/app/models/` for `resource`'s three new columns; confirm the existing `cloud_account`/`scan` SQLAlchemy models already expose `disabled`/`partial` (data-model.md — no model change needed there, just confirm) — data-model.md
+- [ ] T009 Extend `backend/app/models/core.py` for `resource`'s three new columns; confirm the existing `cloud_account`/`scan` SQLAlchemy models already expose `disabled`/`partial` (data-model.md — no model change needed there, just confirm) — data-model.md
 - [ ] T010 [P] Write `backend/tests/unit/test_connector_protocol.py` asserting the protocol shape, and extend `ops/scripts/check_connector_boundary.py`'s existing scope check (no change expected — confirms `connectors/aws.py` doesn't yet violate the boundary with an empty stub) — FR-014, connector-boundary CI
 
 **Checkpoint**: Schema, connector interface, and coverage-as-data are settled. User story work can
@@ -153,7 +153,7 @@ deliberately untagged resource, run discovery and confirm both appear with full 
 - [ ] T033 [US3] Write `backend/app/scan/discovery.py` — combined Tagging API + Cloud Control sweep, deduplicated (research.md R-201) — S12, FR-016, FR-017
 - [ ] T034 [US3] Implement `discover()` on `backend/connectors/aws.py` against the Phase 2 protocol, using each resource's ARN as its stable unique identifier — S11, FR-014, FR-015
 - [ ] T035 [US3] Write `backend/app/scan/enrichment.py` — six targeted boto3 describe calls (research.md R-202) — S13, S14, FR-019
-- [ ] T036 [US3] Wire enrichment dispatch through `coverage.py`'s data-driven registry rather than an if/elif chain — S47-foundation, FR-021
+- [ ] T036 [US3] Wire enrichment dispatch through `coverage.py`'s data-driven registry rather than an if/elif chain (coverage-as-data foundation) — FR-021
 - [ ] T037 [US3] Implement global-surface once-per-account deduplication (FR-018) in `discovery.py` — S12, FR-018
 
 **Checkpoint**: A scan of a real account returns a complete, normalized, partially-enriched
