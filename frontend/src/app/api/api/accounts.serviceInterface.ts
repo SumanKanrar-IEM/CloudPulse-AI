@@ -18,6 +18,7 @@ import { AccountsList } from '../model/models';
 import { ErrorEnvelope } from '../model/models';
 import { ExternalIdResponse } from '../model/models';
 import { HTTPValidationError } from '../model/models';
+import { Scan } from '../model/models';
 
 
 import { Configuration }                                     from '../configuration';
@@ -65,6 +66,14 @@ export interface AccountsServiceInterface {
      * @param accountCreate 
      */
     registerAccount(accountCreate: AccountCreate, extraHttpRequestParams?: any): Observable<Account>;
+
+    /**
+     * Trigger an on-demand scan
+     * FR-026/FR-026a. Operator only -- research.md R-205\&#39;s non-hierarchical-roles point, made concrete: admin\&#39;s account-management grant does not include this.
+     * @endpoint post /accounts/{account_id}/scans
+     * @param accountId 
+     */
+    triggerScan(accountId: string, extraHttpRequestParams?: any): Observable<Scan>;
 
     /**
      * Edit an account\&#39;s scan-region list

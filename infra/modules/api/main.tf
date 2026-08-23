@@ -68,6 +68,15 @@ data "aws_iam_policy_document" "lambda_runtime" {
     resources = [var.db_secret_arn]
   }
 
+  # spec 002, T048: POST /accounts/{id}/scans starts an execution of the platform's
+  # own scan state machine -- platform infrastructure, not a scanned account.
+  statement {
+    sid       = "StartScanExecutions"
+    effect    = "Allow"
+    actions   = ["states:StartExecution"]
+    resources = [var.scan_state_machine_arn]
+  }
+
   statement {
     sid    = "WriteOwnLogs"
     effect = "Allow"
@@ -121,15 +130,16 @@ resource "aws_lambda_function" "api" {
 
   environment {
     variables = {
-      CLOUDPULSE_ENVIRONMENT          = var.environment
-      CLOUDPULSE_AWS_REGION           = data.aws_region.current.name
-      CLOUDPULSE_DB_HOST              = var.db_host
-      CLOUDPULSE_DB_NAME              = var.db_name
-      CLOUDPULSE_DB_USER              = var.db_user
-      CLOUDPULSE_DB_SECRET_ARN        = var.db_secret_arn
-      CLOUDPULSE_COGNITO_USER_POOL_ID = var.cognito_user_pool_id
-      CLOUDPULSE_COGNITO_CLIENT_ID    = var.cognito_client_id
-      CLOUDPULSE_GIT_SHA              = var.git_sha
+      CLOUDPULSE_ENVIRONMENT            = var.environment
+      CLOUDPULSE_AWS_REGION             = data.aws_region.current.name
+      CLOUDPULSE_DB_HOST                = var.db_host
+      CLOUDPULSE_DB_NAME                = var.db_name
+      CLOUDPULSE_DB_USER                = var.db_user
+      CLOUDPULSE_DB_SECRET_ARN          = var.db_secret_arn
+      CLOUDPULSE_COGNITO_USER_POOL_ID   = var.cognito_user_pool_id
+      CLOUDPULSE_COGNITO_CLIENT_ID      = var.cognito_client_id
+      CLOUDPULSE_GIT_SHA                = var.git_sha
+      CLOUDPULSE_SCAN_STATE_MACHINE_ARN = var.scan_state_machine_arn
       # No credential here, by construction. Only references.
       POWERTOOLS_SERVICE_NAME = "cloudpulse-api"
       POWERTOOLS_LOG_LEVEL    = "INFO"

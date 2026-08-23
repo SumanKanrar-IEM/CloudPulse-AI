@@ -54,6 +54,25 @@ module "storage" {
   account_id  = local.account_id
 }
 
+module "scan" {
+  source             = "../../modules/scan"
+  environment        = var.environment
+  vpc_id             = module.network.vpc_id
+  private_subnet_ids = module.network.private_subnet_ids
+
+  db_host       = module.database.connection_endpoint
+  db_name       = module.database.database_name
+  db_user       = "cloudpulse_admin"
+  db_secret_arn = module.database.master_user_secret_arn
+
+  snapshot_bucket_name = module.storage.bucket_name
+  snapshot_bucket_arn  = module.storage.bucket_arn
+
+  log_retention_days = local.log_retention_days
+  package_path       = var.package_path
+  package_hash       = var.package_hash
+}
+
 module "frontend" {
   source      = "../../modules/frontend"
   environment = var.environment
@@ -91,6 +110,9 @@ module "api" {
 
   # Mirrors role_group_map so the Lambda and Terraform cannot drift (FR-039a).
   group_role_map_encoded = join(",", [for g, r in var.role_group_map : "${g}:${r}"])
+
+  # spec 002, T048: lets POST /accounts/{id}/scans start an execution.
+  scan_state_machine_arn = module.scan.state_machine_arn
 
   log_retention_days = local.log_retention_days
   allowed_origins    = [module.frontend.url]

@@ -8,10 +8,11 @@ silently ignored field.
 Registering, deactivating, and reactivating are admin-only (FR-011a); viewing is open
 to all three roles (FR-010a) -- both reuse `app.core.security`'s existing
 `require_admin`/`require_viewer` aliases unchanged. Triggering an on-demand scan
-(T048, Phase 6) is operator-only and will deliberately NOT reuse
+(FR-026a) is operator-only and deliberately does NOT reuse
 `app.core.security.require_operator`, which also admits admin -- research.md R-205
-makes this spec's roles non-hierarchical, a distinction that only matters once that
-route exists.
+makes this spec's roles non-hierarchical: admin's account-management grant does not
+carry operator's scan-trigger grant, so this route builds its own
+`require_role(Role.OPERATOR)` dependency instead of the shared alias.
 """
 
 from __future__ import annotations
@@ -27,11 +28,13 @@ from sqlalchemy import select
 
 from app.api.errors import ERROR_RESPONSES, AppError, ErrorCode, ErrorEnvelope, correlation_id_of
 from app.core.audit import write_audit_event
+from app.core.config import Role
 from app.core.db import TenantSession, tenant_session
 from app.core.logging import logger
-from app.core.security import Principal, require_admin, require_viewer
+from app.core.security import Principal, require_admin, require_role, require_viewer
 from app.models.core import CloudAccount
-from app.models.enums import AccountStatus, ConnectionMode
+from app.models.enums import AccountStatus, ConnectionMode, ScanTrigger
+from app.scan.orchestrator import ScanAlreadyRunningError, start_scan
 from app.scan.verification import VerificationError, verify_registration
 from connectors.aws import get_local_account_id, store_external_id
 from connectors.base import ConnectorAccount
@@ -43,6 +46,9 @@ DEFAULT_SCAN_REGION = "us-east-1"
 
 AdminPrincipal = Annotated[Principal, Depends(require_admin)]
 ViewerPrincipal = Annotated[Principal, Depends(require_viewer)]
+# Deliberately its own dependency, not app.core.security.require_operator (see
+# module docstring) -- that alias also admits admin, which FR-026a forbids here.
+OperatorPrincipal = Annotated[Principal, Depends(require_role(Role.OPERATOR))]
 
 _CONFLICT_RESPONSE = {
     "model": ErrorEnvelope,
@@ -104,6 +110,18 @@ class Account(BaseModel):
 
 class AccountsList(BaseModel):
     accounts: list[Account]
+
+
+class Scan(BaseModel):
+    id: str
+    account_id: str = Field(alias="accountId")
+    trigger: str
+    status: str
+    started_at: datetime = Field(alias="startedAt")
+    finished_at: datetime | None = Field(default=None, alias="finishedAt")
+    resource_count: int | None = Field(default=None, alias="resourceCount")
+
+    model_config = {"populate_by_name": True}
 
 
 # --- Helpers ---------------------------------------------------------------------
@@ -441,6 +459,55 @@ async def reactivate_account(
             correlation_id=correlation_id,
         )
         return _to_account_model(account)
+
+
+@router.post(
+    "/{account_id}/scans",
+    operation_id="triggerScan",
+    summary="Trigger an on-demand scan",
+    response_model=Scan,
+    response_model_by_alias=True,
+    status_code=status.HTTP_202_ACCEPTED,
+    responses={
+        401: ERROR_RESPONSES[401],
+        403: ERROR_RESPONSES[403],
+        404: ERROR_RESPONSES[404],
+        409: _CONFLICT_RESPONSE,
+    },
+)
+async def trigger_scan(
+    account_id: uuid.UUID,
+    request: Request,
+    principal: OperatorPrincipal,
+) -> Scan:
+    """FR-026/FR-026a. Operator only -- research.md R-205's non-hierarchical-roles
+    point, made concrete: admin's account-management grant does not include this."""
+    correlation_id = correlation_id_of(request)
+    with tenant_session(principal.tenant_id) as session:
+        account = _get_or_404(session, account_id)
+        try:
+            scan = start_scan(session, account, trigger=ScanTrigger.MANUAL)
+        except ScanAlreadyRunningError as exc:
+            raise AppError(
+                ErrorCode.CONFLICT,
+                status_code=status.HTTP_409_CONFLICT,
+                message="A scan of this account is already running.",
+            ) from exc
+        _audit(
+            session,
+            principal=principal,
+            action="account.scan.triggered",
+            target_id=str(account.id),
+            correlation_id=correlation_id,
+            payload={"scan_id": str(scan.id)},
+        )
+        return Scan(
+            id=str(scan.id),
+            account_id=str(account.id),
+            trigger=scan.trigger.value,
+            status=scan.status.value,
+            started_at=scan.started_at,
+        )
 
 
 __all__ = ["router"]

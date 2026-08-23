@@ -44,6 +44,24 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "snapshots" {
   }
 }
 
+# spec 002, research.md R-207: raw snapshots are operational data for diffing, not an
+# audit trail -- 30-day-class retention (matching FR-046a's precedent for structured
+# logs), not indefinite retention like audit_event.
+resource "aws_s3_bucket_lifecycle_configuration" "snapshots" {
+  bucket = aws_s3_bucket.snapshots.id
+  rule {
+    id     = "expire-raw-snapshots"
+    status = "Enabled"
+    filter {}
+    expiration {
+      days = 30
+    }
+    noncurrent_version_expiration {
+      noncurrent_days = 30
+    }
+  }
+}
+
 variable "environment" {
   type = string
   validation {

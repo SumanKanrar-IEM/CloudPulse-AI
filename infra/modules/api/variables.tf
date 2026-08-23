@@ -75,6 +75,11 @@ variable "group_role_map_encoded" {
   default     = ""
 }
 
+variable "scan_state_machine_arn" {
+  type        = string
+  description = "spec 002, T048: lets POST /accounts/{id}/scans start an execution of the platform's own scan state machine."
+}
+
 variable "enable_cognito_auth" {
   type        = bool
   description = <<-DESC
