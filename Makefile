@@ -7,7 +7,7 @@
 # and the generated-client drift check need git history or a network fetch, so they
 # run in CI only. `make check` covers the seven that run locally.
 
-.PHONY: help check lint typecheck test test-integration frontend-lint frontend-build tf-validate tf-ascii deps-check boundary-check install
+.PHONY: help check lint typecheck test test-integration frontend-lint frontend-build tf-validate tf-ascii sfn-asl deps-check boundary-check install
 
 help:
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
@@ -16,7 +16,7 @@ install: ## Install backend dev dependencies and frontend packages
 	cd backend && python3.12 -m venv .venv && .venv/bin/pip install -e ".[dev]"
 	cd frontend && npm ci
 
-check: lint typecheck test frontend-lint frontend-build tf-validate tf-ascii deps-check boundary-check ## Run the full local gate
+check: lint typecheck test frontend-lint frontend-build tf-validate tf-ascii sfn-asl deps-check boundary-check ## Run the full local gate
 
 lint: ## ruff (FR-009)
 	cd backend && ruff check . && ruff format --check .
@@ -44,6 +44,9 @@ tf-validate: ## terraform fmt + validate for both environments (FR-009)
 
 tf-ascii: ## Fail on non-ASCII in Terraform values -- AWS APIs reject them mid-apply
 	python3 ops/scripts/check_terraform_ascii.py
+
+sfn-asl: ## Fail on a structurally broken Step Functions ASL definition (spec 002)
+	python3 ops/scripts/check_stepfunctions_asl.py
 
 deps-check: ## Fail if a non-AWS AI SDK entered a manifest (FR-013a, Principle II)
 	python3 ops/scripts/check_dependencies.py
