@@ -1,0 +1,294 @@
+openapi: 3.1.0
+
+# CloudPulse AI — account onboarding and discovery contract additions (spec 002).
+#
+# THIS FILE IS THE DESIGN-TIME REFERENCE for what this spec adds. The binding artifact at
+# runtime remains the single document generated from the FastAPI application (FR-048) — there
+# is still only one platform contract, no version prefix, additive-only (spec 1 FR-048a/b/c).
+# This file does not restate spec 1's /health or /me; it shows only the new paths and schemas
+# spec 2 contributes, to be merged into the one generated document, never a second document.
+#
+# Every schema and response shape not defined here (Role, ErrorEnvelope, the standard error
+# responses) is spec 1's, unchanged, reused by reference — this spec introduces zero new error
+# shapes, per FR-043's "one uniform envelope" binding every endpoint any spec adds.
+
+info:
+  title: CloudPulse AI API — account onboarding and discovery additions
+  version: 0.1.0
+
+tags:
+  - name: accounts
+    description: Account registration, lifecycle, and on-demand scanning. Owned by spec 002.
+
+security:
+  - cognitoJwt: []
+
+paths:
+  /accounts:
+    get:
+      tags: [accounts]
+      operationId: listAccounts
+      summary: List every registered account
+      description: |
+        FR-010. Visible to all three roles — admin, operator, and viewer (FR-010a); it is a read
+        surface, not a state-changing one.
+      responses:
+        '200':
+          description: The tenant's connected accounts
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [accounts]
+                properties:
+                  accounts:
+                    type: array
+                    items: { $ref: '#/components/schemas/Account' }
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+    post:
+      tags: [accounts]
+      operationId: registerAccount
+      summary: Register a new AWS account
+      description: |
+        FR-006/FR-007/FR-011a. Admin only. Verifies the supplied role with a real read-only
+        action before the account is accepted (FR-007) and refuses a duplicate underlying AWS
+        account regardless of connection mode (FR-009).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AccountCreate' }
+      responses:
+        '201':
+          description: Registered and verified
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Account' }
+        '400':
+          $ref: '#/components/responses/ValidationFailed'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          description: |
+            The underlying AWS account is already registered (FR-009) — including when it is
+            currently deactivated. The response identifies the existing record; reactivate
+            (FR-009c) rather than registering again.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+        '422':
+          description: |
+            The role could not be assumed, or could be assumed but grants no usable read access
+            (FR-007) — the two failure kinds are distinguished in the error message wherever the
+            underlying provider error allows.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+
+  /accounts/{accountId}:
+    parameters:
+      - name: accountId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+
+    patch:
+      tags: [accounts]
+      operationId: updateAccountRegions
+      summary: Edit an account's scan-region list
+      description: FR-008/FR-011a. Admin only. Takes effect from the next scan onward (FR-008).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [scanRegions]
+              properties:
+                scanRegions:
+                  type: array
+                  items: { type: string }
+                  minItems: 1
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Account' }
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /accounts/{accountId}/deactivate:
+    parameters:
+      - name: accountId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    post:
+      tags: [accounts]
+      operationId: deactivateAccount
+      summary: Stop scanning an account without deleting its history
+      description: |
+        FR-009a/FR-011a. Admin only. A scan already in progress completes normally (FR-009b);
+        this only prevents the next one. Historical resources, scans, and findings remain
+        read-only and visible (SC-008).
+      responses:
+        '200':
+          description: Deactivated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Account' }
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /accounts/{accountId}/reactivate:
+    parameters:
+      - name: accountId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    post:
+      tags: [accounts]
+      operationId: reactivateAccount
+      summary: Resume scanning a deactivated account
+      description: |
+        FR-009c/FR-011a. Admin only. No re-registration needed. Does not itself re-verify the
+        role — a role that went stale while deactivated is caught by the same scan-failure
+        handling that covers an active account (Edge Cases), on the next scan attempt.
+      responses:
+        '200':
+          description: Reactivated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Account' }
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: The account is not currently deactivated.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+
+  /accounts/{accountId}/scans:
+    parameters:
+      - name: accountId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    post:
+      tags: [accounts]
+      operationId: triggerScan
+      summary: Trigger an on-demand scan
+      description: |
+        FR-026/FR-026a. Operator only — this is the one account-surface action admin does not
+        hold (research.md R-205: CloudPulse's roles are non-hierarchical). Starts without
+        waiting for the daily schedule (US4 scenario 2).
+      responses:
+        '202':
+          description: Scan accepted and started
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Scan' }
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: A scan of this account is already running (FR-027).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+
+components:
+  schemas:
+
+    Account:
+      type: object
+      required: [id, connectionMode, scanRegions, status, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        alias: { type: string }
+        connectionMode:
+          type: string
+          enum: [local, assume_role]
+        awsAccountId:
+          type: string
+          pattern: '^[0-9]{12}$'
+        roleArn:
+          type: string
+          description: Present only for cross-account (assume_role) accounts.
+        scanRegions:
+          type: array
+          items: { type: string }
+        status:
+          type: string
+          enum: [pending, verified, failed, disabled]
+          description: |
+            `disabled` is FR-009a's deactivated state — a status value, not a separate
+            deleted/removed record (data-model.md).
+        lastScan:
+          $ref: '#/components/schemas/ScanSummary'
+        createdAt: { type: string, format: date-time }
+
+    AccountCreate:
+      type: object
+      required: [connectionMode, scanRegions]
+      properties:
+        alias: { type: string }
+        connectionMode:
+          type: string
+          enum: [local, assume_role]
+        awsAccountId:
+          type: string
+          pattern: '^[0-9]{12}$'
+          description: Required when connectionMode is assume_role.
+        roleArn:
+          type: string
+          description: Required when connectionMode is assume_role.
+        scanRegions:
+          type: array
+          items: { type: string }
+          minItems: 1
+
+    ScanSummary:
+      type: object
+      required: [status, startedAt]
+      properties:
+        status:
+          type: string
+          enum: [running, succeeded, partial, failed]
+        startedAt: { type: string, format: date-time }
+        finishedAt: { type: string, format: date-time }
+        resourceCount: { type: integer }
+
+    Scan:
+      allOf:
+        - $ref: '#/components/schemas/ScanSummary'
+        - type: object
+          required: [id, accountId, trigger]
+          properties:
+            id: { type: string, format: uuid }
+            accountId: { type: string, format: uuid }
+            trigger:
+              type: string
+              enum: [scheduled, manual]
