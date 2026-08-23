@@ -162,6 +162,10 @@ jobs:
       # Neither validate nor plan catches it -- it surfaces mid-apply, after some
       # resources already exist. Caught here instead.
       - run: python ops/scripts/check_terraform_ascii.py
+      # Same blind spot, different resource type: neither validate nor plan looks
+      # inside a Step Functions state machine's ASL definition -- a broken Next
+      # reference or a missing StartAt only fails live, at apply (found T042a).
+      - run: python ops/scripts/check_stepfunctions_asl.py
       # -backend=false: validation needs no state and therefore no AWS credentials.
       - run: terraform init -backend=false
         working-directory: infra/envs/${{ matrix.env }}

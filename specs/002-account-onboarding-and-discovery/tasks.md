@@ -179,7 +179,8 @@ resources are spared from diffing.
 
 ### Implementation for User Story 4
 
-- [ ] T042 [US4] Write `infra/modules/scan/main.tf` — Step Functions Standard state machine with a Map state fanning out per account × region × service group (research.md R-203) — S15, FR-023
+- [ ] T042 [US4] Write `infra/modules/scan/main.tf` — Step Functions Standard state machine with a Map state fanning out per account × region × service group (research.md R-203). The ASL definition lives in its own `infra/modules/scan/scan_workflow.asl.json`, referenced via `file("./scan_workflow.asl.json")`, never inlined as a heredoc — that separation is what makes T042a's validation possible without parsing HCL — S15, FR-023
+- [ ] T042a [US4] Write `ops/scripts/check_stepfunctions_asl.py` and wire it into `ci.yml`'s `terraform-validate` job, alongside `check_terraform_ascii.py` — an offline structural check (StartAt/States/Next references resolve, no dead-end states) closing the same class of validate/plan blind spot terraform-ascii closes for a different resource type, found live during `/speckit-analyze` (finding F6) — S15, FR-023, playbook §0.5.2
 - [ ] T043 [US4] Write `infra/modules/scan/scheduler.tf` — EventBridge Scheduler daily rule invoking the state machine — S15, FR-026
 - [ ] T044 [US4] Write `backend/handlers/scan_worker_handler.py` — the Lambda entrypoint Step Functions invokes per unit of work, assuming the target role once per unit (research.md R-206) — S15, FR-023
 - [ ] T045 [US4] Write `backend/app/scan/orchestrator.py` — builds the Step Functions execution input from an account's region/service-group combinations — S15, FR-023
@@ -271,6 +272,9 @@ checkpoint and independent test.
 - T042 (Step Functions module) and T044 (scan worker Lambda) are co-dependent — the state machine's
   definition references the Lambda's ARN, so land them in the same PR or the `terraform plan`
   in between will show an unresolvable reference.
+- T042a needs T042's `scan_workflow.asl.json` to exist first — land them in the same PR. This is
+  also why T042 specifies the ASL definition as a separate file rather than an inline heredoc:
+  T042a's check cannot reach inside HCL to validate it.
 - T053/T054 must stay adjacent. Do not let Phase 8 work begin between live-verification and
   teardown — that is exactly the gap that let a torn-down environment quietly come back to life
   once already (playbook §0.5.3's own origin story).
