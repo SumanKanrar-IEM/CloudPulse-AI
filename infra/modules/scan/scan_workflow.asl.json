@@ -1,0 +1,66 @@
+{
+  "Comment": "CloudPulse AI scan orchestration (spec 002, research.md R-211). One Map iteration per scan region -- the unit of work FR-023 requires, sized to what the Connector protocol (data-model.md, Phase 2) actually supports: discover(account, region), not a finer service-group split.",
+  "StartAt": "ScanRegions",
+  "States": {
+    "ScanRegions": {
+      "Type": "Map",
+      "ItemsPath": "$.units",
+      "ItemSelector": {
+        "scan_id.$": "$.scan_id",
+        "tenant_id.$": "$.tenant_id",
+        "cloud_account_id.$": "$.cloud_account_id",
+        "region.$": "$$.Map.Item.Value.region"
+      },
+      "MaxConcurrency": 5,
+      "ResultPath": "$.unitResults",
+      "ItemProcessor": {
+        "ProcessorConfig": {
+          "Mode": "INLINE"
+        },
+        "StartAt": "ScanUnit",
+        "States": {
+          "ScanUnit": {
+            "Type": "Task",
+            "Resource": "${WorkerLambdaArn}",
+            "Retry": [
+              {
+                "ErrorEquals": ["States.ALL"],
+                "IntervalSeconds": 5,
+                "MaxAttempts": 2,
+                "BackoffRate": 2.0
+              }
+            ],
+            "Catch": [
+              {
+                "ErrorEquals": ["States.ALL"],
+                "ResultPath": "$.error",
+                "Next": "UnitFailed"
+              }
+            ],
+            "End": true
+          },
+          "UnitFailed": {
+            "Type": "Pass",
+            "Parameters": {
+              "status": "failed",
+              "region.$": "$.region"
+            },
+            "End": true
+          }
+        }
+      },
+      "Next": "FinalizeScan"
+    },
+    "FinalizeScan": {
+      "Type": "Task",
+      "Resource": "${WorkerLambdaArn}",
+      "Parameters": {
+        "action": "finalize_scan",
+        "scan_id.$": "$.scan_id",
+        "tenant_id.$": "$.tenant_id",
+        "unitResults.$": "$.unitResults"
+      },
+      "End": true
+    }
+  }
+}

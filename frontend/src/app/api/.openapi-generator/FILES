@@ -27,6 +27,7 @@ model/http-validation-error.ts
 model/location-inner.ts
 model/models.ts
 model/scan-summary.ts
+model/scan.ts
 model/validation-error.ts
 param.ts
 provide-api.ts

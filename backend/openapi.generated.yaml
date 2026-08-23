@@ -352,6 +352,63 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /accounts/{account_id}/scans:
+    post:
+      tags:
+      - accounts
+      summary: Trigger an on-demand scan
+      description: 'FR-026/FR-026a. Operator only -- research.md R-205''s non-hierarchical-roles
+
+        point, made concrete: admin''s account-management grant does not include this.'
+      operationId: triggerScan
+      parameters:
+      - name: account_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Account Id
+      responses:
+        '202':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Scan'
+        '401':
+          description: No valid identity presented.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Valid identity, but the caller's role does not permit the action
+            -- or the caller maps to zero or multiple directory groups and therefore
+            has no resolvable role (FR-032a, FR-034).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '404':
+          description: Target record does not exist, or the caller is not entitled
+            to know that it does.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '409':
+          description: The request conflicts with the account's current state.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
 components:
   schemas:
     Account:
@@ -636,6 +693,43 @@ components:
       - checks
       - correlationId
       title: HealthResponse
+    Scan:
+      properties:
+        id:
+          type: string
+          title: Id
+        accountId:
+          type: string
+          title: Accountid
+        trigger:
+          type: string
+          title: Trigger
+        status:
+          type: string
+          title: Status
+        startedAt:
+          type: string
+          format: date-time
+          title: Startedat
+        finishedAt:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Finishedat
+        resourceCount:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Resourcecount
+      type: object
+      required:
+      - id
+      - accountId
+      - trigger
+      - status
+      - startedAt
+      title: Scan
     ScanSummary:
       properties:
         status:

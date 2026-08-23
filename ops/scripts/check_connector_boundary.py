@@ -49,12 +49,17 @@ PROVIDER_MODULES = {"boto3", "botocore", "aiobotocore", "boto3.session", "mypy_b
 # Widening this list reflexively is how a gate stops meaning anything. Each entry
 # below names its reason, and a new one must too.
 ALLOWED_PREFIXES = (
-    "connectors/",        # the boundary itself -- FR-054
-    "handlers/",          # Lambda entrypoints wire AWS runtime plumbing
-    "app/core/db.py",     # Secrets Manager fetch for the platform's own DB (Principle III)
-    "migrations/env.py",  # same fetch, same reason: Alembic needs the DB credential
-                          # at migration time and must not read it from a file
-    "tests/",             # moto-based mocks, no real calls (FR-010)
+    "connectors/",              # the boundary itself -- FR-054
+    "handlers/",                # Lambda entrypoints wire AWS runtime plumbing
+    "app/core/db.py",           # Secrets Manager fetch for the platform's own DB (Principle III)
+    "migrations/env.py",        # same fetch, same reason: Alembic needs the DB credential
+                                # at migration time and must not read it from a file
+    "app/scan/orchestrator.py", # starts/manages executions of the platform's OWN Step
+                                # Functions state machine (spec 002, T045) -- operating
+                                # the platform's own orchestration infrastructure, not
+                                # reaching into a scanned account, same class of
+                                # exception as the DB credential fetch above
+    "tests/",                   # moto-based mocks, no real calls (FR-010)
 )
 
 
