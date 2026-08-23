@@ -116,8 +116,8 @@ required field is visible; confirm an operator or viewer can view but not regist
 
 ### Tests for User Story 2
 
-- [ ] T020 [P] [US2] Write `backend/tests/integration/test_accounts_view_role_matrix.py` — view accessible to admin/operator/viewer; register/deactivate/reactivate refused for operator and viewer — S10, FR-010a, FR-011a
-- [ ] T021 [P] [US2] Write `backend/tests/unit/test_account_deactivate_reactivate.py` — status transitions (`verified`↔`disabled`), in-progress scan allowed to finish, duplicate-registration refusal still applies to a deactivated account — S9, FR-009a, FR-009b, FR-009c, SC-008
+- [X] T020 [P] [US2] Write `backend/tests/integration/test_accounts_view_role_matrix.py` — view accessible to admin/operator/viewer; register/deactivate/reactivate refused for operator and viewer — S10, FR-010a, FR-011a
+- [X] T021 [P] [US2] Write `backend/tests/unit/test_account_deactivate_reactivate.py` — status transitions (`verified`↔`disabled`), in-progress scan allowed to finish, duplicate-registration refusal still applies to a deactivated account — S9, FR-009a, FR-009b, FR-009c, SC-008
 
 ### Implementation for User Story 2
 
@@ -125,12 +125,34 @@ required field is visible; confirm an operator or viewer can view but not regist
 - [X] T023 [US2] Write `PATCH /accounts/{id}` (region-list edit), admin-gated — S9, FR-008, FR-011a. Landed in T015's PR alongside registration -- one router file, natural to build together.
 - [X] T024 [US2] Write `POST /accounts/{id}/deactivate`, admin-gated, refusing a scan-in-progress abort (FR-009b) — S9, FR-009a, FR-011a. Landed in T015's PR.
 - [X] T025 [US2] Write `POST /accounts/{id}/reactivate`, admin-gated, no re-verification (Edge Cases) — S9, FR-009c, FR-011a. Landed in T015's PR.
-- [ ] T026 [US2] Build `frontend/src/app/features/accounts/accounts-list.component.ts` — mode, region list, status, last-scan summary, failure reason, visible to all roles — S10, FR-010, FR-012
-- [ ] T027 [US2] Build `frontend/src/app/features/accounts/account-form.component.ts` — register/deactivate/reactivate actions, disabled (not merely hidden) for non-admin roles per spec 1's role-guard precedent — S9, FR-011, FR-011a
+- [X] T026 [US2] Build `frontend/src/app/features/accounts/accounts-list.component.ts` — mode, region list, status, last-scan summary, failure reason, visible to all roles — S10, FR-010, FR-012
+- [X] T027 [US2] Build `frontend/src/app/features/accounts/account-form.component.ts` — register/deactivate/reactivate actions, disabled (not merely hidden) for non-admin roles per spec 1's role-guard precedent — S9, FR-011, FR-011a
 - [X] T028 [US2] Regenerate the Angular API client for the new endpoints; confirm `client-drift` CI passes — Principle V. Pulled forward into T015's PR: `client-drift` diffs the checked-in client against a fresh regeneration on every PR, so it had to happen the moment the contract grew new endpoints, not wait for Phase 4.
 
 **Checkpoint**: The full account lifecycle (register → view → deactivate → reactivate) is usable
-end to end through the UI.
+end to end through the UI *once two pre-existing, cross-cutting gaps below are closed* -- neither
+is spec 002's to fix unilaterally, both were found while wiring T026/T027 and are flagged here
+rather than silently patched:
+
+1. **No sign-in flow exists anywhere in the frontend.** `auth.guard.ts` redirects an unauthenticated
+   caller to `/sign-in`, but no `/sign-in` route, component, or Cognito Hosted-UI OAuth
+   redirect/callback handling exists -- `auth.service.ts` has `signOut()` but nothing that signs a
+   user *in* or captures a token. This blocks every route behind `authGuard`, not just `/accounts`;
+   it is a spec-1-scale gap (frontend auth was scaffolded, never finished), not something to
+   improvise as a side effect of this spec's accounts screen.
+2. **The deploy pipeline builds the frontend before the API URL is known.** `deploy-dev.yml`/
+   `deploy-prod.yml` run `npm run build` *before* `terraform apply`, so the API Gateway URL
+   (`terraform output api_endpoint`) does not exist yet at build time -- a standard Angular
+   build-time environment file cannot be correctly populated under that ordering. T026/T027 land a
+   runtime-config seam for this (`frontend/src/app/core/api-config.ts`, reading
+   `window.__CLOUDPULSE_CONFIG__.apiBaseUrl`, defaulting to `''`/same-origin) so the frontend code
+   is ready for a fix, but actually populating that config (reordering the pipeline, or adding a
+   post-apply step that injects it into the deployed `index.html`) is a CI/CD change outside this
+   session's scope to decide unilaterally.
+
+Both gaps mean the accounts screen builds, lints, and passes its backend contract correctly, but is
+not yet reachable by a real signed-in user in a real deployment. Flagged to the user; not a spec 002
+functional requirement (FR-034/FR-037's sign-in mechanics are spec 1's, not this spec's, scope).
 
 ---
 
