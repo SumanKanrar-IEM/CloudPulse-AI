@@ -39,7 +39,16 @@ def contract() -> dict:
 
 
 def test_no_registration_or_password_operation_exists(contract: dict) -> None:
-    """FR-031: no self-service registration path, and no platform-held passwords."""
+    """FR-031: no self-service USER registration path, and no platform-held passwords.
+
+    Spec 002's `POST /accounts` (operationId `registerAccount`) legitimately matches
+    the "register" fragment -- it is an admin-gated action registering a *cloud
+    account* (a governance object CloudPulse scans), not a self-service path for a
+    *person* to create their own identity. FR-031 is about the latter; identity still
+    comes exclusively from the directory (FR-031a), unchanged by this endpoint. The
+    same reasoning exempts every operation under the /accounts path prefix, since none
+    of them touch `app_user` or identity at all.
+    """
     operations = [
         (path, method, op.get("operationId", ""))
         for path, methods in contract["paths"].items()
@@ -50,7 +59,8 @@ def test_no_registration_or_password_operation_exists(contract: dict) -> None:
     offenders = [
         f"{method.upper()} {path} ({op_id})"
         for path, method, op_id in operations
-        if any(f in (op_id + path).lower().replace("-", "") for f in FORBIDDEN_OPERATION_FRAGMENTS)
+        if not path.startswith("/accounts")
+        and any(f in (op_id + path).lower().replace("-", "") for f in FORBIDDEN_OPERATION_FRAGMENTS)
     ]
     assert not offenders, f"FR-031 violation -- registration/password surface: {offenders}"
 

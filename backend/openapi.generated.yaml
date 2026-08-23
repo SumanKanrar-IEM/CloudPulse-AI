@@ -1,20 +1,3 @@
-# GENERATED — DO NOT EDIT.
-#
-# Produced from the FastAPI application's Pydantic models by:
-#     python -c "import yaml; from app.api.main import openapi_document; \
-#                print(yaml.safe_dump(openapi_document(), sort_keys=False))"
-#
-# This is the BINDING contract (FR-048, Principle V). It is generated rather than
-# hand-written so it cannot drift from the code — a hand-edit here is a lie about what
-# the service actually does.
-#
-# CI regenerates it and runs `oasdiff breaking` against this committed copy. Changes
-# must be additive (FR-048a); the five breaking kinds fail the PR (FR-048b). For a
-# genuinely necessary break, follow ops/runbooks/contract-changes.md (FR-048c, FR-057).
-#
-# The hand-authored design-time reference lives at
-# specs/001-platform-foundation/contracts/openapi.yaml. Where the two disagree, THIS
-# file is authoritative — it is what the service returns.
 openapi: 3.1.0
 info:
   title: CloudPulse AI API
@@ -97,8 +80,400 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
+  /accounts/external-id:
+    post:
+      tags:
+      - accounts
+      summary: Get a fresh platform-generated ExternalId ahead of cross-account registration
+      description: T016a. Admin only, deliberately stateless -- see module and openapi.yaml
+        docs.
+      operationId: generateExternalId
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExternalIdResponse'
+        '401':
+          description: No valid identity presented.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Valid identity, but the caller's role does not permit the action
+            -- or the caller maps to zero or multiple directory groups and therefore
+            has no resolvable role (FR-032a, FR-034).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /accounts:
+    get:
+      tags:
+      - accounts
+      summary: List every registered account
+      description: FR-010/FR-010a. All three roles may view.
+      operationId: listAccounts
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountsList'
+        '401':
+          description: No valid identity presented.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Valid identity, but the caller's role does not permit the action
+            -- or the caller maps to zero or multiple directory groups and therefore
+            has no resolvable role (FR-032a, FR-034).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+    post:
+      tags:
+      - accounts
+      summary: Register a new AWS account
+      description: FR-006/FR-007/FR-011a. Verifies before accepting; refuses a duplicate
+        (FR-009).
+      operationId: registerAccount
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AccountCreate'
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Account'
+        '401':
+          description: No valid identity presented.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Valid identity, but the caller's role does not permit the action
+            -- or the caller maps to zero or multiple directory groups and therefore
+            has no resolvable role (FR-032a, FR-034).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '409':
+          description: The request conflicts with the account's current state.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '422':
+          description: Request body or parameters failed validation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /accounts/{account_id}:
+    patch:
+      tags:
+      - accounts
+      summary: Edit an account's scan-region list
+      description: FR-008/FR-011a. Admin only. Takes effect from the next scan onward.
+      operationId: updateAccountRegions
+      parameters:
+      - name: account_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Account Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AccountUpdate'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Account'
+        '401':
+          description: No valid identity presented.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Valid identity, but the caller's role does not permit the action
+            -- or the caller maps to zero or multiple directory groups and therefore
+            has no resolvable role (FR-032a, FR-034).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '404':
+          description: Target record does not exist, or the caller is not entitled
+            to know that it does.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /accounts/{account_id}/deactivate:
+    post:
+      tags:
+      - accounts
+      summary: Stop scanning an account without deleting its history
+      description: 'FR-009a/FR-011a. A scan already running is unaffected (FR-009b)
+        -- this only
+
+        changes `cloud_account.status`, which the next scheduler pass reads, not the
+
+        in-flight execution.'
+      operationId: deactivateAccount
+      parameters:
+      - name: account_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Account Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Account'
+        '401':
+          description: No valid identity presented.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Valid identity, but the caller's role does not permit the action
+            -- or the caller maps to zero or multiple directory groups and therefore
+            has no resolvable role (FR-032a, FR-034).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '404':
+          description: Target record does not exist, or the caller is not entitled
+            to know that it does.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /accounts/{account_id}/reactivate:
+    post:
+      tags:
+      - accounts
+      summary: Resume scanning a deactivated account
+      description: 'FR-009c/FR-011a. No re-registration, no re-verification -- a stale
+        role is
+
+        caught by the same scan-failure handling that covers any active account
+
+        (Edge Cases), on the next scan attempt.'
+      operationId: reactivateAccount
+      parameters:
+      - name: account_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Account Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Account'
+        '401':
+          description: No valid identity presented.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Valid identity, but the caller's role does not permit the action
+            -- or the caller maps to zero or multiple directory groups and therefore
+            has no resolvable role (FR-032a, FR-034).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '404':
+          description: Target record does not exist, or the caller is not entitled
+            to know that it does.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '409':
+          description: The request conflicts with the account's current state.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
 components:
   schemas:
+    Account:
+      properties:
+        id:
+          type: string
+          title: Id
+        alias:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Alias
+        connectionMode:
+          type: string
+          title: Connectionmode
+        awsAccountId:
+          type: string
+          title: Awsaccountid
+        roleArn:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Rolearn
+        scanRegions:
+          items:
+            type: string
+          type: array
+          title: Scanregions
+        status:
+          type: string
+          title: Status
+        lastScan:
+          anyOf:
+          - $ref: '#/components/schemas/ScanSummary'
+          - type: 'null'
+        createdAt:
+          type: string
+          format: date-time
+          title: Createdat
+      type: object
+      required:
+      - id
+      - connectionMode
+      - awsAccountId
+      - scanRegions
+      - status
+      - createdAt
+      title: Account
+    AccountCreate:
+      properties:
+        alias:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Alias
+        connectionMode:
+          $ref: '#/components/schemas/ConnectionMode'
+        awsAccountId:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Awsaccountid
+        roleArn:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Rolearn
+        externalId:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Externalid
+        scanRegions:
+          items:
+            type: string
+          type: array
+          title: Scanregions
+      additionalProperties: false
+      type: object
+      required:
+      - connectionMode
+      title: AccountCreate
+      description: FR-006. `extra="forbid"` is FR-001's structural refusal of access-key
+        input.
+    AccountUpdate:
+      properties:
+        scanRegions:
+          items:
+            type: string
+          type: array
+          minItems: 1
+          title: Scanregions
+      additionalProperties: false
+      type: object
+      required:
+      - scanRegions
+      title: AccountUpdate
+    AccountsList:
+      properties:
+        accounts:
+          items:
+            $ref: '#/components/schemas/Account'
+          type: array
+          title: Accounts
+      type: object
+      required:
+      - accounts
+      title: AccountsList
+    ConnectionMode:
+      type: string
+      enum:
+      - local
+      - assume_role
+      title: ConnectionMode
+      description: 'FR-031-adjacent: how the platform reaches a scanned account.
+
+
+        Both modes are roles-only. There is deliberately no mode that accepts an access
+
+        key -- Principle III forbids storing one, so it is absent from the vocabulary
+
+        rather than merely discouraged.'
     CurrentUser:
       properties:
         userId:
@@ -212,6 +587,28 @@ components:
         exists at runtime would be invisible to the generated client, leaving every
 
         consumer to hand-roll the error type.'
+    ExternalIdResponse:
+      properties:
+        externalId:
+          type: string
+          title: Externalid
+        cloudFormationTemplateUrl:
+          type: string
+          title: Cloudformationtemplateurl
+      type: object
+      required:
+      - externalId
+      - cloudFormationTemplateUrl
+      title: ExternalIdResponse
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
     HealthResponse:
       properties:
         status:
@@ -239,6 +636,52 @@ components:
       - checks
       - correlationId
       title: HealthResponse
+    ScanSummary:
+      properties:
+        status:
+          type: string
+          title: Status
+        startedAt:
+          type: string
+          format: date-time
+          title: Startedat
+        finishedAt:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Finishedat
+        resourceCount:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Resourcecount
+      type: object
+      required:
+      - status
+      - startedAt
+      title: ScanSummary
+    ValidationError:
+      properties:
+        loc:
+          items:
+            anyOf:
+            - type: string
+            - type: integer
+          type: array
+          title: Location
+        msg:
+          type: string
+          title: Message
+        type:
+          type: string
+          title: Error Type
+      type: object
+      required:
+      - loc
+      - msg
+      - type
+      title: ValidationError
   securitySchemes:
     cognitoJwt:
       type: http
