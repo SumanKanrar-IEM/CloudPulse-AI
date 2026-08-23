@@ -23,6 +23,12 @@
 - Q: Can an operator bring a deactivated account back into active scanning, and if so, how? → A:
   Yes, via a direct reactivate action — no re-registration needed. Without this, FR-009's
   duplicate-registration refusal and FR-009a's deactivation would have left no path back in.
+- Q: Which CloudPulse role(s) should be allowed to register, deactivate, and reactivate an
+  account — versus only trigger an on-demand scan or view the accounts list? → A: Matches spec
+  1's FR-033 exactly: admin manages accounts (register/deactivate/reactivate/edit regions);
+  operator runs scans (trigger on-demand); all three roles (admin, operator, viewer) can view the
+  accounts list read-only. Spec 1's roles are non-hierarchical — admin does not automatically
+  inherit operator's scan-trigger right, since FR-033 grants it to operator specifically.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -34,12 +40,15 @@
 
 ### User Story 1 - Connect an account without ever handling a credential (Priority: P1)
 
-An operator wants CloudPulse AI to see into an AWS account — the one the platform already
+An admin wants CloudPulse AI to see into an AWS account — the one the platform already
 runs in, or a separate one entirely. They register the account by pointing the platform at a
 role, never an access key. For a separate account, they first deploy a small, platform-provided
 template that creates a scanner role trusting only CloudPulse AI's own identity and a
 platform-issued secret value; for the platform's own account, no separate deployment is needed.
-Registration itself proves the role actually works before it is accepted.
+Registration itself proves the role actually works before it is accepted. Registering an account
+is an admin action (Clarifications session 2026-08-23) — it is how CloudPulse AI's own governance
+boundary grows, which is why it sits with the same role spec 1's FR-033 already trusts to manage
+accounts, rules, and service-delivery areas.
 
 **Why this priority**: Nothing else in this spec — or in specs 3, 4, and 5, all of which depend on
 inventory existing — can happen until at least one account is connected. It is also the
@@ -53,16 +62,16 @@ they are stored.
 
 **Acceptance Scenarios**:
 
-1. **Given** an operator with the platform's own AWS account, **When** they register it in
+1. **Given** an admin with the platform's own AWS account, **When** they register it in
    same-account mode, **Then** the platform verifies read access using its own execution identity
    and marks the account verified, with no separate role or template involved.
-2. **Given** an operator with a separate AWS account, **When** they deploy the platform-provided
+2. **Given** an admin with a separate AWS account, **When** they deploy the platform-provided
    template into that account and register it in cross-account mode with the resulting role,
    **Then** the platform verifies it can assume the role and marks the account verified.
 3. **Given** a cross-account role whose trust policy does not require the platform-issued secret
    value, **When** registration is attempted, **Then** it is refused before the account is stored,
    with a message identifying the missing condition.
-4. **Given** an operator who supplies an access key pair instead of a role reference, **When** they
+4. **Given** an admin who supplies an access key pair instead of a role reference, **When** they
    attempt registration, **Then** the platform refuses it — access keys are not an accepted input
    at all, not merely an unverified one.
 5. **Given** a role reference that does not exist or cannot be assumed, **When** registration is
@@ -71,16 +80,23 @@ they are stored.
 6. **Given** a verified account, **When** the role behind it is later deleted or its trust policy
    is changed outside the platform, **Then** the next scan attempt fails verification and the
    account's status reflects that failure rather than silently reporting zero resources.
+7. **Given** a signed-in operator or viewer, **When** they attempt to register, deactivate, or
+   reactivate an account, **Then** the action is refused — those are admin-only actions
+   (Clarifications session 2026-08-23; spec 1 FR-033).
 
 ---
 
 ### User Story 2 - See and manage every connected account in one place (Priority: P1)
 
-An operator manages the fleet of connected accounts from a single screen: which accounts exist,
+An admin manages the fleet of connected accounts from a single screen: which accounts exist,
 whether each is currently verified, what regions each scans, and when each last scanned
 successfully. Adding an account, deactivating one that is no longer wanted and reactivating it
 later, and seeing why one has stopped working, all happen here — never by going into the AWS
-console except to deploy the cross-account template itself.
+console except to deploy the cross-account template itself. Any signed-in operator or viewer can
+also open this same screen to see the fleet, since it is a read surface before any
+account-management action is attempted (Clarifications session 2026-08-23) — only an operator can
+additionally trigger an on-demand scan from it (spec 1 FR-033 grants that specifically to the
+operator role, not admin).
 
 **Why this priority**: Registration alone is not manageable at scale without visibility into it.
 This is also the only P1 surface this spec's frontend work delivers, so it is priority alongside
@@ -92,21 +108,25 @@ querying the API or the database directly.
 
 **Acceptance Scenarios**:
 
-1. **Given** one or more registered accounts, **When** an operator opens the accounts view,
-   **Then** each account's mode, connection identity, region list, verification status, and most
-   recent scan outcome are all visible.
-2. **Given** the accounts view, **When** an operator adds a new account, **Then** the same
+1. **Given** one or more registered accounts, **When** an admin, operator, or viewer opens the
+   accounts view, **Then** each account's mode, connection identity, region list, verification
+   status, and most recent scan outcome are all visible to all three roles.
+2. **Given** the accounts view, **When** an admin adds a new account, **Then** the same
    registration and verification flow from User Story 1 runs without leaving this screen (aside
    from deploying a cross-account template, which happens in the target AWS account).
-3. **Given** an account whose verification has failed, **When** an operator views it, **Then** the
+3. **Given** an account whose verification has failed, **When** an admin views it, **Then** the
    failure reason is shown in language that tells them what to fix, not just that something broke.
-4. **Given** an account's region list, **When** an operator edits it, **Then** the change takes
+4. **Given** an account's region list, **When** an admin edits it, **Then** the change takes
    effect from the next scan onward without re-registering the account.
-5. **Given** a connected account an operator no longer wants scanned, **When** they deactivate it,
+5. **Given** a connected account an admin no longer wants scanned, **When** they deactivate it,
    **Then** it stops appearing in future scan runs while its historical resources, scans, and
    findings remain visible and browsable exactly as before.
-6. **Given** a deactivated account, **When** an operator reactivates it, **Then** it resumes its
+6. **Given** a deactivated account, **When** an admin reactivates it, **Then** it resumes its
    normal scan schedule from the next cycle without needing to be re-registered.
+7. **Given** the accounts view, **When** an operator triggers an on-demand scan of a connected
+   account, **Then** it starts, but the same operator attempting to register, deactivate, or
+   reactivate an account from this view is refused — scan-triggering and account-management are
+   granted to different roles and neither implies the other (Clarifications session 2026-08-23).
 
 ---
 
@@ -151,8 +171,8 @@ anticipated, tagged resource.
 
 ### User Story 4 - Keep inventory current without anyone asking (Priority: P1)
 
-Every connected account is scanned on a regular schedule with no operator action, and an operator
-can also trigger an immediate scan when they need current data right now. A resource that
+Every connected account is scanned on a regular schedule with no manual intervention, and an
+operator can also trigger an immediate scan when they need current data right now. A resource that
 disappears from AWS is reflected as gone in inventory on the very next scan — not left behind as
 a stale, misleading record.
 
@@ -166,7 +186,7 @@ and confirm the resource is marked gone in inventory without any manual interven
 **Acceptance Scenarios**:
 
 1. **Given** a connected, verified account, **When** its scheduled scan time arrives, **Then**
-   a scan runs automatically with no operator action.
+   a scan runs automatically with no manual intervention.
 2. **Given** a connected account, **When** an operator requests an immediate scan, **Then** it
    starts without waiting for the schedule and its progress is visible.
 3. **Given** a resource present in a prior scan, **When** a new scan no longer finds it,
@@ -233,11 +253,11 @@ and confirm the resource is marked gone in inventory without any manual interven
   Principle III).
 - **FR-003a**: The external-id value MUST be generated by the platform, unique per account, and of
   sufficient entropy that it cannot be practically guessed. The platform MUST NOT accept an
-  operator-supplied external-id (Clarifications session 2026-08-23) — the whole point of the value
-  is to be something only the platform knows in advance, and an operator-chosen value could be
+  admin-supplied external-id (Clarifications session 2026-08-23) — the whole point of the value
+  is to be something only the platform knows in advance, and an admin-chosen value could be
   weak, reused across accounts, or guessed.
 - **FR-004**: The platform MUST provide a ready-to-deploy template that creates a correctly
-  scoped, read-only cross-account role, so an operator's only manual AWS-console step for
+  scoped, read-only cross-account role, so an admin's only manual AWS-console step for
   cross-account onboarding is deploying that template.
 - **FR-005**: Every permission the platform holds against a scanned account MUST be read-only.
   No functional requirement in this spec authorizes writing to, modifying, or deleting anything
@@ -255,18 +275,18 @@ and confirm the resource is marked gone in inventory without any manual interven
   account to be re-registered.
 - **FR-009**: The platform MUST refuse to register the same underlying AWS account twice,
   regardless of which connection mode is used for either attempt (Edge Cases).
-- **FR-009a**: An operator MUST be able to deactivate a connected account. Deactivation MUST stop
+- **FR-009a**: An admin MUST be able to deactivate a connected account. Deactivation MUST stop
   future scheduled and on-demand scans of that account, but MUST NOT delete its historical
   resource, scan, or finding data — that data remains read-only and visible (Clarifications
   session 2026-08-23).
 - **FR-009b**: A scan already in progress when an account is deactivated MUST be allowed to
   complete normally; deactivation prevents the *next* scan from starting, not the current one
   from finishing.
-- **FR-009c**: An operator MUST be able to reactivate a deactivated account directly, without
+- **FR-009c**: An admin MUST be able to reactivate a deactivated account directly, without
   re-registering it, resuming its normal scan schedule from the next cycle onward (Clarifications
   session 2026-08-23). FR-009's duplicate-registration refusal governs *registering a new
   account record*; it does not apply to reactivating an existing one, and reactivation MUST NOT
-  require a role reference or region list to be re-supplied unless the operator chooses to change
+  require a role reference or region list to be re-supplied unless the admin chooses to change
   them.
 
 #### Accounts admin surface (S10) [P1]
@@ -274,10 +294,18 @@ and confirm the resource is marked gone in inventory without any manual interven
 - **FR-010**: The platform MUST expose a view listing every registered account together with its
   connection mode, region list, current verification status, active/deactivated status, and most
   recent scan outcome.
-- **FR-011**: An operator MUST be able to register a new account, trigger an on-demand scan of an
-  existing one, and deactivate or reactivate an existing one, from this view without leaving it.
+- **FR-010a**: Viewing this view MUST be permitted for all three CloudPulse roles — admin,
+  operator, and viewer. It is a read surface; only the state-changing actions within it are
+  role-restricted (FR-011a, FR-026a) (Clarifications session 2026-08-23).
+- **FR-011**: An admin MUST be able to register a new account, and deactivate or reactivate an
+  existing one, from this view without leaving it.
+- **FR-011a**: Registering, deactivating, and reactivating an account MUST be restricted to the
+  admin role. The operator and viewer roles MUST be refused these actions (Clarifications session
+  2026-08-23; spec 1 FR-033, FR-033a). This spec's roles are non-hierarchical: admin's
+  account-management grant does not include operator's scan-triggering grant (FR-026a) or vice
+  versa.
 - **FR-012**: When an account's verification has failed, this view MUST show the reason in terms
-  an operator can act on (Acceptance Scenario US2.3) — not only a generic failure indicator.
+  an admin can act on (Acceptance Scenario US2.3) — not only a generic failure indicator.
 
 #### Normalized resource model and connector contract (S11) [P1]
 
@@ -337,8 +365,12 @@ and confirm the resource is marked gone in inventory without any manual interven
   scanning many accounts concurrently cannot overwhelm either the platform or the cloud
   provider's own request limits.
 - **FR-026**: Every connected, verified account MUST be scanned automatically on a recurring daily
-  schedule with no operator action, and MUST also be scannable on demand at an operator's request
+  schedule with no manual intervention, and MUST also be scannable on demand at an operator's request
   (Acceptance Scenarios US4.1, US4.2).
+- **FR-026a**: Triggering an on-demand scan MUST be permitted for the operator role. The admin
+  role's account-management grant (FR-011a) does not itself include this — spec 1's FR-033 grants
+  scan-triggering to operator specifically, and CloudPulse's roles are non-hierarchical. The
+  viewer role MUST be refused (Clarifications session 2026-08-23).
 - **FR-027**: Two scans of the same account MUST NOT run concurrently; two scans of different
   accounts MUST be able to run concurrently without interfering with each other (Edge Cases).
 
@@ -392,9 +424,13 @@ configuration concept coverage-as-data introduces.
 
 ### Measurable Outcomes
 
-- **SC-001**: An operator connects a fresh AWS account — same-account or cross-account — and sees
+- **SC-001**: An admin connects a fresh AWS account — same-account or cross-account — and sees
   it marked verified in under 5 minutes, not counting the time to deploy a cross-account template
   in the target account.
+- **SC-009**: Across the three-role matrix, 100% of cells produce the expected allow or refuse:
+  admin can register/deactivate/reactivate and is refused triggering an on-demand scan; operator
+  can trigger an on-demand scan and is refused register/deactivate/reactivate; viewer can view the
+  accounts list and is refused every state-changing action; all three can view.
 - **SC-002**: A scan of a connected account discovers more than 95% of that account's actual
   resources, verified by manual sampling against the AWS console, including resources carrying no
   tags at all.
@@ -421,9 +457,9 @@ configuration concept coverage-as-data introduces.
   read-only policy for same-account scanning — there is no meaningful trust boundary to cross
   when the account is already the platform's own, so the cross-account AssumeRole+ExternalId
   mechanism (FR-002, FR-003) is reserved for genuinely separate accounts.
-- **The cross-account template is a standard AWS-native deployment artifact** an operator applies
+- **The cross-account template is a standard AWS-native deployment artifact** an admin applies
   in the target account through their own AWS access — this spec provides and verifies against
-  it, but does not extend to giving the platform any access to deploy it on the operator's
+  it, but does not extend to giving the platform any access to deploy it on the admin's
   behalf, which would itself require credentials to the target account before that account is
   ever connected.
 - **Deactivation is a status change, not deletion, and full deregistration remains out of scope.**
