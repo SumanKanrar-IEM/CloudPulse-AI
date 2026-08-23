@@ -20,6 +20,9 @@
   operator supply their own? → A: Platform-generated, unique per account, high-entropy, shown to
   the operator to paste into the cross-account template. An operator-chosen value could be weak,
   reused, or guessed, undermining the exact protection FR-003 depends on.
+- Q: Can an operator bring a deactivated account back into active scanning, and if so, how? → A:
+  Yes, via a direct reactivate action — no re-registration needed. Without this, FR-009's
+  duplicate-registration refusal and FR-009a's deactivation would have left no path back in.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -75,9 +78,9 @@ they are stored.
 
 An operator manages the fleet of connected accounts from a single screen: which accounts exist,
 whether each is currently verified, what regions each scans, and when each last scanned
-successfully. Adding an account, deactivating one that is no longer wanted, and seeing why one
-has stopped working, all happen here — never by going into the AWS console except to deploy the
-cross-account template itself.
+successfully. Adding an account, deactivating one that is no longer wanted and reactivating it
+later, and seeing why one has stopped working, all happen here — never by going into the AWS
+console except to deploy the cross-account template itself.
 
 **Why this priority**: Registration alone is not manageable at scale without visibility into it.
 This is also the only P1 surface this spec's frontend work delivers, so it is priority alongside
@@ -102,6 +105,8 @@ querying the API or the database directly.
 5. **Given** a connected account an operator no longer wants scanned, **When** they deactivate it,
    **Then** it stops appearing in future scan runs while its historical resources, scans, and
    findings remain visible and browsable exactly as before.
+6. **Given** a deactivated account, **When** an operator reactivates it, **Then** it resumes its
+   normal scan schedule from the next cycle without needing to be re-registered.
 
 ---
 
@@ -204,6 +209,10 @@ and confirm the resource is marked gone in inventory without any manual interven
 - **A very large account** (tens of thousands of resources): registration and the first scan's
   progress must remain visible and the scan must not appear "stuck" with no feedback, even if it
   legitimately takes longer than a small account's scan.
+- **A reactivated account whose role was deleted or changed while it was deactivated**: reactivation
+  does not itself re-verify the role — the same scan-failure handling that covers a role going bad
+  on an active account (US1 scenario 6) applies identically to a reactivated one on its next scan
+  attempt, rather than needing a separate reactivation-time verification path.
 
 ## Requirements *(mandatory)*
 
@@ -253,6 +262,12 @@ and confirm the resource is marked gone in inventory without any manual interven
 - **FR-009b**: A scan already in progress when an account is deactivated MUST be allowed to
   complete normally; deactivation prevents the *next* scan from starting, not the current one
   from finishing.
+- **FR-009c**: An operator MUST be able to reactivate a deactivated account directly, without
+  re-registering it, resuming its normal scan schedule from the next cycle onward (Clarifications
+  session 2026-08-23). FR-009's duplicate-registration refusal governs *registering a new
+  account record*; it does not apply to reactivating an existing one, and reactivation MUST NOT
+  require a role reference or region list to be re-supplied unless the operator chooses to change
+  them.
 
 #### Accounts admin surface (S10) [P1]
 
@@ -260,7 +275,7 @@ and confirm the resource is marked gone in inventory without any manual interven
   connection mode, region list, current verification status, active/deactivated status, and most
   recent scan outcome.
 - **FR-011**: An operator MUST be able to register a new account, trigger an on-demand scan of an
-  existing one, and deactivate an existing one, from this view without leaving it.
+  existing one, and deactivate or reactivate an existing one, from this view without leaving it.
 - **FR-012**: When an account's verification has failed, this view MUST show the reason in terms
   an operator can act on (Acceptance Scenario US2.3) — not only a generic failure indicator.
 
@@ -396,7 +411,8 @@ configuration concept coverage-as-data introduces.
   non-interleaved results.
 - **SC-008**: Deactivating an account stops it being included in the next scheduled or on-demand
   scan cycle, while every resource, scan, and finding it already produced remains fully browsable
-  with no loss of data.
+  with no loss of data. Reactivating it resumes scanning from the next cycle with no
+  re-registration step.
 
 ## Assumptions
 
