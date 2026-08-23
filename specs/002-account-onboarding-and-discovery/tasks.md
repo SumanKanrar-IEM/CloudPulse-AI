@@ -179,7 +179,7 @@ resources are spared from diffing.
 
 ### Implementation for User Story 4
 
-- [ ] T042 [US4] Write `infra/modules/scan/main.tf` — Step Functions Standard state machine with a Map state fanning out per account × region × service group (research.md R-203). The ASL definition lives in its own `infra/modules/scan/scan_workflow.asl.json`, referenced via `file("./scan_workflow.asl.json")`, never inlined as a heredoc — that separation is what makes T042a's validation possible without parsing HCL — S15, FR-023
+- [ ] T042 [US4] Write `infra/modules/scan/main.tf` — Step Functions Standard state machine with a Map state fanning out per account × region × service group (research.md R-211). The ASL definition lives in its own `infra/modules/scan/scan_workflow.asl.json`, referenced via `file("./scan_workflow.asl.json")`, never inlined as a heredoc — that separation is what makes T042a's validation possible without parsing HCL — S15, FR-023
 - [ ] T042a [US4] Write `ops/scripts/check_stepfunctions_asl.py` and wire it into `ci.yml`'s `terraform-validate` job, alongside `check_terraform_ascii.py` — an offline structural check (StartAt/States/Next references resolve, no dead-end states) closing the same class of validate/plan blind spot terraform-ascii closes for a different resource type, found live during `/speckit-analyze` (finding F6) — S15, FR-023, playbook §0.5.2
 - [ ] T043 [US4] Write `infra/modules/scan/scheduler.tf` — EventBridge Scheduler daily rule invoking the state machine — S15, FR-026
 - [ ] T044 [US4] Write `backend/handlers/scan_worker_handler.py` — the Lambda entrypoint Step Functions invokes per unit of work, assuming the target role once per unit (research.md R-206) — S15, FR-023

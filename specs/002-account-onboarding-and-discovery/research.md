@@ -190,3 +190,30 @@ integration testing for the state machine itself needs to happen via a real (tor
 `dev` deploy instead, with the Lambda-level logic covered by moto-based unit tests as the primary
 gate. Either answer is workable; this only needs resolving before that specific test file is
 written, not before implementation starts broadly.
+
+## R-211 — Step Functions Map fan-out: one unit of work per account × region × service group
+
+**Decision**: The scan state machine's `Map` state iterates over units of work sized as
+account × region × service group (e.g. one primary account, one region, "compute" as one group)
+rather than one unit per account, or one per individual resource. Each unit is an independent
+Map iteration with its own success/failure/retry, feeding the aggregate `scan.status` (R-204)
+and, at the ASL level, is the `infra/modules/scan/scan_workflow.asl.json` file T042/T042a depend
+on existing separately from the surrounding Terraform.
+
+**Rationale**: FR-023 requires independent units of work that can each succeed/fail/retry without
+forcing every other unit to re-run (data-model.md's "Unit of work" section — Step Functions'
+own Map-state execution history is that record; no separate DB table is added). Per-account
+granularity is too coarse: a single failing region or service group would fail the account's
+entire scan, exactly what FR-023 exists to prevent. Per-resource granularity is too fine: it
+would multiply state-transition count (and therefore R-207's Standard-workflow per-transition
+cost) far past what tens-of-scans/day demo scale justifies, for retry precision no requirement
+asks for. Account × region × service group is the smallest grain that matches FR-031/FR-032's
+actual failure unit (R-204: a region or service group failing independently of others in the
+same account) without over-splitting.
+
+**Alternatives considered**: One unit per account — rejected, fails FR-023's independent-retry
+requirement as soon as more than one region/service group exists per account. One unit per
+individual resource — rejected on both R-207's cost grounds and because no requirement needs
+retry precision finer than "the region/service group that failed," making the extra state
+transitions pure overhead. Both alternatives were rejected on requirement grounds, not
+convenience, matching how R-201 and R-202 justify their own scope boundaries.

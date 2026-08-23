@@ -92,8 +92,9 @@ does.
 FR-023 requires independent units of work (one per account × region × service group) each able to
 succeed/fail/retry without requiring every other unit to re-run. This spec does **not** add a
 database table for units of work — Step Functions' own Map-state execution history already is that
-record for the duration of a running scan (research.md R-203's reasoning for choosing Standard
-over Express: its per-state history is exactly this). Only the *aggregate* outcome (how many units
+record for the duration of a running scan (research.md R-211 sizes the unit of work; R-207's
+reasoning for choosing Standard over Express is why that history exists to lean on: its per-state
+history is exactly this). Only the *aggregate* outcome (how many units
 succeeded/failed, feeding `scan.status`) is persisted, via `scan.resource_count` and `status` —
 adding a second, redundant per-unit table would duplicate what Step Functions Standard already
 retains and exposes via `DescribeExecution`, with no FR requiring that duplication.
