@@ -65,12 +65,12 @@ story below depends on at least one of these.
 **⚠️ CRITICAL**: T005's migration and T006's protocol are load-bearing for every phase after this
 one. Land them together in one PR.
 
-- [ ] T005 Write migration `0009_resource_lifecycle_and_detail` adding `state`, `deleted_at`, `detail` to `resource` in `backend/migrations/versions/` — data-model.md, FR-013, FR-030
-- [ ] T006 [P] Write `backend/connectors/base.py` — the `Connector` protocol and `NormalizedResource` shape (data-model.md's FR-014 section) — FR-014, Principle V
-- [ ] T007 [P] Write `backend/app/scan/coverage.py` loading a coverage-definition file at scan-orchestration time (research.md R-203) — FR-021, FR-022
-- [ ] T008 [P] Write `backend/app/scan/coverage_definitions.json` seeded with the six P1 governance-critical types (FR-019) mapped to their enrichment function names — FR-019, FR-021
-- [ ] T009 Extend `backend/app/models/core.py` for `resource`'s three new columns; confirm the existing `cloud_account`/`scan` SQLAlchemy models already expose `disabled`/`partial` (data-model.md — no model change needed there, just confirm) — data-model.md
-- [ ] T010 [P] Write `backend/tests/unit/test_connector_protocol.py` asserting the protocol shape, and extend `ops/scripts/check_connector_boundary.py`'s existing scope check (no change expected — confirms `connectors/aws.py` doesn't yet violate the boundary with an empty stub) — FR-014, connector-boundary CI
+- [X] T005 Write migration `0009_resource_lifecycle_and_detail` adding `state`, `deleted_at`, `detail` to `resource` in `backend/migrations/versions/` — data-model.md, FR-013, FR-030
+- [X] T006 [P] Write `backend/connectors/base.py` — the `Connector` protocol and `NormalizedResource` shape (data-model.md's FR-014 section) — FR-014, Principle V
+- [X] T007 [P] Write `backend/app/scan/coverage.py` loading a coverage-definition file at scan-orchestration time (research.md R-203) — FR-021, FR-022
+- [X] T008 [P] Write `backend/app/scan/coverage_definitions.json` seeded with the six P1 governance-critical types (FR-019) mapped to their enrichment function names — FR-019, FR-021
+- [X] T009 Extend `backend/app/models/core.py` for `resource`'s three new columns; confirm the existing `cloud_account`/`scan` SQLAlchemy models already expose `disabled`/`partial` (data-model.md — no model change needed there, just confirm) — data-model.md
+- [X] T010 [P] Write `backend/tests/unit/test_connector_protocol.py` asserting the protocol shape, and extend `ops/scripts/check_connector_boundary.py`'s existing scope check (no change expected — confirms `connectors/aws.py` doesn't yet violate the boundary with an empty stub) — FR-014, connector-boundary CI
 
 **Checkpoint**: Schema, connector interface, and coverage-as-data are settled. User story work can
 begin.
@@ -227,7 +227,7 @@ this phase is dropped entirely, Phases 1–7 still satisfy every P1 success crit
 
 ## Phase 9: Polish & Cross-Cutting Concerns
 
-- [ ] T059 [P] Update `ops/erd/schema.mmd` to reflect `resource`'s three new columns — FR-028 (spec 1), Principle I
+- [X] T059 [P] Update `ops/erd/schema.mmd` to reflect `resource`'s three new columns — FR-028 (spec 1), Principle I. Done in T005's PR, not deferred to Phase 9: the `erd-current` CI gate (added mid-spec-1, playbook §0.5) requires a schema-migration PR to touch `ops/erd/` in the same PR, not a later one.
 - [ ] T060 [P] Update `backend/README.md` and `infra/README.md` to describe the new `app/scan/`, `connectors/`, and `infra/modules/scan/` ownership — Principle I
 - [ ] T061 Re-run `/speckit-analyze` on spec 002 (playbook §8's second-run note) and resolve any finding before spec 003 begins — Governance
 

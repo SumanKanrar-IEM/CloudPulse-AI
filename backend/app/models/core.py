@@ -233,6 +233,18 @@ class Resource(UUIDPrimaryKey, Timestamps, TenantScoped, Base):
     last_seen_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=text("now()")
     )
+    # migration 0009 (spec 002). Free-text, service-reported (e.g. `running`,
+    # `available`) rather than a cross-service enum -- AWS resource states genuinely
+    # don't share a common vocabulary (data-model.md).
+    state: Mapped[str | None] = mapped_column(String(100))
+    # migration 0009. NULL = currently present; non-null = the timestamp of the scan
+    # that first failed to find it. A soft marker, never a row deletion (FR-030).
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # migration 0009. Service-specific enrichment payload (FR-019), deliberately
+    # schemaless at the SQL level -- coverage.py gives it structure at the app layer.
+    detail: Mapped[dict[str, Any]] = mapped_column(
+        JSONB, nullable=False, server_default=text("'{}'::jsonb")
+    )
 
     __table_args__ = (
         UniqueConstraint("tenant_id", "arn", name="uq_resource_tenant_arn"),
