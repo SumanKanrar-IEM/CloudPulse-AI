@@ -63,8 +63,8 @@ def load_coverage_definitions(
 def resolve_enrichment_function(
     resource_type: str,
     definitions: dict[str, CoverageDefinition],
-    registry: dict[str, Callable[[Any], dict[str, Any]]],
-) -> Callable[[Any], dict[str, Any]] | None:
+    registry: dict[str, Callable[..., dict[str, Any]]],
+) -> Callable[..., dict[str, Any]] | None:
     """Look up the enrichment callable for one resource type, or None if uncovered.
 
     The data-driven seam FR-021 requires: adding a resource type to

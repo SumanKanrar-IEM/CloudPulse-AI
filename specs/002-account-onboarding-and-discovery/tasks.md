@@ -166,18 +166,20 @@ deliberately untagged resource, run discovery and confirm both appear with full 
 
 ### Tests for User Story 3
 
-- [ ] T029 [P] [US3] Write `backend/tests/unit/test_discovery_tagging_api.py` — moto-mocked Resource Groups Tagging API sweep, untagged resources included — S12, FR-016, FR-017
-- [ ] T030 [P] [US3] Write `backend/tests/unit/test_discovery_cloud_control.py` — moto-mocked Cloud Control `ListResources`; resolve research.md R-209's VERIFY marker here (moto's fidelity) before writing further discovery tests, falling back to a hand-built fixture if moto's coverage is thin — S12, FR-016
-- [ ] T031 [P] [US3] Write `backend/tests/unit/test_normalized_resource_shape.py` — every discovered resource conforms to the FR-013 shape regardless of source surface — S11, FR-013
-- [ ] T032 [P] [US3] Write `backend/tests/unit/test_enrichment_p1_types.py` — all six P1 types (EC2, EBS, EIP, S3, RDS, Lambda) populate `resource.detail` with state/size/attachment/runtime fields — S13, S14, FR-019
+- [X] T029 [P] [US3] Write `backend/tests/unit/test_discovery_tagging_api.py` — moto-mocked Resource Groups Tagging API sweep, untagged resources included — S12, FR-016, FR-017
+- [X] T030 [P] [US3] Write `backend/tests/unit/test_discovery_cloud_control.py` — moto-mocked Cloud Control `ListResources`; resolve research.md R-209's VERIFY marker here (moto's fidelity) before writing further discovery tests, falling back to a hand-built fixture if moto's coverage is thin — S12, FR-016
+- [X] T031 [P] [US3] Write `backend/tests/unit/test_normalized_resource_shape.py` — every discovered resource conforms to the FR-013 shape regardless of source surface — S11, FR-013
+- [X] T032 [P] [US3] Write `backend/tests/unit/test_enrichment_p1_types.py` — all six P1 types (EC2, EBS, EIP, S3, RDS, Lambda) populate `resource.detail` with state/size/attachment/runtime fields — S13, S14, FR-019
 
 ### Implementation for User Story 3
 
-- [ ] T033 [US3] Write `backend/app/scan/discovery.py` — combined Tagging API + Cloud Control sweep, deduplicated (research.md R-201) — S12, FR-016, FR-017
-- [ ] T034 [US3] Implement `discover()` on `backend/connectors/aws.py` against the Phase 2 protocol, using each resource's ARN as its stable unique identifier — S11, FR-014, FR-015
-- [ ] T035 [US3] Write `backend/app/scan/enrichment.py` — six targeted boto3 describe calls (research.md R-202) — S13, S14, FR-019
-- [ ] T036 [US3] Wire enrichment dispatch through `coverage.py`'s data-driven registry rather than an if/elif chain (coverage-as-data foundation) — FR-021
-- [ ] T037 [US3] Implement global-surface once-per-account deduplication (FR-018) in `discovery.py` — S12, FR-018
+- [X] T033 [US3] Write `backend/app/scan/discovery.py` — combined Tagging API + Cloud Control sweep, deduplicated (research.md R-201) — S12, FR-016, FR-017. **The actual sweep calls live in `connectors/aws.py`, not here**: `check_connector_boundary.py` (FR-054) only allows boto3/botocore imports inside `connectors/`, so `discovery.py` orchestrates (builds the `ConnectorAccount`, calls the injected `Connector`) while `AwsConnector.discover()` does the real Tagging API + Cloud Control work and the ARN-based dedup between them.
+- [X] T034 [US3] Implement `discover()` on `backend/connectors/aws.py` against the Phase 2 protocol, using each resource's ARN as its stable unique identifier — S11, FR-014, FR-015
+- [X] T035 [US3] Write `backend/app/scan/enrichment.py` — six targeted boto3 describe calls (research.md R-202) — S13, S14, FR-019. Same boundary split as T033: the six describe calls and the registry mapping function-name-strings to callables both live in `connectors/aws.py`; `enrichment.py` calls `connector.enrich(resource)` per resource.
+- [X] T036 [US3] Wire enrichment dispatch through `coverage.py`'s data-driven registry rather than an if/elif chain (coverage-as-data foundation) — FR-021. Dispatch happens inside `AwsConnector.enrich()`, which is necessarily stateful (caches the session `discover()` built) since the `Connector` protocol's `enrich(resource)` signature carries no account/session parameter of its own.
+- [X] T037 [US3] Implement global-surface once-per-account deduplication (FR-018) in `discovery.py` — S12, FR-018. Two mechanisms, not one: within-call ARN dedup (Tagging vs. Cloud Control overlap) happens in `AwsConnector.discover()`; cross-*region* dedup for genuinely global resources (e.g. S3 buckets, found again from every region scanned) is NOT attempted here — `discover()` has no visibility into other regions' results, since each region is a separate unit of work (R-211). It is instead a natural consequence of `resource`'s `UNIQUE(tenant_id, arn)` constraint at persistence time (Phase 6): a second sighting from another region updates `last_seen_at` rather than inserting a duplicate row.
+
+**R-209's VERIFY resolved empirically** (moto[all] 5.2.3, tested directly against real AWS API shapes, not assumed): Resource Groups Tagging API IS mocked by moto for tagged resources, but moto's mock **only ever returns tagged resources** — an untagged resource never appears in its response at all, the opposite of what FR-017 needs proven. Cloud Control API (`cloudcontrol` boto3 client) is **not implemented by moto at all** — every call 404s "Not yet implemented," regardless of `TypeName`. Both gaps are handled per R-209's own documented fallback: hand-built fixtures (mocking the boto3 client/paginator directly) test the parsing and dedup code actually written, while moto's real (correct) behavior for the six P1 enrichment describe calls and for tagged-resource discovery is used wherever it genuinely applies.
 
 **Checkpoint**: A scan of a real account returns a complete, normalized, partially-enriched
 inventory. SC-002's discovery-rate claim is demonstrable (measured for real in T053).
