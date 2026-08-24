@@ -13,7 +13,8 @@ environment that is not a variable, it belongs in the module.
 | `modules/identity/` | Cognito pool, three role groups, app client |
 | `modules/api/` | HTTP API, Lambda authorizer, api/migrate/pre-token/authorizer Lambdas |
 | `modules/frontend/` | S3 origin + CloudFront with OAC |
-| `modules/storage/` | raw scan snapshot bucket |
+| `modules/storage/` | raw scan snapshot bucket, 30-day-class lifecycle rule (spec 002, research.md R-207) |
+| `modules/scan/` | **spec 002** — scan-worker Lambda, Step Functions Standard state machine (`scan_workflow.asl.json`, validated by `ops/scripts/check_stepfunctions_asl.py`), EventBridge Scheduler daily trigger, cross-account onboarding CloudFormation template |
 | `modules/observability/` | **P2** — dashboard and alarms; default off |
 | `envs/{dev,prod}/` | root modules |
 
