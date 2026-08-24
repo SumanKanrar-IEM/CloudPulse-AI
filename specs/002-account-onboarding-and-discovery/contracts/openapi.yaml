@@ -233,6 +233,26 @@ paths:
         in: path
         required: true
         schema: { type: string, format: uuid }
+    get:
+      tags: [accounts]
+      operationId: listScanHistory
+      summary: Retrieve an account's scan history
+      description: |
+        FR-033 (P2). Any role may view, same as the accounts list itself (FR-010a) — read
+        access here carries no more privilege than seeing an account exists. Returns each
+        scan's trigger, timing, resource count, and outcome, most recent first.
+      responses:
+        '200':
+          description: Scan history for this account
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ScansList' }
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
     post:
       tags: [accounts]
       operationId: triggerScan
@@ -340,3 +360,11 @@ components:
             trigger:
               type: string
               enum: [scheduled, manual]
+
+    ScansList:
+      type: object
+      required: [scans]
+      properties:
+        scans:
+          type: array
+          items: { $ref: '#/components/schemas/Scan' }
