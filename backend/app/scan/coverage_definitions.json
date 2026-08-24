@@ -22,5 +22,21 @@
   "AWS::Lambda::Function": {
     "enrichment_function": "enrich_lambda_function",
     "fields": ["runtime", "memory_mb", "timeout_seconds", "last_modified", "state"]
+  },
+  "AWS::EKS::Cluster": {
+    "enrichment_function": "enrich_eks_cluster",
+    "fields": ["version", "status", "endpoint", "platform_version"]
+  },
+  "AWS::DynamoDB::Table": {
+    "enrichment_function": "enrich_dynamodb_table",
+    "fields": ["status", "item_count", "table_size_bytes", "billing_mode"]
+  },
+  "AWS::ElasticLoadBalancingV2::LoadBalancer": {
+    "enrichment_function": "enrich_elb_v2",
+    "fields": ["type", "scheme", "state", "vpc_id"]
+  },
+  "AWS::IAM::Role": {
+    "enrichment_function": "enrich_iam_role",
+    "fields": ["create_date", "max_session_duration", "attached_policy_count"]
   }
 }

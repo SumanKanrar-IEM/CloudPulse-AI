@@ -136,6 +136,16 @@ _ARN_TYPE_HINTS: dict[str, tuple[tuple[str, str], ...]] = {
     "s3": (("", "AWS::S3::Bucket"),),
     "rds": (("db:", "AWS::RDS::DBInstance"),),
     "lambda": (("function:", "AWS::Lambda::Function"),),
+    "eks": (("cluster/", "AWS::EKS::Cluster"),),
+    "dynamodb": (("table/", "AWS::DynamoDB::Table"),),
+    # "app/"/"net/" (ALB/NLB, the v2 API) must be checked before the bare
+    # "loadbalancer/" prefix they both start with, or every v2 load balancer would
+    # match the (unregistered, classic-only) generic prefix instead.
+    "elasticloadbalancing": (
+        ("loadbalancer/app/", "AWS::ElasticLoadBalancingV2::LoadBalancer"),
+        ("loadbalancer/net/", "AWS::ElasticLoadBalancingV2::LoadBalancer"),
+    ),
+    "iam": (("role/", "AWS::IAM::Role"),),
 }
 
 # Cloud Control API's own IAM actions are under the `cloudformation:` prefix (it is
@@ -363,6 +373,58 @@ def _enrich_lambda_function(session: Any, resource: NormalizedResource) -> dict[
     }
 
 
+# --- P2 extended enrichment (FR-020, T056): same seam, four more types --------
+
+
+def _enrich_eks_cluster(session: Any, resource: NormalizedResource) -> dict[str, Any]:
+    cluster_name = resource.resource_id.rsplit("/", 1)[-1]
+    eks = session.client("eks", region_name=resource.region)
+    cluster = eks.describe_cluster(name=cluster_name)["cluster"]
+    return {
+        "version": cluster.get("version"),
+        "status": cluster.get("status"),
+        "endpoint": cluster.get("endpoint"),
+        "platform_version": cluster.get("platformVersion"),
+    }
+
+
+def _enrich_dynamodb_table(session: Any, resource: NormalizedResource) -> dict[str, Any]:
+    table_name = resource.resource_id.rsplit("/", 1)[-1]
+    ddb = session.client("dynamodb", region_name=resource.region)
+    table = ddb.describe_table(TableName=table_name)["Table"]
+    return {
+        "status": table.get("TableStatus"),
+        "item_count": table.get("ItemCount"),
+        "table_size_bytes": table.get("TableSizeBytes"),
+        "billing_mode": table.get("BillingModeSummary", {}).get("BillingMode"),
+    }
+
+
+def _enrich_elb_v2(session: Any, resource: NormalizedResource) -> dict[str, Any]:
+    # Unlike the other enrichment calls, describe_load_balancers takes the full ARN
+    # directly rather than a bare name/id -- resource.resource_id already is that ARN.
+    elbv2 = session.client("elbv2", region_name=resource.region)
+    lb = elbv2.describe_load_balancers(LoadBalancerArns=[resource.resource_id])["LoadBalancers"][0]
+    return {
+        "type": lb.get("Type"),
+        "scheme": lb.get("Scheme"),
+        "state": lb.get("State", {}).get("Code"),
+        "vpc_id": lb.get("VpcId"),
+    }
+
+
+def _enrich_iam_role(session: Any, resource: NormalizedResource) -> dict[str, Any]:
+    role_name = resource.resource_id.rsplit("/", 1)[-1]
+    iam = session.client("iam")
+    role = iam.get_role(RoleName=role_name)["Role"]
+    attached = iam.list_attached_role_policies(RoleName=role_name)["AttachedPolicies"]
+    return {
+        "create_date": str(role.get("CreateDate", "")),
+        "max_session_duration": role.get("MaxSessionDuration"),
+        "attached_policy_count": len(attached),
+    }
+
+
 # Names here MUST match `enrichment_function` values in coverage_definitions.json
 # (app/scan/coverage.py's data-driven registry, FR-021) -- the seam that lets a new
 # type ship as a data change plus one new function, never an if/elif rewrite.
@@ -373,6 +435,10 @@ ENRICHMENT_FUNCTIONS: dict[str, Callable[[Any, NormalizedResource], dict[str, An
     "enrich_s3_bucket": _enrich_s3_bucket,
     "enrich_rds_instance": _enrich_rds_instance,
     "enrich_lambda_function": _enrich_lambda_function,
+    "enrich_eks_cluster": _enrich_eks_cluster,
+    "enrich_dynamodb_table": _enrich_dynamodb_table,
+    "enrich_elb_v2": _enrich_elb_v2,
+    "enrich_iam_role": _enrich_iam_role,
 }
 
 
@@ -402,8 +468,8 @@ class AwsConnector:
     def enrich(self, resource: NormalizedResource) -> NormalizedResource:
         """Look up and run the resource type's enrichment function (FR-021, R-202).
 
-        A resource type with no registered coverage (anything outside the six P1
-        types, until Phase 8's FR-020 extension) is returned unchanged -- absence of
+        A resource type with no registered coverage (anything outside the ten P1+P2
+        types this registry now covers) is returned unchanged -- absence of
         enrichment is expected behavior, not an error (FR-016 already guarantees the
         resource itself was found; enrichment depth is a separate, narrower promise).
         """
