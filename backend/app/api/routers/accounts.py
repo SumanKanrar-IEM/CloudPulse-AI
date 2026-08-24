@@ -33,6 +33,7 @@ from app.core.db import TenantSession, tenant_session
 from app.core.logging import logger
 from app.core.security import Principal, require_admin, require_role, require_viewer
 from app.models.core import CloudAccount
+from app.models.core import Scan as ScanRow
 from app.models.enums import AccountStatus, ConnectionMode, ScanTrigger
 from app.scan.orchestrator import ScanAlreadyRunningError, start_scan
 from app.scan.verification import VerificationError, verify_registration
@@ -124,6 +125,10 @@ class Scan(BaseModel):
     model_config = {"populate_by_name": True}
 
 
+class ScansList(BaseModel):
+    scans: list[Scan]
+
+
 # --- Helpers ---------------------------------------------------------------------
 
 
@@ -146,6 +151,18 @@ def _to_account_model(row: CloudAccount) -> Account:
         scan_regions=list(row.scan_regions),
         status=row.status.value,
         created_at=row.created_at,
+    )
+
+
+def _to_scan_model(row: ScanRow) -> Scan:
+    return Scan(
+        id=str(row.id),
+        account_id=str(row.cloud_account_id),
+        trigger=row.trigger.value,
+        status=row.status.value,
+        started_at=row.started_at,
+        finished_at=row.finished_at,
+        resource_count=row.resource_count,
     )
 
 
@@ -508,6 +525,28 @@ async def trigger_scan(
             status=scan.status.value,
             started_at=scan.started_at,
         )
+
+
+@router.get(
+    "/{account_id}/scans",
+    operation_id="listScanHistory",
+    summary="Retrieve an account's scan history",
+    response_model=ScansList,
+    response_model_by_alias=True,
+    responses={401: ERROR_RESPONSES[401], 403: ERROR_RESPONSES[403], 404: ERROR_RESPONSES[404]},
+)
+async def list_scan_history(account_id: uuid.UUID, principal: ViewerPrincipal) -> ScansList:
+    """FR-033. Any role may view, same as the accounts list itself (FR-010a) --
+    read access here carries no more privilege than seeing an account exists."""
+    with tenant_session(principal.tenant_id) as session:
+        _get_or_404(session, account_id)
+        stmt = (
+            session.scoped(select(ScanRow), ScanRow)
+            .where(ScanRow.cloud_account_id == account_id)
+            .order_by(ScanRow.started_at.desc())
+        )
+        rows = session.raw.execute(stmt).scalars().all()
+        return ScansList(scans=[_to_scan_model(r) for r in rows])
 
 
 __all__ = ["router"]

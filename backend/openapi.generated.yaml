@@ -409,6 +409,57 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+    get:
+      tags:
+      - accounts
+      summary: Retrieve an account's scan history
+      description: 'FR-033. Any role may view, same as the accounts list itself (FR-010a)
+        --
+
+        read access here carries no more privilege than seeing an account exists.'
+      operationId: listScanHistory
+      parameters:
+      - name: account_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Account Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScansList'
+        '401':
+          description: No valid identity presented.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Valid identity, but the caller's role does not permit the action
+            -- or the caller maps to zero or multiple directory groups and therefore
+            has no resolvable role (FR-032a, FR-034).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '404':
+          description: Target record does not exist, or the caller is not entitled
+            to know that it does.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
 components:
   schemas:
     Account:
@@ -755,6 +806,17 @@ components:
       - status
       - startedAt
       title: ScanSummary
+    ScansList:
+      properties:
+        scans:
+          items:
+            $ref: '#/components/schemas/Scan'
+          type: array
+          title: Scans
+      type: object
+      required:
+      - scans
+      title: ScansList
     ValidationError:
       properties:
         loc:
@@ -785,3 +847,4 @@ components:
         then re-validated for role cardinality by the application (research.md R-004).
 security:
 - cognitoJwt: []
+
