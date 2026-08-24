@@ -1,0 +1,601 @@
+openapi: 3.1.0
+
+# CloudPulse AI — tag compliance and ownership contract additions (spec 003).
+#
+# THIS FILE IS THE DESIGN-TIME REFERENCE for what this spec adds. The binding artifact at
+# runtime remains the single document generated from the FastAPI application (FR-048) — there
+# is still only one platform contract, no version prefix, additive-only (spec 1 FR-048a/b/c).
+# This file does not restate specs 1–2's existing paths; it shows only the new paths and schemas
+# spec 3 contributes, to be merged into the one generated document, never a second document.
+#
+# Every schema and response shape not defined here (Role, ErrorEnvelope, the standard error
+# responses) is spec 1's, unchanged, reused by reference. This spec deliberately does NOT add a
+# general-purpose resource-listing endpoint — that is spec 4's "full inventory" dashboard concern
+# (playbook, spec 4's own scope). Findings and the "No SDA" bucket embed a minimal resource
+# identity summary inline instead of depending on a resource browser this spec doesn't own.
+
+info:
+  title: CloudPulse AI API — tag compliance and ownership additions
+  version: 0.1.0
+
+tags:
+  - name: rules
+    description: Tagging rules, expressed as admin-editable data. Owned by spec 003.
+  - name: sdas
+    description: Service Delivery Area registry and matching. Owned by spec 003.
+  - name: findings
+    description: Rule violations opened and auto-closed by validation. Owned by spec 003.
+  - name: compliance
+    description: Compliance scoring per account and per SDA. Owned by spec 003.
+  - name: ownership
+    description: Resource ownership attribution and identity resolution. Owned by spec 003.
+
+security:
+  - cognitoJwt: []
+
+paths:
+  /rules:
+    get:
+      tags: [rules]
+      operationId: listRules
+      summary: List every tagging rule
+      description: |
+        FR-001–FR-004. Any role may view — read access to governance configuration is open the
+        same way spec 002's accounts view is (FR-030).
+      responses:
+        '200':
+          description: Every rule's current (latest enabled) version
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RulesList' }
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      tags: [rules]
+      operationId: createRule
+      summary: Create a new tagging rule
+      description: |
+        FR-001. Admin only (FR-029). The four mandatory tags plus environment already exist as
+        seed data (FR-003) — this creates an additional rule, not the seeds.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RuleCreate' }
+      responses:
+        '201':
+          description: Rule created at version 1
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Rule' }
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+
+  /rules/{ruleKey}:
+    parameters:
+      - name: ruleKey
+        in: path
+        required: true
+        schema: { type: string }
+    patch:
+      tags: [rules]
+      operationId: updateRule
+      summary: Edit a tagging rule
+      description: |
+        FR-005/FR-006. Admin only. Creates a new version under the same key (research.md R-301)
+        rather than mutating the existing version in place — the edit takes effect starting with
+        the next scan that begins after this call, never a scan already in progress
+        (Clarifications session 2026-08-25).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RuleUpdate' }
+      responses:
+        '200':
+          description: The new version, now current
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Rule' }
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+
+  /sdas:
+    get:
+      tags: [sdas]
+      operationId: listSdas
+      summary: List every registered SDA
+      description: FR-007. Any role may view (FR-030).
+      responses:
+        '200':
+          description: Every registered SDA
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SdasList' }
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      tags: [sdas]
+      operationId: registerSda
+      summary: Register a new SDA
+      description: |
+        FR-007. Admin only (FR-029). Refused with 409 if the tag-value mapping overlaps an
+        existing SDA's (FR-010a, research.md R-305) — the specific case a naive
+        identical-mapping-only check would miss is a mapping that is a strict superset of an
+        existing one's keys.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SdaCreate' }
+      responses:
+        '201':
+          description: SDA registered
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Sda' }
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          description: This mapping overlaps an already-registered SDA's mapping (FR-010a).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+
+  /sdas/{sdaId}:
+    parameters:
+      - name: sdaId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    patch:
+      tags: [sdas]
+      operationId: updateSda
+      summary: Edit an SDA's tag-value mapping
+      description: |
+        FR-010. Admin only. Reclassifies previously-unmatched or differently-matched resources
+        starting with the next scan (Acceptance Scenario US2.3) — never mid-scan. Same 409
+        overlap check as registration.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SdaUpdate' }
+      responses:
+        '200':
+          description: Updated SDA
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Sda' }
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: This mapping overlaps a different, already-registered SDA's mapping.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+
+  /sdas/unmatched-resources:
+    get:
+      tags: [sdas]
+      operationId: listUnmatchedResources
+      summary: List resources in the "No SDA" bucket
+      description: |
+        FR-009/FR-012. Any role may view (FR-030) — this is the P1 API the P2 triage screen
+        (FR-012) consumes; the endpoint itself is P1 since FR-009's visibility requirement is P1.
+      parameters:
+        - name: accountId
+          in: query
+          required: false
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Every top-level resource with no matching SDA
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UnmatchedResourcesList' }
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /findings:
+    get:
+      tags: [findings]
+      operationId: listFindings
+      summary: List findings
+      description: FR-014. Any role may view (FR-030).
+      parameters:
+        - name: accountId
+          in: query
+          required: false
+          schema: { type: string, format: uuid }
+        - name: resourceId
+          in: query
+          required: false
+          schema: { type: string, format: uuid }
+        - name: status
+          in: query
+          required: false
+          schema: { type: string, enum: [open, resolved] }
+      responses:
+        '200':
+          description: Matching findings, most recently opened first
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FindingsList' }
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /accounts/{accountId}/compliance-score:
+    parameters:
+      - name: accountId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      tags: [compliance]
+      operationId: getAccountComplianceScore
+      summary: Retrieve an account's compliance score
+      description: |
+        FR-018/FR-019/FR-019a. Any role may view (FR-030). Score is the count of top-level
+        resources with zero open findings divided by the total count of top-level resources in
+        the account — well-defined (not an error) when the account has zero top-level resources.
+      responses:
+        '200':
+          description: The account's compliance score
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ComplianceScore' }
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /sdas/{sdaId}/compliance-score:
+    parameters:
+      - name: sdaId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      tags: [compliance]
+      operationId: getSdaComplianceScore
+      summary: Retrieve one SDA's compliance score
+      description: FR-018/FR-019/FR-019a, scoped to one SDA's resources only.
+      responses:
+        '200':
+          description: The SDA's compliance score
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ComplianceScore' }
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /resources/{resourceId}/owner:
+    parameters:
+      - name: resourceId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      tags: [ownership]
+      operationId: getResourceOwner
+      summary: Retrieve a resource's attributed owner
+      description: |
+        FR-020–FR-028. Any role may view (FR-030). Returns 200 with a null `owner` body field
+        (not 404) when the resource exists but is queued unattributed — a resource genuinely not
+        found still 404s.
+      responses:
+        '200':
+          description: The resource's ownership record, or a null owner if still unattributed
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ResourceOwnership' }
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /owner-identity-pattern:
+    get:
+      tags: [ownership]
+      operationId: getOwnerIdentityPattern
+      summary: Retrieve the configured owner-identity resolution pattern
+      description: FR-028. Any role may view. **[P2]**
+      responses:
+        '200':
+          description: The current pattern, or null if unset
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OwnerIdentityPattern' }
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    put:
+      tags: [ownership]
+      operationId: setOwnerIdentityPattern
+      summary: Set the owner-identity resolution pattern
+      description: FR-028. Admin only (FR-029). **[P2]**
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/OwnerIdentityPattern' }
+      responses:
+        '200':
+          description: Pattern updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OwnerIdentityPattern' }
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+
+  /owner-identity-overrides:
+    get:
+      tags: [ownership]
+      operationId: listOwnerIdentityOverrides
+      summary: List manual owner-identity overrides
+      description: FR-027. Any role may view. **[P2]**
+      responses:
+        '200':
+          description: Every override
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OwnerIdentityOverridesList' }
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    put:
+      tags: [ownership]
+      operationId: setOwnerIdentityOverride
+      summary: Create or replace a manual owner-identity override
+      description: FR-027. Admin only (FR-029). **[P2]**
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/OwnerIdentityOverride' }
+      responses:
+        '200':
+          description: Override stored
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OwnerIdentityOverride' }
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+
+components:
+  schemas:
+
+    RuleDefinition:
+      type: object
+      properties:
+        required: { type: boolean }
+        allowedValues:
+          type: array
+          items: { type: string }
+          nullable: true
+        formatPattern: { type: string, nullable: true }
+        severity:
+          type: string
+          enum: [low, medium, high, critical]
+      required: [required, severity]
+
+    Rule:
+      type: object
+      required: [id, key, version, enabled, definition]
+      properties:
+        id: { type: string, format: uuid }
+        key: { type: string }
+        version: { type: integer }
+        enabled: { type: boolean }
+        definition: { $ref: '#/components/schemas/RuleDefinition' }
+        effectiveFrom: { type: string, format: date-time }
+
+    RuleCreate:
+      type: object
+      required: [key, definition]
+      properties:
+        key: { type: string }
+        definition: { $ref: '#/components/schemas/RuleDefinition' }
+      additionalProperties: false
+
+    RuleUpdate:
+      type: object
+      required: [definition]
+      properties:
+        definition: { $ref: '#/components/schemas/RuleDefinition' }
+        enabled: { type: boolean }
+      additionalProperties: false
+
+    RulesList:
+      type: object
+      required: [rules]
+      properties:
+        rules:
+          type: array
+          items: { $ref: '#/components/schemas/Rule' }
+
+    Sda:
+      type: object
+      required: [id, name, ownerEmail, tagValues]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        ownerEmail: { type: string }
+        team: { type: string, nullable: true }
+        tagValues:
+          type: object
+          additionalProperties: { type: string }
+
+    SdaCreate:
+      type: object
+      required: [name, ownerEmail, tagValues]
+      properties:
+        name: { type: string }
+        ownerEmail: { type: string }
+        team: { type: string }
+        tagValues:
+          type: object
+          additionalProperties: { type: string }
+      additionalProperties: false
+
+    SdaUpdate:
+      type: object
+      properties:
+        ownerEmail: { type: string }
+        team: { type: string }
+        tagValues:
+          type: object
+          additionalProperties: { type: string }
+      additionalProperties: false
+
+    SdasList:
+      type: object
+      required: [sdas]
+      properties:
+        sdas:
+          type: array
+          items: { $ref: '#/components/schemas/Sda' }
+
+    ResourceSummary:
+      type: object
+      required: [id, arn, resourceType, region]
+      properties:
+        id: { type: string, format: uuid }
+        arn: { type: string }
+        resourceType: { type: string }
+        region: { type: string }
+        accountId: { type: string, format: uuid }
+
+    UnmatchedResourcesList:
+      type: object
+      required: [resources]
+      properties:
+        resources:
+          type: array
+          items: { $ref: '#/components/schemas/ResourceSummary' }
+
+    Finding:
+      type: object
+      required: [id, resource, ruleKey, kind, severity, status, openedAt]
+      properties:
+        id: { type: string, format: uuid }
+        resource: { $ref: '#/components/schemas/ResourceSummary' }
+        ruleKey: { type: string }
+        ruleVersion: { type: integer }
+        kind:
+          type: string
+          enum: [missing_tag, invalid_value, invalid_format]
+        severity:
+          type: string
+          enum: [low, medium, high, critical]
+        status:
+          type: string
+          enum: [open, resolved]
+        openedAt: { type: string, format: date-time }
+        resolvedAt: { type: string, format: date-time, nullable: true }
+
+    FindingsList:
+      type: object
+      required: [findings]
+      properties:
+        findings:
+          type: array
+          items: { $ref: '#/components/schemas/Finding' }
+
+    ComplianceScore:
+      type: object
+      required: [compliantCount, totalCount, score]
+      properties:
+        compliantCount: { type: integer }
+        totalCount: { type: integer }
+        score:
+          type: number
+          description: compliantCount / totalCount; 1.0 when totalCount is 0 (FR-019a)
+
+    OwnershipEvidence:
+      type: object
+      required: [kind]
+      properties:
+        kind: { type: string, enum: [direct, fallback] }
+        cloudtrailEventId: { type: string, nullable: true }
+        principal: { type: string, nullable: true }
+        eventTime: { type: string, format: date-time, nullable: true }
+
+    ResourceOwnership:
+      type: object
+      required: [resourceId]
+      properties:
+        resourceId: { type: string, format: uuid }
+        ownerEmail: { type: string, nullable: true }
+        confidence:
+          type: string
+          enum: [high, medium, low]
+          nullable: true
+        evidence:
+          $ref: '#/components/schemas/OwnershipEvidence'
+        attributedAt: { type: string, format: date-time, nullable: true }
+
+    OwnerIdentityPattern:
+      type: object
+      properties:
+        pattern: { type: string, nullable: true }
+
+    OwnerIdentityOverride:
+      type: object
+      required: [principalId, ownerEmail]
+      properties:
+        principalId: { type: string }
+        ownerEmail: { type: string }
+
+    OwnerIdentityOverridesList:
+      type: object
+      required: [overrides]
+      properties:
+        overrides:
+          type: array
+          items: { $ref: '#/components/schemas/OwnerIdentityOverride' }

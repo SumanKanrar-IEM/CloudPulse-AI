@@ -8,6 +8,16 @@
 
 **Input**: User description: "Turn the raw inventory into governance signal: validate every resource against the organization's tagging standards, group resources by the SDA (internal project) they belong to, attribute a human owner to every resource, and score compliance. Functional scope (backlog S18, S18a, S18b, S19, S20, S21, S22, S23a): Rules-as-data (S18) [P1]: tagging rules (case-insensitive keys, required set, allowed values) live in an admin-editable store seeded with the four mandatory tags — project_name, owner, project_id, created_by (environment optional). A rule change takes effect on the next scan with no deployment. SDA registry (S18a) [P1]: admins register SDAs (name, owner email, team, and the tag values that map to them); resources attach to their SDA at load time; unmatched resources land in a visible \"No SDA\" bucket. SDA admin UI (S18b) [P2]: CRUD, tag-value mapping editor, and a \"No SDA\" triage list; registering an SDA reclassifies matching resources on the next scan. Validation engine (S19) [P1]: evaluates rules on parent resources only; opens findings for missing tags, invalid values, and non-standard formats; dedupes; auto-closes a finding when a re-scan shows the tag fixed. Compliance scoring (S20) [P1]: score per account and per SDA = compliant parents / total parents, exposed via API and matching a hand count on a test account. Ownership attribution (S21) [P1]: for each resource, mine 90 days of cloud audit events for the creator; when the creator is a human principal, record them as owner with evidence. Attribution fallback (S22) [P2]: when the creator is a pipeline/automation identity, fall back to the most frequent human modifier (≥3 write events) with a confidence level and stored evidence; otherwise queue as unattributed. Owner identity resolution (S23a) [P2]: resolve owners to an email via a chain — owner tag if it is an email, else a configurable pattern over the audit-trail user id, else a manual override table; the pattern is configuration, not code. Success criteria: a rule edit changes findings on the next scan without redeploy; a fixed tag auto-closes its finding; compliance score matches a manual count; creator attribution succeeds for console-created test resources and the fallback chain is exercised by an IaC-created resource. Out of scope: notifying owners (cut from MVP — findings are visible on the dashboard only), remediation execution, AI suggestions (spec 6)."
 
+## Clarifications
+
+### Session 2026-08-25
+
+- Q: When an admin edits a tagging rule, what happens to a finding that's already open against
+  the previous version of that same rule? → A: The finding follows the rule's stable identity
+  across edits, not one specific versioned row — it is re-evaluated against whichever version is
+  currently enabled and can auto-close under the new version, rather than being permanently pinned
+  to the exact version that first opened it.
+
 ## User Scenarios & Testing *(mandatory)*
 
 <!--
@@ -309,9 +319,13 @@ different identity the pattern gets wrong, and confirm the override takes preced
 - **FR-005**: A change to a rule MUST take effect starting with the next scan that begins after the
   change, and MUST NOT alter the behavior of a scan already in progress when the change is made
   (Edge Cases; Acceptance Scenario US1.2, US1.3).
-- **FR-006**: Every rule change MUST be versioned, and every finding a rule produces MUST record
-  which version of the rule produced it, so a later rule edit does not retroactively change what an
-  existing finding says it was flagged for.
+- **FR-006**: Every rule change MUST be versioned. A finding is tied to the rule's stable identity
+  (its key), not to one specific version — an already-open finding continues to be re-evaluated
+  against whichever version of that rule is currently enabled, and records which version most
+  recently evaluated it, rather than being permanently pinned to the version that first opened it
+  (Clarifications session 2026-08-25). This is what makes FR-016's auto-close guarantee hold across
+  a rule edit: a finding opened under one version and fixed under a later, edited version still
+  closes, instead of being orphaned against a superseded version no future scan will re-check.
 
 #### SDA registry (S18a) [P1]
 
@@ -421,9 +435,14 @@ Entities section names `Rule`, `Finding`, `Sda`, and `ResourceOwner`) — this s
 behavior, not their schema.
 
 - **Rule**: a single tagging requirement, expressed as data — a tag key, whether it's required,
-  its allowed values and/or expected format, and a version number a finding pins itself to.
-- **Finding**: one resource's violation of one rule — its kind (missing/invalid/format), severity,
-  open/resolved status, and the timestamps marking when it opened and, if applicable, resolved.
+  its allowed values and/or expected format, and a version number. A rule's *key* is its stable
+  identity across edits; each edit is a new version of that same key, not a new, unrelated rule
+  (Clarifications session 2026-08-25).
+- **Finding**: one resource's violation of one rule *key* — its kind (missing/invalid/format),
+  severity, open/resolved status, and the timestamps marking when it opened and, if applicable,
+  resolved. Tracks which rule version most recently evaluated it, but is not pinned to that
+  version — a later edit to the same rule key continues to re-evaluate this same finding, not
+  spawn a separate one (Clarifications session 2026-08-25).
 - **Sda**: a registered internal project or team, with the tag-value mapping that identifies which
   resources belong to it.
 - **ResourceOwner**: the human attributed as accountable for one resource, together with a
