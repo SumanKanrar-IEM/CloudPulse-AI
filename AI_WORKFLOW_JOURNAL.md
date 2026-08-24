@@ -525,3 +525,163 @@ should hit as few of these as possible, not zero -- some (an unanticipated AWS A
 behavior, say) are genuinely undiscoverable until they happen. The ones that were
 discoverable in advance (cost gating, the authorizer pattern, the OIDC bootstrap
 singleton, the log-group/snapshot sweep) now are.
+
+## Spec 002 — Account Onboarding and Discovery (2026-08-23 to 2026-08-24)
+
+Written retroactively, after a second `/speckit-analyze` pass on spec 002 found the
+absence of any entry here as its own CRITICAL finding (Principle I: every speckit-phase
+outcome recorded the day it runs). Reconstructed from git history — commit dates,
+PR numbers, and merge order below are pulled from the actual log, not recollection.
+
+### Specification, planning, and tasks (2026-08-23)
+
+- **`/speckit-specify` + `/speckit-clarify`** ([PR #32](https://github.com/SumanKanrar-IEM/CloudPulse-AI/pull/32)):
+  produced 4 P1 user stories and 33 numbered functional requirements across backlog
+  S8–S17, S47. Three clarification rounds followed as separate same-day PRs, each
+  closing a gap the previous round's answer exposed rather than being anticipated up
+  front: [PR #33](https://github.com/SumanKanrar-IEM/CloudPulse-AI/pull/33) (external-id
+  generation ownership, deactivation-vs-deletion), [PR #34](https://github.com/SumanKanrar-IEM/CloudPulse-AI/pull/34)
+  (the deactivate/reactivate round-trip — FR-009c didn't exist until this pass asked
+  "can an admin bring one back?"), [PR #35](https://github.com/SumanKanrar-IEM/CloudPulse-AI/pull/35)
+  (which role does what — admin manages accounts, operator triggers scans, matching
+  spec 1's FR-033 exactly rather than inventing a new split). Landed at 40 FRs (33 + 7
+  clarification-added) and 9 success criteria.
+- **`/speckit-plan`** ([PR #36](https://github.com/SumanKanrar-IEM/CloudPulse-AI/pull/36)):
+  research.md settled three dominant decisions — Cloud Control API's generic
+  `ListResources` registry plus a Tagging API sweep for "every resource type, not a
+  curated list" (R-201); a scan-level status machine with `partial` as a first-class
+  outcome, diffing gated on `succeeded`/`partial` never `failed` (R-204); reusing spec
+  1's `require_role` dependency with different role sets per route for the new
+  admin/operator split, no new auth code (R-205). Constitution check PASS at both gates,
+  Complexity Tracking empty.
+- **`/speckit-checklist`** ([PR #37](https://github.com/SumanKanrar-IEM/CloudPulse-AI/pull/37)):
+  `scope-and-contracts.md`, 28 reviewer-owned items. Left unchecked through
+  implementation by an explicit, recorded decision to proceed rather than block on a
+  requirements-quality checklist that doesn't gate implementation completeness.
+- **`/speckit-tasks`** ([PR #38](https://github.com/SumanKanrar-IEM/CloudPulse-AI/pull/38)):
+  58 tasks across 8 phases, P1 (T001–T054) ordered before P2 (T055–T058), each citing a
+  backlog S-number and its requirement, with an explicit live-verification task (T053)
+  and an adjacent teardown-and-cost-sweep task (T054) per playbook §0.5.3 — the exact
+  pairing §6's later playbook rule (T136 above) generalized from.
+
+### Pre-implementation `/speckit-analyze` (2026-08-24)
+
+Two fix batches, both same day, both before any implementation task started:
+
+- **F6** ([PR #39](https://github.com/SumanKanrar-IEM/CloudPulse-AI/pull/39)): no offline
+  gate validated the Step Functions ASL definition before `terraform apply` — added
+  `ops/scripts/check_stepfunctions_asl.py` (T042a), closing the same class of
+  validate/plan blind spot `check_terraform_ascii.py` already closed for a different
+  resource type.
+- **F1–F5** ([PR #40](https://github.com/SumanKanrar-IEM/CloudPulse-AI/pull/40)):
+  citation and documentation-accuracy findings — mislabeled `research.md` decision
+  references and stale wording, no functional gap.
+- **A second remediation pass** ([PR #41](https://github.com/SumanKanrar-IEM/CloudPulse-AI/pull/41)):
+  repointed miscited R-numbers (R-202→R-201, R-203→R-207) found on a closer read, and
+  documented a missing decision entry (R-211, the Step Functions Map fan-out sizing
+  rationale) that tasks.md referenced but research.md never actually recorded.
+
+### Implementation — P1, all 7 phases (2026-08-24)
+
+Single `/speckit-implement` run, explicit instruction to follow the constitution
+(typed contracts, tests with the code, pytest+moto for cloud-touching code, structured
+logging, no secrets, rules/coverage as data) and to stop and report on any spec
+deviation rather than silently improvise. Seven PRs, one per phase, same-branch-per-PR
+ritual throughout: [#42](https://github.com/SumanKanrar-IEM/CloudPulse-AI/pull/42) setup
+scaffold · [#43](https://github.com/SumanKanrar-IEM/CloudPulse-AI/pull/43) connector
+protocol, resource migration, coverage-as-data · [#44](https://github.com/SumanKanrar-IEM/CloudPulse-AI/pull/44)
+account registration, role verification, cross-account template (US1) ·
+[#45](https://github.com/SumanKanrar-IEM/CloudPulse-AI/pull/45) accounts admin screen
+(US2) · [#46](https://github.com/SumanKanrar-IEM/CloudPulse-AI/pull/46) whole-account
+discovery and P1 enrichment (US3) · [#47](https://github.com/SumanKanrar-IEM/CloudPulse-AI/pull/47)
+scan orchestration, worker Lambda, diffing, on-demand trigger (US4) ·
+[#48](https://github.com/SumanKanrar-IEM/CloudPulse-AI/pull/48) the full SC-009
+three-role matrix test. 370 backend tests green at completion.
+
+**Real bugs found by running the code, not by inspection** — the pattern this
+project's playbook has repeatedly favored over assuming library behavior:
+
+- moto's Resource Groups Tagging API mock only ever returns *tagged* resources —
+  the opposite of what FR-017 (untagged resources discovered too) needs proven.
+  moto's `cloudcontrol` client is entirely unimplemented (every call 404s). Both
+  worked around with hand-built fixtures per research.md R-209's own documented
+  fallback, while moto's genuine, correct behavior is used everywhere it actually
+  applies (six P1 enrichment describes, tagged-resource discovery).
+- `aws_sfn_state_machine` has no `definition_substitutions` argument in the pinned
+  Terraform AWS provider (confirmed by inspecting the installed provider binary
+  directly, not assumed from docs) — switched `file()` to `templatefile()`.
+- A SQLAlchemy test-fixture session leak (`test_scan_diffing.py`,
+  `test_partial_scan_no_overdelete.py`): an unclosed session held a lock the *next*
+  test's `DROP SCHEMA CASCADE` then hung on indefinitely — found by running two tests
+  from the same file back to back, not by running either alone.
+- `@mock_aws` on a test *function* does not cover a *fixture's* setup, which runs
+  first — registration's AWS calls were silently escaping the mock entirely until the
+  fixture itself was decorated too.
+- moto's default mocked account ID is `123456789012`, not `000000000000` — a state
+  machine created under moto carries that real account ID in its ARN, so an env var
+  pointing at a made-up `000000000000` ARN got a genuine `StateMachineDoesNotExist`.
+- `ToleratedFailurePercentage` in the ASL Map state was removed entirely, not just
+  sized: LocalStack's ASL parser rejects it as a plain integer, and it was already
+  non-load-bearing — the ASL's own `Catch`-to-`Pass` pattern, not Step Functions'
+  native tolerance mechanism, is what actually absorbs a unit's failure.
+
+### Live verification and teardown (2026-08-24)
+
+Deployed to dev for real (10m14s apply, 65 resources, health check passed) to prove
+SC-001–SC-009 against reality, not mocks. Surfaced a genuine, previously-undetected
+infrastructure gap: `infra/modules/network/` provisions only S3 (free Gateway
+endpoint) and Secrets Manager (paid Interface) — no NAT and no Interface endpoints for
+STS, Step Functions, the Tagging API, Cloud Control, EC2, RDS, or Lambda's own
+control-plane APIs, and a VPC-attached Lambda's ENI can never hold a public IP (a hard
+AWS platform constraint). The worker Lambda had no path to any of those APIs;
+`POST /accounts` hung to Lambda's 30-second timeout with nothing logged. Confirmed via
+CloudWatch Logs and direct inspection of the network module, not assumed. No second
+AWS account was available for cross-account scenarios (V2) regardless. Presented cost
+tradeoffs (NAT instance ~$3–4/mo, NAT Gateway ~$32/mo, ~6 Interface endpoints
+~$88–100/mo, no free option given Lambda's VPC constraints); the maintainer chose to
+stop rather than spend, explicitly accepting mocked-test-level proof only for now.
+Teardown then ran into its own real snag — `terraform destroy` left one S3 bucket
+undeleted (`BucketNotEmpty`, 7 leftover object versions Terraform's `aws_s3_bucket`
+resource won't auto-empty) and the shell's AWS SSO session expired mid-run — both
+resolved (bucket emptied directly, session re-authenticated), destroy re-run to a
+clean `Destroy complete!`, and a full cost sweep across every resource category the
+playbook and this spec's own R-207/R-208 name confirmed zero residual cost. Recorded
+in [PR #49](https://github.com/SumanKanrar-IEM/CloudPulse-AI/pull/49); T053/T054
+marked complete in tasks.md with the honest account of what was and wasn't proven.
+
+### Phase 8 (P2) and Polish (2026-08-24)
+
+T055–T061, three PRs: [#50](https://github.com/SumanKanrar-IEM/CloudPulse-AI/pull/50)
+extended enrichment for EKS, DynamoDB, ELBv2, and IAM roles (FR-020) — proving SC-005's
+coverage-as-data extensibility claim on a second, real addition via the exact seam
+T036 established, zero changes to the dispatch code itself; moto fidelity confirmed
+empirically first, per R-209's discipline, catching one real gap (ELBv2's `Scheme`
+defaults to `None` under moto rather than AWS's real `internet-facing` server-side
+default when omitted) worked around in the test, not production code ·
+[#51](https://github.com/SumanKanrar-IEM/CloudPulse-AI/pull/51) `GET /accounts/{id}/scans`
+scan history (FR-033) — its test moved to `tests/integration/` rather than the
+`tests/unit/` path tasks.md originally specified, the same class of deviation already
+established for T039/T052, since proving real trigger/timing/counts/ordering needs
+actual persisted rows through a real PostgreSQL container; this PR's first push also
+caught genuine `client-drift` CI failure (the generated frontend client was stale)
+requiring a follow-up commit, not a false alarm · [#52](https://github.com/SumanKanrar-IEM/CloudPulse-AI/pull/52)
+README ownership-table updates for `app/scan/`, `connectors/`, and `infra/modules/scan/`
+(T060), closing the last stale "reserved, see its README" note left over from spec 1.
+
+### Second `/speckit-analyze` pass (2026-08-24)
+
+Run per playbook §8's rule (analyze again after full implementation, not only before
+it). FR/SC-to-task coverage checked mechanically: 41 spec-002-owned FR keys and 9 SC
+keys, both 100% covered; the two FR-IDs that showed zero hits (FR-033a, FR-056) belong
+to spec 1, cited here only as dependency context, correctly excluded rather than
+orphaned. Two findings:
+
+- **H1 CRITICAL** — this file had zero entries for spec 002 despite the entire pipeline
+  above, directly violating Principle I. This section is that fix.
+- **H2 LOW** — `specs/002-account-onboarding-and-discovery/contracts/openapi.yaml` (the
+  design-time reference contract) is missing T058's `listScanHistory` endpoint.
+  Cosmetic only: plan.md itself states the design-time copy is not authoritative, only
+  `backend/openapi.generated.yaml` is graded by CI. Left as-is.
+
+Zero ambiguity findings, zero duplication findings, zero unmapped tasks. Spec 002's
+analyze run is now clean; per Principle VII's testable clause, spec 003 may begin.
