@@ -11,8 +11,8 @@ Python 3.12 on AWS Lambda (arm64). FastAPI + Mangum behind an API Gateway HTTP A
 | `app/models/` | spec 001 | SQLAlchemy models for all 11 tables |
 | `migrations/` | spec 001 (extended additively by 002–006) | Alembic revisions |
 | `handlers/` | spec 001 | Lambda entrypoints: api, migrate, pre-token |
-| `connectors/` | **spec 002** | reserved — see its README before adding anything |
-| `app/scan/` | **spec 002** | discovery engine |
+| `connectors/` | **spec 002** | the provider-agnostic `Connector` protocol (`base.py`) plus the one AWS implementation (`aws.py`) — role verification, whole-account discovery, targeted enrichment. The **only** place `boto3`/`botocore` may be imported outside `handlers/`, `app/core/db.py`, `migrations/env.py`, and `app/scan/orchestrator.py` (FR-054, enforced by `ops/scripts/check_connector_boundary.py`) |
+| `app/scan/` | **spec 002** | scan orchestration: `discovery.py`/`enrichment.py` (thin, no AWS SDK import — dispatch only), `orchestrator.py` (Step Functions execution lifecycle, diffing, deleted-marker sweep), `coverage.py` + `coverage_definitions.json` (coverage-as-data, FR-021 — extending which resource types get deep enrichment is a data change, not a code change) |
 | `app/workers/` | **specs 003, 005** | SQS workers |
 
 ## Rules that bind code added here

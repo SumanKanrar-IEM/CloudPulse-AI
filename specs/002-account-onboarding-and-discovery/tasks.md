@@ -261,7 +261,7 @@ this phase is dropped entirely, Phases 1–7 still satisfy every P1 success crit
 ## Phase 9: Polish & Cross-Cutting Concerns
 
 - [X] T059 [P] Update `ops/erd/schema.mmd` to reflect `resource`'s three new columns — FR-028 (spec 1), Principle I. Done in T005's PR, not deferred to Phase 9: the `erd-current` CI gate (added mid-spec-1, playbook §0.5) requires a schema-migration PR to touch `ops/erd/` in the same PR, not a later one.
-- [ ] T060 [P] Update `backend/README.md` and `infra/README.md` to describe the new `app/scan/`, `connectors/`, and `infra/modules/scan/` ownership — Principle I
+- [X] T060 [P] Update `backend/README.md` and `infra/README.md` to describe the new `app/scan/`, `connectors/`, and `infra/modules/scan/` ownership — Principle I
 - [ ] T061 Re-run `/speckit-analyze` on spec 002 (playbook §8's second-run note) and resolve any finding before spec 003 begins — Governance
 
 ---
