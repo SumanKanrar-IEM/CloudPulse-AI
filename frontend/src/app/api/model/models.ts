@@ -14,4 +14,5 @@ export * from './health-response';
 export * from './location-inner';
 export * from './scan';
 export * from './scan-summary';
+export * from './scans-list';
 export * from './validation-error';

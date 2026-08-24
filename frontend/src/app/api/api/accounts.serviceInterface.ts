@@ -19,6 +19,7 @@ import { ErrorEnvelope } from '../model/models';
 import { ExternalIdResponse } from '../model/models';
 import { HTTPValidationError } from '../model/models';
 import { Scan } from '../model/models';
+import { ScansList } from '../model/models';
 
 
 import { Configuration }                                     from '../configuration';
@@ -50,6 +51,14 @@ export interface AccountsServiceInterface {
      * @endpoint get /accounts
      */
     listAccounts(extraHttpRequestParams?: any): Observable<AccountsList>;
+
+    /**
+     * Retrieve an account\&#39;s scan history
+     * FR-033. Any role may view, same as the accounts list itself (FR-010a) -- read access here carries no more privilege than seeing an account exists.
+     * @endpoint get /accounts/{account_id}/scans
+     * @param accountId 
+     */
+    listScanHistory(accountId: string, extraHttpRequestParams?: any): Observable<ScansList>;
 
     /**
      * Resume scanning a deactivated account
