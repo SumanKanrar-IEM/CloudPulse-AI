@@ -249,8 +249,8 @@ endpoints to `infra/modules/network`) is not yet fixed and is not scoped to any 
 **⚠️ P2 — STRETCH ONLY**: Per Principle VIII, nothing here may block or destabilise a P1 path. If
 this phase is dropped entirely, Phases 1–7 still satisfy every P1 success criterion.
 
-- [ ] T055 [P] **[P2]** Write `backend/tests/unit/test_extended_enrichment.py` — EKS, DynamoDB, ELB, IAM enrichment functions — S13, S14, S47, FR-020
-- [ ] T056 **[P2]** Extend `coverage_definitions.json` and `enrichment.py` with the four FR-020 types, proving coverage-as-data's extensibility claim (SC-005) on a second, real addition rather than only the original six — S13, S14, S47, FR-020, SC-005
+- [X] T055 [P] **[P2]** Write `backend/tests/unit/test_extended_enrichment.py` — EKS, DynamoDB, ELB, IAM enrichment functions — S13, S14, S47, FR-020. All four confirmed against real moto fidelity first (same empirical-check discipline as the P1 six, R-209): EKS, DynamoDB, and IAM mock their describe calls faithfully; ELBv2 needs `Scheme` passed explicitly at creation (moto returns `None` rather than AWS's real server-side default of `internet-facing` when it's omitted) — the fixture passes it explicitly rather than working around a gap that doesn't affect this code's read path.
+- [X] T056 **[P2]** Extend `coverage_definitions.json` and `connectors/aws.py`'s `ENRICHMENT_FUNCTIONS` registry with the four FR-020 types (`enrich_eks_cluster`, `enrich_dynamodb_table`, `enrich_elb_v2`, `enrich_iam_role`), plus `_ARN_TYPE_HINTS` entries so discovery recognizes their ARNs for dispatch — proving coverage-as-data's extensibility claim (SC-005) on a second, real addition rather than only the original six: zero changes to `app/scan/enrichment.py` or `AwsConnector.enrich()` itself, exactly the seam T036 established — S13, S14, S47, FR-020, SC-005
 - [ ] T057 [P] **[P2]** Write `backend/tests/unit/test_scan_history.py` — trigger, timing, counts, outcome retrievable per scan — S17, FR-033
 - [ ] T058 **[P2]** Write `GET /accounts/{id}/scans` (scan history), any-role-readable like the accounts view — S17, FR-033
 

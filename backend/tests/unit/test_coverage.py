@@ -27,15 +27,30 @@ P1_TYPES = {
     "AWS::Lambda::Function",
 }
 
+P2_TYPES = {
+    "AWS::EKS::Cluster",
+    "AWS::DynamoDB::Table",
+    "AWS::ElasticLoadBalancingV2::LoadBalancer",
+    "AWS::IAM::Role",
+}
+
 
 def test_default_file_seeds_the_six_p1_types() -> None:
     """FR-019: EC2, EBS, EIP, S3, RDS, Lambda."""
     definitions = load_coverage_definitions()
-    assert set(definitions) == P1_TYPES
+    assert P1_TYPES <= set(definitions)
     for resource_type, definition in definitions.items():
         assert definition.resource_type == resource_type
         assert definition.enrichment_function
         assert len(definition.fields) > 0
+
+
+def test_default_file_also_seeds_the_four_p2_types() -> None:
+    """FR-020, T056: EKS, DynamoDB, ELB, IAM -- proves SC-005's extensibility claim
+    on a second, real addition, not only the original six."""
+    definitions = load_coverage_definitions()
+    assert P2_TYPES <= set(definitions)
+    assert set(definitions) == P1_TYPES | P2_TYPES
 
 
 def test_extending_coverage_is_a_pure_data_change(tmp_path: Path) -> None:

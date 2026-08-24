@@ -1,10 +1,11 @@
-"""Targeted enrichment orchestration for the six P1 governance-critical types
-(FR-019, research.md R-202).
+"""Targeted enrichment orchestration for governance-critical resource types
+(FR-019 P1, FR-020 P2, research.md R-202).
 
-No AWS SDK import here either (same boundary as discovery.py) -- the six describe
-calls live in `connectors/aws.py`, dispatched by resource type through
+No AWS SDK import here either (same boundary as discovery.py) -- every describe
+call lives in `connectors/aws.py`, dispatched by resource type through
 `app/scan/coverage.py`'s data-driven registry (FR-021, T036). This module just runs
-that dispatch over a batch of discovered resources.
+that dispatch over a batch of discovered resources, and needed no change at all to
+pick up T056's four new P2 types -- exactly the extensibility SC-005 claims.
 """
 
 from __future__ import annotations
