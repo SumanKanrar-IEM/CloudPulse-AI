@@ -262,7 +262,7 @@ this phase is dropped entirely, Phases 1–7 still satisfy every P1 success crit
 
 - [X] T059 [P] Update `ops/erd/schema.mmd` to reflect `resource`'s three new columns — FR-028 (spec 1), Principle I. Done in T005's PR, not deferred to Phase 9: the `erd-current` CI gate (added mid-spec-1, playbook §0.5) requires a schema-migration PR to touch `ops/erd/` in the same PR, not a later one.
 - [X] T060 [P] Update `backend/README.md` and `infra/README.md` to describe the new `app/scan/`, `connectors/`, and `infra/modules/scan/` ownership — Principle I
-- [ ] T061 Re-run `/speckit-analyze` on spec 002 (playbook §8's second-run note) and resolve any finding before spec 003 begins — Governance
+- [X] T061 Re-run `/speckit-analyze` on spec 002 (playbook §8's second-run note) and resolve any finding before spec 003 begins — Governance. Two findings: **H1 CRITICAL** — zero `AI_WORKFLOW_JOURNAL.md` entries existed for spec 002 despite the full specify→clarify→plan→checklist→tasks→analyze→implement→live-verify→teardown→Phase 8→Polish pipeline, violating Principle I; fixed by appending the missing section, reconstructed from git history. **H2 LOW** — the design-time `contracts/openapi.yaml` is missing T058's `listScanHistory` endpoint; left as-is since plan.md already states that copy is non-authoritative (only `backend/openapi.generated.yaml` is CI-graded). FR/SC coverage re-confirmed at 100% mechanically (41 FR + 9 SC, spec-002-owned).
 
 ---
 
