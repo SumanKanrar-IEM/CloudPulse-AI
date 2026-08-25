@@ -55,6 +55,10 @@ class Tenant(UUIDPrimaryKey, Timestamps, Base):
         nullable=False,
         server_default=enums.TenantStatus.ACTIVE.value,
     )
+    # migration 0010 (spec 003). Admin-configurable template applied to an audit-trail
+    # identity when an owner tag isn't a usable email and no override row exists for
+    # it (FR-028). NULL = the pattern step is skipped in the resolution chain.
+    owner_identity_pattern: Mapped[str | None] = mapped_column(String(500))
 
     __table_args__ = (CheckConstraint("length(trim(name)) > 0", name="name_not_blank"),)
 
@@ -245,12 +249,19 @@ class Resource(UUIDPrimaryKey, Timestamps, TenantScoped, Base):
     detail: Mapped[dict[str, Any]] = mapped_column(
         JSONB, nullable=False, server_default=text("'{}'::jsonb")
     )
+    # migration 0010 (spec 003). NULL = "No SDA" bucket (FR-009). Set at scan time by
+    # SDA matching (FR-008); ON DELETE SET NULL is FR-010b's actual removal mechanism,
+    # not an incidental default (data-model.md).
+    sda_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("sda.id", ondelete="SET NULL")
+    )
 
     __table_args__ = (
         UniqueConstraint("tenant_id", "arn", name="uq_resource_tenant_arn"),
         # GIN over tags: spec 003 filters on tag keys across the whole inventory.
         Index("ix_resource_tags", "tags", postgresql_using="gin"),
         Index("ix_resource_account_type", "cloud_account_id", "resource_type"),
+        Index("ix_resource_sda_id", "sda_id"),
     )
 
 
@@ -368,6 +379,25 @@ class ResourceOwner(UUIDPrimaryKey, Timestamps, TenantScoped, Base):
     )
 
 
+class OwnerIdentityOverride(UUIDPrimaryKey, Timestamps, TenantScoped, Base):
+    """A manual owner-identity resolution an admin maintains for one audit-trail
+    identity the configured pattern can't resolve (spec 003, S23a, FR-027)."""
+
+    __tablename__ = "owner_identity_override"
+
+    # The raw audit-trail principal string (an IAM ARN or equivalent) -- not a
+    # reference to any platform table; it inherently has no corresponding row
+    # anywhere in this schema (research.md R-304).
+    principal_id: Mapped[str] = mapped_column(String(2048), nullable=False)
+    owner_email: Mapped[str] = mapped_column(String(320), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint(
+            "tenant_id", "principal_id", name="uq_owner_identity_override_tenant_principal"
+        ),
+    )
+
+
 class Scan(UUIDPrimaryKey, Timestamps, TenantScoped, Base):
     """One execution of discovery against an account (spec 002)."""
 
@@ -403,5 +433,6 @@ __all__ = [
     "Finding",
     "Sda",
     "ResourceOwner",
+    "OwnerIdentityOverride",
     "Scan",
 ]
