@@ -196,6 +196,24 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    delete:
+      tags: [sdas]
+      operationId: removeSda
+      summary: Remove an SDA
+      description: |
+        FR-010b. Admin only. Never refused on account of resources currently attached to it --
+        every attached resource reverts to the "No SDA" bucket immediately, not on the next scan
+        (Acceptance Scenario US2.5). Scan and finding history referencing those resources is
+        unaffected.
+      responses:
+        '204':
+          description: SDA removed; its resources are now in the "No SDA" bucket
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
 
   /sdas/unmatched-resources:
     get:

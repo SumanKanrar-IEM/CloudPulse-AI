@@ -142,7 +142,7 @@ backend/
 ├── app/
 │   ├── api/routers/
 │   │   ├── rules.py                       # NEW — FR-001–FR-006a rule CRUD (admin write, all-role read)
-│   │   ├── sdas.py                        # NEW — FR-007–FR-010a SDA registry (admin write, all-role read)
+│   │   ├── sdas.py                        # NEW — FR-007–FR-010b SDA registry incl. removal (admin write, all-role read)
 │   │   ├── findings.py                    # NEW — FR-014–FR-017 findings list (all-role read, no write route)
 │   │   ├── compliance.py                  # NEW — FR-018–FR-019a score endpoints (all-role read)
 │   │   ├── ownership.py                   # NEW — FR-020–FR-028 ownership read + P2 override management

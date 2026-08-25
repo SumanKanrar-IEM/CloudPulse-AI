@@ -87,6 +87,10 @@ grouped under that SDA while the rest appear in the "No SDA" bucket.
 4. **Given** an admin registering a new SDA, **When** its tag-value mapping would match resources
    an existing SDA's mapping also matches, **Then** registration is refused rather than silently
    creating an ambiguous, order-dependent classification.
+5. **Given** an SDA with resources currently attached to it, **When** an admin removes that SDA,
+   **Then** every resource that was attached to it reverts to the "No SDA" bucket immediately —
+   not waiting for the next scan, since there is no longer any SDA row left to re-match against —
+   and none of those resources' scan or finding history is affected.
 
 ---
 
@@ -280,6 +284,12 @@ different identity the pattern gets wrong, and confirm the override takes preced
 - **An SDA's tag-value mapping would overlap an existing SDA's**: registration is refused outright
   (User Story 2, Acceptance Scenario 4) rather than leaving classification order-dependent and
   silently nondeterministic.
+- **An SDA with resources currently attached to it is removed**: every attached resource reverts
+  to the "No SDA" bucket immediately, not on the next scan (User Story 2, Acceptance Scenario 5)
+  — removal deletes the SDA row itself, so there is nothing left to re-match against at scan time
+  the way an edited mapping has. Removal is never refused because resources are attached to it;
+  the "No SDA" bucket exists precisely to be a safe landing zone for exactly this case, not a
+  failure state that blocks the admin action that created it.
 - **A resource's creation event is outside the 90-day lookback window**: it is queued unattributed,
   not attributed on the basis of a guess (User Story 5, Acceptance Scenario 2).
 - **A resource's only creator identity is automation, and no human meets the fallback's modification
@@ -343,11 +353,17 @@ different identity the pattern gets wrong, and confirm the override takes preced
 - **FR-010a**: Registering or editing an SDA's tag-value mapping MUST be refused if it would
   overlap a different, already-registered SDA's mapping, so that which SDA a resource belongs to is
   never ambiguous or order-dependent (Acceptance Scenario US2.4; Edge Cases).
+- **FR-010b**: An admin MUST be able to remove an SDA. Removal MUST NOT be refused on account of
+  resources currently being attached to it, and MUST cause every resource that was attached to it
+  to revert to the "No SDA" bucket immediately upon removal — not deferred to the next scan, since
+  removal deletes the SDA itself rather than changing what it matches (Acceptance Scenario US2.5;
+  Edge Cases). Removal MUST NOT alter any scan history, finding, or compliance-score history that
+  already references the removed SDA's resources.
 
 #### SDA admin UI (S18b) [P2]
 
 - **FR-011**: The platform MUST provide a screen for creating, editing, and removing SDAs and their
-  tag-value mappings, equivalent in effect to the API-level capability FR-007–FR-010a define.
+  tag-value mappings, equivalent in effect to the API-level capability FR-007–FR-010b define.
   **[P2]**
 - **FR-012**: The platform MUST provide a triage view listing every resource currently in the "No
   SDA" bucket, with enough identifying detail to decide whether a new or edited SDA mapping is
