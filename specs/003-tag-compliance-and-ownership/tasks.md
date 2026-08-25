@@ -119,6 +119,17 @@ SDA" without a new scan.
 - [ ] T008 [P] [US2] Write `backend/tests/unit/test_sdas_api.py` — role gating on all four
       operations (POST/PATCH/DELETE admin-only, GET all-role), request-shape validation — S18a,
       FR-007, FR-010b, FR-029, FR-030
+- [ ] T008a [P] [US2] Write `backend/tests/integration/test_sda_matching_and_reclassification.py`
+      — Testcontainers PostgreSQL, the SDA registry's primary behavior, not just its edge cases: a
+      resource whose tags satisfy a registered SDA's mapping attaches to it (FR-008, Acceptance
+      Scenario US2.1); a resource matching no SDA lands in and stays visible in the "No SDA"
+      bucket via `GET /sdas/unmatched-resources` (FR-009, SC-006); editing an existing SDA's
+      mapping, or registering a new one, reclassifies previously-unmatched or
+      differently-matched resources starting with the next scan — not immediately, and not
+      requiring a separate trigger (FR-010, Acceptance Scenario US2.3, SC-007). Found missing by
+      `/speckit-analyze` (finding E1, 2026-08-25): T009/T010 only ever covered the overlap-refusal
+      and removal edge cases, never this behavior itself — S18a, FR-008, FR-009, FR-010, SC-006,
+      SC-007
 - [ ] T009 [P] [US2] Write `backend/tests/integration/test_sda_overlap_detection.py` —
       Testcontainers PostgreSQL, research.md R-305's exact-intersection rule: identical mappings
       refused, and the subset case (`{team: platform}` vs. `{team: platform, env: prod}`) also
@@ -161,13 +172,16 @@ closes the same finding row, not a new one.
 - [ ] T013 [P] [US3] Write `backend/tests/unit/test_validation_engine.py` — the three violation
       kinds (missing/invalid-value/invalid-format) each produce a distinct finding, severity comes
       from `rule.definition.severity` (default `medium`), an uncovered/disabled rule produces no
-      finding — S19, FR-004, FR-013–FR-016
+      finding, a fixed tag auto-closes its finding on re-evaluation (SC-002), and validation
+      MUST NOT run — must open, dedupe, or close nothing — against a scan recorded `failed`,
+      only `succeeded`/`partial` (FR-017; found missing a dedicated assertion by
+      `/speckit-analyze` finding E3, 2026-08-25) — S19, FR-004, FR-013–FR-017, SC-002
 - [ ] T014 [P] [US3] Write `backend/tests/integration/test_finding_rule_version_repointing.py` —
       Testcontainers PostgreSQL, the decisive test for research.md R-301: open a finding under
       rule version 1, edit the rule to version 2, re-evaluate, confirm the **same finding row**
       (not a new one) now has `rule_id` pointing at version 2 and can auto-close under version 2's
-      criteria — the specific correctness risk the Clarifications session (2026-08-25) exists to
-      prevent — S19, FR-006, FR-015, FR-016
+      criteria (SC-002) — the specific correctness risk the Clarifications session (2026-08-25)
+      exists to prevent — S19, FR-006, FR-015, FR-016, SC-002
 - [ ] T015 [P] [US3] Write `backend/tests/unit/test_parent_child_resolution.py` — a resource whose
       enrichment `detail` names an owning resource (EBS volume's `attached_instance_id`, EIP's
       `associated_instance_id`) gets `parent_resource_id` set to that resource; everything else
@@ -203,8 +217,10 @@ and confirm it matches the manual count exactly.
 ### Tests for User Story 4
 
 - [ ] T018 [P] [US4] Write `backend/tests/unit/test_compliance_scoring.py` — score formula
-      (compliant top-level resources ÷ total top-level resources), per-SDA scoping, the
-      zero-resources case returns a well-defined value rather than raising — S20, FR-018, FR-019a
+      (compliant top-level resources ÷ total top-level resources) verified against a hand-counted
+      fixture set so the assertion itself proves SC-003's "matches a manual tally" bar, not just
+      that the code runs; per-SDA scoping; the zero-resources case returns a well-defined value
+      rather than raising — S20, FR-018, FR-019a, SC-003
 
 ### Implementation for User Story 4
 
@@ -407,6 +423,7 @@ shared state:
 T004 [P] [US1] backend/tests/unit/test_rules_api.py
 T005 [P] [US1] backend/tests/unit/test_rule_versioning.py
 T008 [P] [US2] backend/tests/unit/test_sdas_api.py
+T008a [P] [US2] backend/tests/integration/test_sda_matching_and_reclassification.py
 T009 [P] [US2] backend/tests/integration/test_sda_overlap_detection.py
 T010 [P] [US2] backend/tests/integration/test_sda_removal_reverts_resources.py
 ```
