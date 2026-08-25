@@ -17,6 +17,7 @@ erDiagram
     TENANT ||--o{ SDA : "owns"
     TENANT ||--o{ RESOURCE_OWNER : "owns"
     TENANT ||--o{ SCAN : "owns"
+    TENANT ||--o{ OWNER_IDENTITY_OVERRIDE : "owns"
 
     APP_USER ||--o{ AUDIT_EVENT : "acted as"
     CLOUD_ACCOUNT ||--o{ RESOURCE : "contains"
@@ -25,11 +26,13 @@ erDiagram
     RESOURCE ||--o{ FINDING : "fails"
     RULE ||--o{ FINDING : "produces"
     RESOURCE ||--|| RESOURCE_OWNER : "attributed to"
+    SDA ||--o{ RESOURCE : "groups"
 
     TENANT {
         uuid id PK
         text name UK
         enum status "active|suspended"
+        text owner_identity_pattern "spec 003 FR-028, P2"
     }
     APP_USER {
         uuid id PK
@@ -88,6 +91,7 @@ erDiagram
         text state "spec 002, migration 0009"
         timestamptz deleted_at "soft marker, spec 002 FR-030"
         jsonb detail "enrichment payload, spec 002 FR-019"
+        uuid sda_id FK "spec 003, null = No SDA bucket"
     }
     RULE {
         uuid id PK
@@ -136,4 +140,10 @@ erDiagram
         text snapshot_s3_key
         timestamptz started_at
         timestamptz finished_at
+    }
+    OWNER_IDENTITY_OVERRIDE {
+        uuid id PK
+        uuid tenant_id FK
+        text principal_id UK "audit-trail identity, unique per tenant"
+        text owner_email
     }
