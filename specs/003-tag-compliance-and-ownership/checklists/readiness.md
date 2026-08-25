@@ -59,7 +59,7 @@ quality. It does not mean implementation work is complete.
 ## Cross-Spec Contract Consistency — SDA Grouping
 
 - [ ] CHK028 Is the "No SDA" bucket's relationship to account-level compliance scoring (FR-018) stated explicitly enough that a reader can determine whether unmatched resources count toward the account score, without inferring it only from FR-018's general wording? [Ambiguity, Spec §FR-018, §FR-009]
-- [ ] CHK029 Does the spec specify what happens to a resource's SDA assignment when the SDA itself is later removed/deleted (not just edited) — does it revert to "No SDA," and is that stated, or only implied by `sda_id`'s `ON DELETE SET NULL` in data-model.md with no corresponding spec-level requirement? [Gap, Spec §Requirements, Data-model §resource] [P2 dependency]
+- [x] CHK029 Does the spec specify what happens to a resource's SDA assignment when the SDA itself is later removed/deleted (not just edited) — does it revert to "No SDA," and is that stated, or only implied by `sda_id`'s `ON DELETE SET NULL` in data-model.md with no corresponding spec-level requirement? [Gap, Spec §Requirements, Data-model §resource] — **Closed 2026-08-25**: FR-010b, Acceptance Scenario US2.5, and a new Edge Cases bullet now state this explicitly (removal reverts attached resources to "No SDA" immediately, never refused, history unaffected); `DELETE /sdas/{sdaId}` added to the contract (previously entirely missing); data-model.md's `sda`/`resource.sda_id` sections now name `ON DELETE SET NULL` as FR-010b's actual mechanism, not an incidental default.
 - [ ] CHK030 Is SDA membership specified as re-evaluated fully on every scan (a resource could leave one SDA and join another in the same scan, not just move to/from "No SDA"), or does the spec only describe the "No SDA" ↔ "matched" transition explicitly, leaving matched-to-matched reassignment unstated? [Gap, Spec §FR-008, §FR-010]
 
 ## Cross-Spec Contract Consistency — Agent Tool Surface (spec 6 readiness)
@@ -75,9 +75,4 @@ quality. It does not mean implementation work is complete.
 - `/speckit-implement` reads checklist checkbox state as a gate and must not modify markers.
 - `checklists/requirements.md` has a separate built-in lifecycle maintained by `/speckit-specify`
   and `/speckit-clarify` — this file is independent of it.
-- CHK029 is flagged `[P2 dependency]` because `sda_id`'s existence on `resource` is P1 schema
-  (FR-008), but the specific edge case it names (an SDA being deleted, not just edited) has no
-  corresponding acceptance scenario in any P1 or P2 story — worth a reviewer's judgment call on
-  whether it needs one before `/speckit-tasks`, or is acceptable as an unstated implementation
-  detail (data-model.md's `ON DELETE SET NULL` already gives a technically correct default).
 - Items are numbered sequentially for easy reference.

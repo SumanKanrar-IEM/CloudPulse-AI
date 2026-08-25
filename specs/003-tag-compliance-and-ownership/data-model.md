@@ -74,6 +74,14 @@ simpler, and it means SC-006's "visible in the No SDA bucket" is just a `WHERE s
 query, not a lookup against a magic-value row that would need protecting from accidental deletion
 or renaming.
 
+**Removing an `sda` row is unrestricted** (FR-010b) — no check against resources currently
+referencing it, unlike FR-010a's overlap check on create/edit. This is a deliberate asymmetry: an
+overlapping mapping would silently corrupt future classification if allowed, which is worth
+refusing; a resource losing its SDA on removal is neither silent nor corrupting — it lands exactly
+in the "No SDA" bucket FR-009 already makes visible, the same well-defined state a never-matched
+resource is in. The FK's `ON DELETE SET NULL` (see `resource.sda_id` below) is what makes "removal
+is always allowed, and always safe" true at the database level, not just a policy this spec asserts.
+
 ## `resource_owner` — existing table, no schema change
 
 | Column | Type | Constraints | Already defined by |
@@ -94,7 +102,7 @@ scan simply doesn't touch an existing higher-confidence row.
 | Column | Type | Constraints | Status |
 |---|---|---|---|
 | `parent_resource_id` | UUID, nullable | FK → `resource.id` (`ON DELETE SET NULL`) | **Already exists** (spec 1's original schema, migration 0005) — reserved but never populated by spec 002. **This spec is the first to populate it** (FR-013a), during validation: a resource whose enrichment `detail` identifies an owning resource (for example, an EBS volume's `attached_instance_id`, an Elastic IP's `associated_instance_id` — both already captured by spec 002's P1 enrichment) has `parent_resource_id` set to that owning resource's row; everything else keeps it `NULL`. |
-| `sda_id` | UUID, nullable | FK → `sda.id` (`ON DELETE SET NULL`) | **NEW** — additive migration `0010_resource_sda_and_tenant_identity_pattern` (bundled with the two P2 additions below since they're small enough to ship in one migration file, per spec 002's own precedent of bundling several small additive changes into migration 0009). `NULL` = "No SDA" bucket (FR-009). Set at scan time by the SDA-matching step (FR-008), re-evaluated on every scan so a newly-registered or edited SDA reclassifies matching resources by the next scan (FR-010). |
+| `sda_id` | UUID, nullable | FK → `sda.id` (`ON DELETE SET NULL`) | **NEW** — additive migration `0010_resource_sda_and_tenant_identity_pattern` (bundled with the two P2 additions below since they're small enough to ship in one migration file, per spec 002's own precedent of bundling several small additive changes into migration 0009). `NULL` = "No SDA" bucket (FR-009). Set at scan time by the SDA-matching step (FR-008), re-evaluated on every scan so a newly-registered or edited SDA reclassifies matching resources by the next scan (FR-010). **`ON DELETE SET NULL` is not just a technically-safe default — it is FR-010b's actual mechanism**: removing an SDA row is what immediately reverts every resource that referenced it to `NULL` ("No SDA"), with no application code needed to do the reverting and no wait for the next scan, since the database enforces it the instant the row is deleted. |
 
 **Why `parent_resource_id` needs no migration but `sda_id` does**: the former already exists,
 unused; the latter is a genuinely new relationship spec 002 never anticipated on `resource` (its own

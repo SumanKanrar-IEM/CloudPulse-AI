@@ -80,6 +80,12 @@ and two Lambda workers beyond spec 002's baseline (research.md R-306).
    needed.
 4. Attempt to register a second SDA whose mapping overlaps the first (Acceptance Scenario US2.4).
    Confirm `POST /sdas` returns 409, not a silently-accepted ambiguous mapping.
+5. As admin, `DELETE /sdas/{id}` on the SDA from step 2, while the resource from step 1 is still
+   attached to it. Confirm the call succeeds (204, never refused for having attached resources)
+   and, **without triggering a new scan**, `GET /sdas/unmatched-resources` immediately shows that
+   resource back in the "No SDA" bucket (Acceptance Scenario US2.5) — this is the one reclassification
+   in this spec that does not wait for the next scan, since removal deletes the SDA row itself.
+   Confirm `GET /findings?resourceId=...` for that resource is unaffected by the removal.
 
 ## V7 — Rules and SDAs are admin-only to write, open to every role to read (role matrix)
 
@@ -87,7 +93,7 @@ and two Lambda workers beyond spec 002's baseline (research.md R-306).
 |---|---|---|---|
 | View rules / SDAs / findings / scores / ownership | 200 | 200 | 200 |
 | Create/edit a rule | 201/200 | 403 | 403 |
-| Register/edit an SDA | 201/200 | 403 | 403 |
+| Register/edit/remove an SDA | 201/200/204 | 403 | 403 |
 | Set the owner-identity pattern or an override (P2) | 200 | 403 | 403 |
 
 Verify every cell explicitly (FR-029/FR-030) — the same discipline spec 002's V9 established for
