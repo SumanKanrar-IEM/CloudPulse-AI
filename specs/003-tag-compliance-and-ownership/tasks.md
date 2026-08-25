@@ -39,7 +39,7 @@ SC-005, FR-011/FR-012 (SDA admin UI), FR-024–FR-026 (attribution fallback), an
 
 ## Phase 1: Setup
 
-- [ ] T001 Scaffold `backend/app/governance/__init__.py` (empty package, mirroring `app/scan/`'s
+- [X] T001 Scaffold `backend/app/governance/__init__.py` (empty package, mirroring `app/scan/`'s
       shape per plan.md's Project Structure Decision) and `infra/modules/governance/` (empty
       directory, Terraform files land here starting Phase 7) — no logic yet, just the layout this
       spec's plan.md commits to.
@@ -52,7 +52,7 @@ SC-005, FR-011/FR-012 (SDA admin UI), FR-024–FR-026 (attribution fallback), an
 
 **Purpose**: Schema and seed data every P1 story reads or writes.
 
-- [ ] T002 Write `backend/migrations/versions/0010_resource_sda_and_tenant_identity_pattern.py` —
+- [X] T002 Write `backend/migrations/versions/0010_resource_sda_and_tenant_identity_pattern.py` —
       additive migration adding `resource.sda_id` (FK → `sda.id`, `ON DELETE SET NULL`, nullable),
       the `owner_identity_override` table, and `tenant.owner_identity_pattern` (nullable
       VARCHAR(500)), per data-model.md. In the same migration, seed five `rule` rows at
@@ -61,7 +61,7 @@ SC-005, FR-011/FR-012 (SDA admin UI), FR-024–FR-026 (attribution fallback), an
       delivered as a migration-time INSERT, not application code (FR-001's discipline applied to
       seeding itself) — S18, S18a, FR-001, FR-003, data-model.md `sda_id`/`owner_identity_override`/
       `tenant.owner_identity_pattern`/`rule` seed sections
-- [ ] T003 [P] Update `ops/erd/schema.mmd` to reflect `resource.sda_id`, `owner_identity_override`,
+- [X] T003 [P] Update `ops/erd/schema.mmd` to reflect `resource.sda_id`, `owner_identity_override`,
       and `tenant.owner_identity_pattern` — same PR as T002 per the `erd-current` CI gate
       (spec 002's T059 precedent: a schema-migration PR must touch `ops/erd/` in the same PR) —
       Principle I
