@@ -16,7 +16,6 @@ single seeded tenant (migration 0002), not application code.
 
 from __future__ import annotations
 
-import json
 import uuid
 from collections.abc import Sequence
 
@@ -104,14 +103,12 @@ def upgrade() -> None:
                 "tenant_id": tenant_id,
                 "key": key,
                 "version": 1,
-                "definition": json.dumps(
-                    {
-                        "required": required,
-                        "allowed_values": None,
-                        "format_pattern": None,
-                        "severity": "medium",
-                    }
-                ),
+                "definition": {
+                    "required": required,
+                    "allowed_values": None,
+                    "format_pattern": None,
+                    "severity": "medium",
+                },
                 "enabled": True,
             }
             for key, required in _SEEDED_RULES

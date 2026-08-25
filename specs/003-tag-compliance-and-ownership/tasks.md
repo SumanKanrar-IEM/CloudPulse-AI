@@ -60,7 +60,17 @@ SC-005, FR-011/FR-012 (SDA admin UI), FR-024–FR-026 (attribution fallback), an
       `required: true`) and `environment` (`required: false`) — data-model.md's "seed data" note;
       delivered as a migration-time INSERT, not application code (FR-001's discipline applied to
       seeding itself) — S18, S18a, FR-001, FR-003, data-model.md `sda_id`/`owner_identity_override`/
-      `tenant.owner_identity_pattern`/`rule` seed sections
+      `tenant.owner_identity_pattern`/`rule` seed sections. **Real bug found while implementing
+      T004/T006, not by inspection**: the original seed INSERT passed `json.dumps({...})` (a Python
+      `str`) as the value for a JSONB column via `op.bulk_insert`. SQLAlchemy's JSONB type
+      serializes whatever Python value it's given, so a `str` gets serialized *again* — the column
+      ends up holding a JSON string literal containing the JSON text, not a JSON object. Every read
+      back through the ORM (`RuleDefinition.model_validate(row.definition)` in T006) then failed
+      pydantic validation with `Input should be a valid dictionary ... input_type=str`, surfacing
+      as a 500 on `GET /rules` — not caught by T002's own upgrade/downgrade verification, since
+      that only checked the raw SQL text via `SELECT ... FROM rule`, which prints a JSON-shaped
+      string either way and looks correct at a glance. Fixed by passing the plain Python dict
+      directly (`"definition": {...}`, no `json.dumps`) and removing the now-unused `json` import.
 - [X] T003 [P] Update `ops/erd/schema.mmd` to reflect `resource.sda_id`, `owner_identity_override`,
       and `tenant.owner_identity_pattern` — same PR as T002 per the `erd-current` CI gate
       (spec 002's T059 precedent: a schema-migration PR must touch `ops/erd/` in the same PR) —
@@ -80,22 +90,26 @@ findings reflect the new rule, not the old one.
 
 ### Tests for User Story 1
 
-- [ ] T004 [P] [US1] Write `backend/tests/unit/test_rules_api.py` — role gating (admin write,
-      all-role read per FR-029/FR-030), the five seeded rules exist and match FR-003's exact
-      required/not-required split, `extra="forbid"`-style rejection of unrecognized fields — S18,
-      FR-001–FR-003, FR-029, FR-030
-- [ ] T005 [P] [US1] Write `backend/tests/unit/test_rule_versioning.py` — editing a rule creates a
+- [X] T004 [P] [US1] Write `backend/tests/integration/test_rules_api.py` — role gating (admin
+      write, all-role read per FR-029/FR-030), the five seeded rules exist and match FR-003's exact
+      required/not-required split, `extra="forbid"`-style rejection of unrecognized fields. **Moved
+      from `tests/unit/` to `tests/integration/`** — same class of deviation already documented for
+      T057 and others: verifying the seeded rules' actual content needs a genuinely migrated
+      database, not a mocked session — S18, FR-001–FR-003, FR-029, FR-030
+- [X] T005 [P] [US1] Write `backend/tests/unit/test_rule_versioning.py` — editing a rule creates a
       new version under the same key rather than mutating in place; `definition`'s three
       independent checks (required/allowed-values/format) each produce a distinct finding kind
-      downstream (structural assertion here, full behavior in US3) — S18, FR-004, FR-005, FR-006
+      downstream (structural assertion here, full behavior in US3). Scoped to the Pydantic
+      schema layer only (no DB) once T004 moved to integration/ and already covers the full
+      DB-backed versioning behavior — no overlap between the two files — S18, FR-004, FR-005, FR-006
 
 ### Implementation for User Story 1
 
-- [ ] T006 [US1] Write `backend/app/api/routers/rules.py` — `GET /rules`, `POST /rules`,
+- [X] T006 [US1] Write `backend/app/api/routers/rules.py` — `GET /rules`, `POST /rules`,
       `PATCH /rules/{ruleKey}`, gated per FR-029 (admin write) / FR-030 (all-role read); PATCH
       creates a new `Rule` row under the same `key` with `version` incremented (research.md
       R-301) — S18, FR-001–FR-006
-- [ ] T007 [US1] Wire `rules` router into `backend/app/api/main.py`; regenerate
+- [X] T007 [US1] Wire `rules` router into `backend/app/api/main.py`; regenerate
       `backend/openapi.generated.yaml` — S18, FR-048 (spec 001 contract discipline)
 
 **Checkpoint**: Rules are readable and admin-editable via the API; case-insensitive matching and
