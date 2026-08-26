@@ -460,6 +460,148 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /rules:
+    get:
+      tags:
+      - rules
+      summary: List every tagging rule
+      description: 'FR-001-FR-004. All three roles may view (FR-030). One row per
+        key -- the
+
+        latest version, via `DISTINCT ON` ordered by version descending.'
+      operationId: listRules
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RulesList'
+        '401':
+          description: No valid identity presented.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Valid identity, but the caller's role does not permit the action
+            -- or the caller maps to zero or multiple directory groups and therefore
+            has no resolvable role (FR-032a, FR-034).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+    post:
+      tags:
+      - rules
+      summary: Create a new tagging rule
+      description: 'FR-001. Admin only (FR-029). Refused if the key already exists
+        -- editing an
+
+        existing key is PATCH''s job (FR-006), not a second POST.'
+      operationId: createRule
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RuleCreate'
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Rule'
+        '401':
+          description: No valid identity presented.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Valid identity, but the caller's role does not permit the action
+            -- or the caller maps to zero or multiple directory groups and therefore
+            has no resolvable role (FR-032a, FR-034).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '409':
+          description: A rule with this key is already registered.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '422':
+          description: Request body or parameters failed validation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /rules/{rule_key}:
+    patch:
+      tags:
+      - rules
+      summary: Edit a tagging rule
+      description: 'FR-005/FR-006. Admin only. Creates a new version under the same
+        key
+
+        (research.md R-301) rather than mutating the existing version in place --
+        the
+
+        edit takes effect starting with the next scan that begins after this call,
+        never
+
+        a scan already in progress (Clarifications session 2026-08-25).'
+      operationId: updateRule
+      parameters:
+      - name: rule_key
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Rule Key
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RuleUpdate'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Rule'
+        '401':
+          description: No valid identity presented.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Valid identity, but the caller's role does not permit the action
+            -- or the caller maps to zero or multiple directory groups and therefore
+            has no resolvable role (FR-032a, FR-034).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '404':
+          description: Target record does not exist, or the caller is not entitled
+            to know that it does.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '422':
+          description: Request body or parameters failed validation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
 components:
   schemas:
     Account:
@@ -744,6 +886,110 @@ components:
       - checks
       - correlationId
       title: HealthResponse
+    Rule:
+      properties:
+        id:
+          type: string
+          title: Id
+        key:
+          type: string
+          title: Key
+        version:
+          type: integer
+          title: Version
+        enabled:
+          type: boolean
+          title: Enabled
+        definition:
+          $ref: '#/components/schemas/RuleDefinition'
+        effectiveFrom:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Effectivefrom
+      type: object
+      required:
+      - id
+      - key
+      - version
+      - enabled
+      - definition
+      title: Rule
+    RuleCreate:
+      properties:
+        key:
+          type: string
+          title: Key
+        definition:
+          $ref: '#/components/schemas/RuleDefinition'
+      additionalProperties: false
+      type: object
+      required:
+      - key
+      - definition
+      title: RuleCreate
+    RuleDefinition:
+      properties:
+        required:
+          type: boolean
+          title: Required
+        allowedValues:
+          anyOf:
+          - items:
+              type: string
+            type: array
+          - type: 'null'
+          title: Allowedvalues
+        formatPattern:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Formatpattern
+        severity:
+          type: string
+          enum:
+          - low
+          - medium
+          - high
+          - critical
+          title: Severity
+          default: medium
+      additionalProperties: false
+      type: object
+      required:
+      - required
+      title: RuleDefinition
+      description: 'FR-004: three independent checks a rule may express, any subset
+        of them.'
+    RuleUpdate:
+      properties:
+        definition:
+          $ref: '#/components/schemas/RuleDefinition'
+        enabled:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Enabled
+      additionalProperties: false
+      type: object
+      required:
+      - definition
+      title: RuleUpdate
+      description: 'No `key` field, deliberately (FR-006): an edit targets a key via
+        the URL
+
+        path, never the request body.'
+    RulesList:
+      properties:
+        rules:
+          items:
+            $ref: '#/components/schemas/Rule'
+          type: array
+          title: Rules
+      type: object
+      required:
+      - rules
+      title: RulesList
     Scan:
       properties:
         id:

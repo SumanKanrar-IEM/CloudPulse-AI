@@ -6,6 +6,8 @@ api/accounts.serviceInterface.ts
 api/api.ts
 api/identity.service.ts
 api/identity.serviceInterface.ts
+api/rules.service.ts
+api/rules.serviceInterface.ts
 api/system.service.ts
 api/system.serviceInterface.ts
 configuration.ts
@@ -26,6 +28,11 @@ model/health-response.ts
 model/http-validation-error.ts
 model/location-inner.ts
 model/models.ts
+model/rule-create.ts
+model/rule-definition.ts
+model/rule-update.ts
+model/rule.ts
+model/rules-list.ts
 model/scan-summary.ts
 model/scan.ts
 model/scans-list.ts
