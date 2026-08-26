@@ -602,6 +602,250 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
+  /sdas:
+    get:
+      tags:
+      - sdas
+      summary: List every registered SDA
+      description: FR-007. Any role may view (FR-030).
+      operationId: listSdas
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SdasList'
+        '401':
+          description: No valid identity presented.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Valid identity, but the caller's role does not permit the action
+            -- or the caller maps to zero or multiple directory groups and therefore
+            has no resolvable role (FR-032a, FR-034).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+    post:
+      tags:
+      - sdas
+      summary: Register a new SDA
+      description: 'FR-007. Admin only (FR-029). Refused with 409 if the mapping overlaps
+        an
+
+        existing SDA''s (FR-010a).'
+      operationId: registerSda
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SdaCreate'
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Sda'
+        '401':
+          description: No valid identity presented.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Valid identity, but the caller's role does not permit the action
+            -- or the caller maps to zero or multiple directory groups and therefore
+            has no resolvable role (FR-032a, FR-034).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '409':
+          description: This tag-value mapping overlaps an already-registered SDA's
+            mapping.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '422':
+          description: Request body or parameters failed validation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /sdas/{sda_id}:
+    patch:
+      tags:
+      - sdas
+      summary: Edit an SDA's tag-value mapping
+      description: 'FR-010. Admin only. Reclassification of matching resources happens
+        at the
+
+        next scan (Phase 7''s worker calls `sda_matching.reclassify_account_resources`),
+
+        not here -- this endpoint only updates the SDA row itself.'
+      operationId: updateSda
+      parameters:
+      - name: sda_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Sda Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SdaUpdate'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Sda'
+        '401':
+          description: No valid identity presented.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Valid identity, but the caller's role does not permit the action
+            -- or the caller maps to zero or multiple directory groups and therefore
+            has no resolvable role (FR-032a, FR-034).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '404':
+          description: Target record does not exist, or the caller is not entitled
+            to know that it does.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '409':
+          description: This tag-value mapping overlaps an already-registered SDA's
+            mapping.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    delete:
+      tags:
+      - sdas
+      summary: Remove an SDA
+      description: 'FR-010b. Admin only. Never refused for having attached resources
+        -- the
+
+        `ON DELETE SET NULL` foreign key is what immediately reverts every attached
+
+        resource to the "No SDA" bucket, not application code, and not deferred to
+
+        the next scan (Acceptance Scenario US2.5).'
+      operationId: removeSda
+      parameters:
+      - name: sda_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Sda Id
+      responses:
+        '204':
+          description: Successful Response
+        '401':
+          description: No valid identity presented.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Valid identity, but the caller's role does not permit the action
+            -- or the caller maps to zero or multiple directory groups and therefore
+            has no resolvable role (FR-032a, FR-034).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '404':
+          description: Target record does not exist, or the caller is not entitled
+            to know that it does.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /sdas/unmatched-resources:
+    get:
+      tags:
+      - sdas
+      summary: List resources in the "No SDA" bucket
+      description: 'FR-009/FR-012. Any role may view (FR-030) -- the P1 API the P2
+        triage
+
+        screen (FR-012) consumes; this endpoint itself is P1 since FR-009''s
+
+        visibility requirement is P1.'
+      operationId: listUnmatchedResources
+      parameters:
+      - name: accountId
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Accountid
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnmatchedResourcesList'
+        '401':
+          description: No valid identity presented.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Valid identity, but the caller's role does not permit the action
+            -- or the caller maps to zero or multiple directory groups and therefore
+            has no resolvable role (FR-032a, FR-034).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
 components:
   schemas:
     Account:
@@ -886,6 +1130,31 @@ components:
       - checks
       - correlationId
       title: HealthResponse
+    ResourceSummary:
+      properties:
+        id:
+          type: string
+          title: Id
+        arn:
+          type: string
+          title: Arn
+        resourceType:
+          type: string
+          title: Resourcetype
+        region:
+          type: string
+          title: Region
+        accountId:
+          type: string
+          title: Accountid
+      type: object
+      required:
+      - id
+      - arn
+      - resourceType
+      - region
+      - accountId
+      title: ResourceSummary
     Rule:
       properties:
         id:
@@ -1063,6 +1332,103 @@ components:
       required:
       - scans
       title: ScansList
+    Sda:
+      properties:
+        id:
+          type: string
+          title: Id
+        name:
+          type: string
+          title: Name
+        ownerEmail:
+          type: string
+          title: Owneremail
+        team:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Team
+        tagValues:
+          additionalProperties:
+            type: string
+          type: object
+          title: Tagvalues
+      type: object
+      required:
+      - id
+      - name
+      - ownerEmail
+      - tagValues
+      title: Sda
+    SdaCreate:
+      properties:
+        name:
+          type: string
+          title: Name
+        ownerEmail:
+          type: string
+          title: Owneremail
+        team:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Team
+        tagValues:
+          additionalProperties:
+            type: string
+          type: object
+          title: Tagvalues
+      additionalProperties: false
+      type: object
+      required:
+      - name
+      - ownerEmail
+      - tagValues
+      title: SdaCreate
+    SdaUpdate:
+      properties:
+        ownerEmail:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Owneremail
+        team:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Team
+        tagValues:
+          anyOf:
+          - additionalProperties:
+              type: string
+            type: object
+          - type: 'null'
+          title: Tagvalues
+      additionalProperties: false
+      type: object
+      title: SdaUpdate
+    SdasList:
+      properties:
+        sdas:
+          items:
+            $ref: '#/components/schemas/Sda'
+          type: array
+          title: Sdas
+      type: object
+      required:
+      - sdas
+      title: SdasList
+    UnmatchedResourcesList:
+      properties:
+        resources:
+          items:
+            $ref: '#/components/schemas/ResourceSummary'
+          type: array
+          title: Resources
+      type: object
+      required:
+      - resources
+      title: UnmatchedResourcesList
     ValidationError:
       properties:
         loc:

@@ -38,17 +38,26 @@ def contract() -> dict:
     return openapi_document()
 
 
-def test_no_registration_or_password_operation_exists(contract: dict) -> None:
-    """FR-031: no self-service USER registration path, and no platform-held passwords.
+EXEMPT_PATH_PREFIXES = (
+    # Spec 002's `POST /accounts` (operationId `registerAccount`) legitimately matches
+    # the "register" fragment -- it is an admin-gated action registering a *cloud
+    # account* (a governance object CloudPulse scans), not a self-service path for a
+    # *person* to create their own identity. FR-031 is about the latter; identity still
+    # comes exclusively from the directory (FR-031a), unchanged by this endpoint.
+    "/accounts",
+    # Spec 003's `POST /sdas` (operationId `registerSda`) is the same class of
+    # exemption for the same reason: an admin-gated action registering a governance
+    # object (a Service Delivery Area), never a person's identity. spec.md's own User
+    # Story 2 and FR-007 use the word "register" for exactly this action -- renaming
+    # the endpoint to dodge this fragment match would obscure the API's own vocabulary
+    # to satisfy a check whose actual concern (self-service user registration) this
+    # endpoint was never close to.
+    "/sdas",
+)
 
-    Spec 002's `POST /accounts` (operationId `registerAccount`) legitimately matches
-    the "register" fragment -- it is an admin-gated action registering a *cloud
-    account* (a governance object CloudPulse scans), not a self-service path for a
-    *person* to create their own identity. FR-031 is about the latter; identity still
-    comes exclusively from the directory (FR-031a), unchanged by this endpoint. The
-    same reasoning exempts every operation under the /accounts path prefix, since none
-    of them touch `app_user` or identity at all.
-    """
+
+def test_no_registration_or_password_operation_exists(contract: dict) -> None:
+    """FR-031: no self-service USER registration path, and no platform-held passwords."""
     operations = [
         (path, method, op.get("operationId", ""))
         for path, methods in contract["paths"].items()
@@ -59,7 +68,7 @@ def test_no_registration_or_password_operation_exists(contract: dict) -> None:
     offenders = [
         f"{method.upper()} {path} ({op_id})"
         for path, method, op_id in operations
-        if not path.startswith("/accounts")
+        if not path.startswith(EXEMPT_PATH_PREFIXES)
         and any(f in (op_id + path).lower().replace("-", "") for f in FORBIDDEN_OPERATION_FRAGMENTS)
     ]
     assert not offenders, f"FR-031 violation -- registration/password surface: {offenders}"

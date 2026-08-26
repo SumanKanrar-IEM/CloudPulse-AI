@@ -8,6 +8,8 @@ api/identity.service.ts
 api/identity.serviceInterface.ts
 api/rules.service.ts
 api/rules.serviceInterface.ts
+api/sdas.service.ts
+api/sdas.serviceInterface.ts
 api/system.service.ts
 api/system.serviceInterface.ts
 configuration.ts
@@ -28,6 +30,7 @@ model/health-response.ts
 model/http-validation-error.ts
 model/location-inner.ts
 model/models.ts
+model/resource-summary.ts
 model/rule-create.ts
 model/rule-definition.ts
 model/rule-update.ts
@@ -36,6 +39,11 @@ model/rules-list.ts
 model/scan-summary.ts
 model/scan.ts
 model/scans-list.ts
+model/sda-create.ts
+model/sda-update.ts
+model/sda.ts
+model/sdas-list.ts
+model/unmatched-resources-list.ts
 model/validation-error.ts
 param.ts
 provide-api.ts
