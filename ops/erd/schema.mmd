@@ -98,7 +98,7 @@ erDiagram
         uuid tenant_id FK
         text key UK
         int version UK
-        jsonb definition "rules-as-data"
+        jsonb definition "rules-as-data. Migration 0010's seed INSERT originally double-encoded this column (json.dumps of a dict passed into a JSONB bulk_insert) -- fixed by passing the dict directly; no shape change, noted here for the erd-current gate"
         bool enabled
         timestamptz effective_from
     }
