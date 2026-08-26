@@ -130,10 +130,12 @@ SDA" without a new scan.
 
 ### Tests for User Story 2
 
-- [ ] T008 [P] [US2] Write `backend/tests/unit/test_sdas_api.py` — role gating on all four
-      operations (POST/PATCH/DELETE admin-only, GET all-role), request-shape validation — S18a,
-      FR-007, FR-010b, FR-029, FR-030
-- [ ] T008a [P] [US2] Write `backend/tests/integration/test_sda_matching_and_reclassification.py`
+- [X] T008 [P] [US2] Write `backend/tests/integration/test_sdas_api.py` — role gating on all four
+      operations (POST/PATCH/DELETE admin-only, GET all-role), request-shape validation. **Moved
+      from `tests/unit/` to `tests/integration/`**, same precedent as T004: a 200-path role-gating
+      assertion needs real rows to serialize. This file's `TestOverlapDetection` class also absorbs
+      T009's scope (see T009's note below) — S18a, FR-007, FR-010b, FR-029, FR-030
+- [X] T008a [P] [US2] Write `backend/tests/integration/test_sda_matching_and_reclassification.py`
       — Testcontainers PostgreSQL, the SDA registry's primary behavior, not just its edge cases: a
       resource whose tags satisfy a registered SDA's mapping attaches to it (FR-008, Acceptance
       Scenario US2.1); a resource matching no SDA lands in and stays visible in the "No SDA"
@@ -144,26 +146,46 @@ SDA" without a new scan.
       `/speckit-analyze` (finding E1, 2026-08-25): T009/T010 only ever covered the overlap-refusal
       and removal edge cases, never this behavior itself — S18a, FR-008, FR-009, FR-010, SC-006,
       SC-007
-- [ ] T009 [P] [US2] Write `backend/tests/integration/test_sda_overlap_detection.py` —
+- [X] T009 [P] [US2] Write `backend/tests/integration/test_sda_overlap_detection.py` —
       Testcontainers PostgreSQL, research.md R-305's exact-intersection rule: identical mappings
       refused, and the subset case (`{team: platform}` vs. `{team: platform, env: prod}`) also
-      refused, not just literal duplicates — S18a, FR-010a
-- [ ] T010 [P] [US2] Write `backend/tests/integration/test_sda_removal_reverts_resources.py` —
+      refused, not just literal duplicates. **Folded into `test_sdas_api.py`'s
+      `TestOverlapDetection` class** rather than a separate file — both need the same
+      admin-authenticated `TestClient` fixture T008 already builds, and splitting it out would only
+      duplicate that setup; also covers a case beyond the two named above: a shared key with a
+      genuinely different value (`{team: platform}` vs. `{team: data}`) is correctly *not* refused
+      — S18a, FR-010a
+- [X] T010 [P] [US2] Write `backend/tests/integration/test_sda_removal_reverts_resources.py` —
       Testcontainers PostgreSQL, proves the `ON DELETE SET NULL` FK behavior directly: a resource
       attached to an SDA has `sda_id` become `NULL` the instant the SDA row is deleted, with no
-      application code and no scan involved — S18a, FR-010b
+      application code and no scan involved. **Real bug found while writing this test, not by
+      inspection**: the first version asserted against `db.get(Resource, resource_id)` immediately
+      after `db.delete(sda); db.commit()` and got the *old* `sda_id` back — SQLAlchemy's identity
+      map serves the already-loaded Python object rather than re-querying, and has no way to know a
+      database-level FK action (not ORM-tracked) changed the row. Fixed with `db.expire_all()`
+      before the re-fetch — S18a, FR-010b
 
 ### Implementation for User Story 2
 
-- [ ] T011 [US2] Write `backend/app/governance/sda_matching.py` — tag-value mapping match (a
+- [X] T011 [US2] Write `backend/app/governance/sda_matching.py` — tag-value mapping match (a
       resource matches when every key in an SDA's `tag_values` is present on the resource with
-      exactly that value, FR-008) and the overlap-detection check research.md R-305 defines,
-      called from both SDA create and update — S18a, FR-008, FR-010a
-- [ ] T012 [US2] Write `backend/app/api/routers/sdas.py` — `GET /sdas`, `POST /sdas`,
+      exactly that value, FR-008), the overlap-detection check research.md R-305 defines (called
+      from both SDA create and update, FR-010a), and `reclassify_account_resources` — the function
+      Phase 7's compliance-validation worker will call once per finalized scan (research.md R-303),
+      exercised directly by T008a in the meantime, the same "pure logic now, real trigger later"
+      split Phase 5's validation module also follows — S18a, FR-008, FR-009, FR-010, FR-010a
+- [X] T012 [US2] Write `backend/app/api/routers/sdas.py` — `GET /sdas`, `POST /sdas`,
       `PATCH /sdas/{sdaId}`, `DELETE /sdas/{sdaId}` (FR-010b: never refused for attached
       resources), `GET /sdas/unmatched-resources` (FR-009's "No SDA" visibility — this one
       endpoint is P1 even though the dedicated UI screen consuming it, FR-012, is P2) — S18a,
-      FR-007–FR-010b
+      FR-007–FR-010b. **Real gap found while implementing**: FastAPI asserts a 204 response can't
+      declare a body-carrying `response_model` — `remove_sda` needed `response_model=None`
+      explicit, not just a `-> None` return annotation. Also extended
+      `tests/unit/test_no_registration_path.py`'s `/accounts`-only exemption to include `/sdas`:
+      `registerSda`'s operationId legitimately matches that test's "register" fragment for the same
+      reason `registerAccount` already does (registering a governance object, never a person's
+      identity) — a spec-001-owned guard needing a narrow, justified extension for a case it didn't
+      anticipate, the same class of change as `check_connector_boundary.py`'s extension in spec 002.
 
 **Checkpoint**: SDAs are registerable, editable, and removable via the API; matching and overlap
 refusal are proven against a real database. Resources aren't actually attached to SDAs yet — that
