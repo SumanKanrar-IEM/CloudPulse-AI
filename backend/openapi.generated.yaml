@@ -907,6 +907,104 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /accounts/{account_id}/compliance-score:
+    get:
+      tags:
+      - compliance
+      summary: Retrieve an account's compliance score
+      description: FR-018/FR-019/FR-019a. Any role may view (FR-030).
+      operationId: getAccountComplianceScore
+      parameters:
+      - name: account_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Account Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ComplianceScore'
+        '401':
+          description: No valid identity presented.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Valid identity, but the caller's role does not permit the action
+            -- or the caller maps to zero or multiple directory groups and therefore
+            has no resolvable role (FR-032a, FR-034).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '404':
+          description: Target record does not exist, or the caller is not entitled
+            to know that it does.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /sdas/{sda_id}/compliance-score:
+    get:
+      tags:
+      - compliance
+      summary: Retrieve one SDA's compliance score
+      description: FR-018/FR-019/FR-019a, scoped to one SDA's resources only.
+      operationId: getSdaComplianceScore
+      parameters:
+      - name: sda_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Sda Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ComplianceScore'
+        '401':
+          description: No valid identity presented.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Valid identity, but the caller's role does not permit the action
+            -- or the caller maps to zero or multiple directory groups and therefore
+            has no resolvable role (FR-032a, FR-034).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '404':
+          description: Target record does not exist, or the caller is not entitled
+            to know that it does.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
 components:
   schemas:
     Account:
@@ -1015,6 +1113,23 @@ components:
       required:
       - accounts
       title: AccountsList
+    ComplianceScore:
+      properties:
+        compliantCount:
+          type: integer
+          title: Compliantcount
+        totalCount:
+          type: integer
+          title: Totalcount
+        score:
+          type: number
+          title: Score
+      type: object
+      required:
+      - compliantCount
+      - totalCount
+      - score
+      title: ComplianceScore
     ConnectionMode:
       type: string
       enum:

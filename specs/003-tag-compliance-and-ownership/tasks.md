@@ -270,20 +270,33 @@ and confirm it matches the manual count exactly.
 
 ### Tests for User Story 4
 
-- [ ] T018 [P] [US4] Write `backend/tests/unit/test_compliance_scoring.py` — score formula
+- [X] T018 [P] [US4] Write `backend/tests/unit/test_compliance_scoring.py` — score formula
       (compliant top-level resources ÷ total top-level resources) verified against a hand-counted
       fixture set so the assertion itself proves SC-003's "matches a manual tally" bar, not just
       that the code runs; per-SDA scoping; the zero-resources case returns a well-defined value
       rather than raising — S20, FR-018, FR-019a, SC-003
+      **Done**: moved to `tests/integration/` (same precedent as T013 — "matches a manual tally"
+      needs real `Resource`/`Finding` rows, not a mock). Combines a pure `TestComputeScore` class
+      (the formula itself, incl. the zero-total case) with DB-backed hand-count tests covering:
+      account-scoped mix, a resolved finding not counting against the score, a child resource
+      excluded from both counts (T016's top-level-only definition), zero-resource account,
+      per-SDA scoping (Acceptance Scenario US4.2), and a freshly registered SDA with no matched
+      resources (Acceptance Scenario US4.3).
 
 ### Implementation for User Story 4
 
-- [ ] T019 [US4] Write `backend/app/governance/scoring.py` — compliant/total counts scoped to an
+- [X] T019 [US4] Write `backend/app/governance/scoring.py` — compliant/total counts scoped to an
       account or to one SDA, `parent_resource_id IS NULL` as the top-level filter (same canonical
       definition T016 establishes) — S20, FR-018, FR-019a
-- [ ] T020 [US4] Write `backend/app/api/routers/compliance.py` —
+      **Done**: no deviations. `compute_score()` is a pure function (score = compliant/total,
+      1.0 when total is 0 per FR-019a and the contract's `ComplianceScore.score` doc); the two
+      scoped query functions each fetch the scope's top-level resources, then count how many have
+      no OPEN finding.
+- [X] T020 [US4] Write `backend/app/api/routers/compliance.py` —
       `GET /accounts/{accountId}/compliance-score`, `GET /sdas/{sdaId}/compliance-score`,
       all-role read — S20, FR-018, FR-019, FR-030
+      **Done**: no deviations. 404s if the account/SDA doesn't exist in the caller's tenant,
+      matching `sdas.py`'s `_get_or_404` pattern.
 
 **Checkpoint**: Scores are computable and API-retrievable, provably matching a hand count at the
 unit level. Nothing has populated real findings from a real scan yet — that's Phase 7.

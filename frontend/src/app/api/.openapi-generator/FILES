@@ -4,6 +4,8 @@ api.module.ts
 api/accounts.service.ts
 api/accounts.serviceInterface.ts
 api/api.ts
+api/compliance.service.ts
+api/compliance.serviceInterface.ts
 api/findings.service.ts
 api/findings.serviceInterface.ts
 api/identity.service.ts
@@ -21,6 +23,7 @@ model/account-create.ts
 model/account-update.ts
 model/account.ts
 model/accounts-list.ts
+model/compliance-score.ts
 model/connection-mode.ts
 model/current-user.ts
 model/dependency-check.ts
