@@ -205,36 +205,54 @@ closes the same finding row, not a new one.
 
 ### Tests for User Story 3
 
-- [ ] T013 [P] [US3] Write `backend/tests/unit/test_validation_engine.py` — the three violation
+- [X] T013 [P] [US3] Write `backend/tests/unit/test_validation_engine.py` — the three violation
       kinds (missing/invalid-value/invalid-format) each produce a distinct finding, severity comes
       from `rule.definition.severity` (default `medium`), an uncovered/disabled rule produces no
       finding, a fixed tag auto-closes its finding on re-evaluation (SC-002), and validation
       MUST NOT run — must open, dedupe, or close nothing — against a scan recorded `failed`,
       only `succeeded`/`partial` (FR-017; found missing a dedicated assertion by
       `/speckit-analyze` finding E3, 2026-08-25) — S19, FR-004, FR-013–FR-017, SC-002
-- [ ] T014 [P] [US3] Write `backend/tests/integration/test_finding_rule_version_repointing.py` —
+      **Done**: moved to `tests/integration/` (same precedent as T004/T008 — proving a finding
+      actually opens a DB row needs a real database). Migration 0010 seeds 5 rules against the
+      tenant, enabled — collided with test-created rule keys (`uq_rule_tenant_key_version`) and
+      produced unwanted extra findings; fixed with a `_disable_seeded_rules()` helper and renamed
+      test rule keys off the seeded set. The original "uncovered rule" half of the disabled-rule
+      test was a misconception (no per-resource-type rule-coverage concept exists) and also
+      exercised a bogus `definition`-JSON `enabled` key the app never reads — simplified to
+      `test_a_disabled_rule_produces_no_finding` using the real `enabled` column.
+- [X] T014 [P] [US3] Write `backend/tests/integration/test_finding_rule_version_repointing.py` —
       Testcontainers PostgreSQL, the decisive test for research.md R-301: open a finding under
       rule version 1, edit the rule to version 2, re-evaluate, confirm the **same finding row**
       (not a new one) now has `rule_id` pointing at version 2 and can auto-close under version 2's
       criteria (SC-002) — the specific correctness risk the Clarifications session (2026-08-25)
       exists to prevent — S19, FR-006, FR-015, FR-016, SC-002
-- [ ] T015 [P] [US3] Write `backend/tests/unit/test_parent_child_resolution.py` — a resource whose
+      **Done**: this test caught a real bug — see T016.
+- [X] T015 [P] [US3] Write `backend/tests/unit/test_parent_child_resolution.py` — a resource whose
       enrichment `detail` names an owning resource (EBS volume's `attached_instance_id`, EIP's
       `associated_instance_id`) gets `parent_resource_id` set to that resource; everything else
       keeps it `NULL`; validation evaluates only rows where `parent_resource_id IS NULL` — S19,
       FR-013, FR-013a
+      **Done**: moved to `tests/integration/` (same precedent as T013). Fixed a variable-order
+      mixup where a test destructured the `db` fixture's `(raw_wrapper, plain_session, tenant_id)`
+      tuple wrong and called `raw.raw.execute(...)` on the plain `Session` (no `.raw` attribute).
 
 ### Implementation for User Story 3
 
-- [ ] T016 [US3] Write `backend/app/governance/validation.py` — resolves parent/child relationships
+- [X] T016 [US3] Write `backend/app/governance/validation.py` — resolves parent/child relationships
       onto `resource.parent_resource_id` (FR-013a), evaluates enabled rules against top-level
       resources only (FR-013), opens a finding per violation kind (FR-014) via the join-on-`key`
       lookup R-301 defines (not a `rule_id`-only lookup), re-points `rule_id`/`rule_version`/
       `severity` on re-evaluation rather than inserting a duplicate (FR-015), and auto-closes
       (FR-016) — gated to run only against `succeeded`/`partial` scans, never `failed` (FR-017,
       reusing spec 002's R-204 completion gating) — S19, FR-013–FR-017
-- [ ] T017 [US3] Write `backend/app/api/routers/findings.py` — `GET /findings` filterable by
+      **Done**: T014's test caught a genuine FR-006 bug — `evaluate_resource()`'s auto-close
+      branch resolved the violation but never re-pointed `rule_id`/`rule_version` onto the closing
+      version, so a finding resolved under an edited rule kept showing the stale version that
+      originally opened it. Fixed by re-pointing in the closing branch too, matching the
+      still-violating branch.
+- [X] T017 [US3] Write `backend/app/api/routers/findings.py` — `GET /findings` filterable by
       `accountId`/`resourceId`/`status`, all-role read — S19, FR-014, FR-030
+      **Done**: no deviations.
 
 **Checkpoint**: Given a resource and a rule, findings open, dedupe, and auto-close correctly,
 including across a rule edit. Nothing computes a score yet (US4), and nothing calls this from a

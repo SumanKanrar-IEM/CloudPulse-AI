@@ -1,6 +1,9 @@
 export * from './accounts.service';
 import { AccountsService } from './accounts.service';
 export * from './accounts.serviceInterface';
+export * from './findings.service';
+import { FindingsService } from './findings.service';
+export * from './findings.serviceInterface';
 export * from './identity.service';
 import { IdentityService } from './identity.service';
 export * from './identity.serviceInterface';
@@ -13,4 +16,4 @@ export * from './sdas.serviceInterface';
 export * from './system.service';
 import { SystemService } from './system.service';
 export * from './system.serviceInterface';
-export const APIS = [AccountsService, IdentityService, RulesService, SdasService, SystemService];
+export const APIS = [AccountsService, FindingsService, IdentityService, RulesService, SdasService, SystemService];
