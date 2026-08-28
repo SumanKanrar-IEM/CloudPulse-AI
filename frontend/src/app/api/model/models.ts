@@ -2,6 +2,7 @@ export * from './account';
 export * from './account-create';
 export * from './account-update';
 export * from './accounts-list';
+export * from './compliance-score';
 export * from './connection-mode';
 export * from './current-user';
 export * from './dependency-check';
