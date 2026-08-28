@@ -846,6 +846,67 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /findings:
+    get:
+      tags:
+      - findings
+      summary: List findings
+      description: FR-014. Any role may view (FR-030). Most recently opened first.
+      operationId: listFindings
+      parameters:
+      - name: accountId
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Accountid
+      - name: resourceId
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Resourceid
+      - name: status
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - $ref: '#/components/schemas/FindingStatus'
+          - type: 'null'
+          title: Status
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FindingsList'
+        '401':
+          description: No valid identity presented.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Valid identity, but the caller's role does not permit the action
+            -- or the caller maps to zero or multiple directory groups and therefore
+            has no resolvable role (FR-032a, FR-034).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
 components:
   schemas:
     Account:
@@ -1094,6 +1155,71 @@ components:
       - externalId
       - cloudFormationTemplateUrl
       title: ExternalIdResponse
+    Finding:
+      properties:
+        id:
+          type: string
+          title: Id
+        resource:
+          $ref: '#/components/schemas/ResourceSummary'
+        ruleKey:
+          type: string
+          title: Rulekey
+        ruleVersion:
+          type: integer
+          title: Ruleversion
+        severity:
+          type: string
+          title: Severity
+        status:
+          type: string
+          title: Status
+        openedAt:
+          type: string
+          format: date-time
+          title: Openedat
+        resolvedAt:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Resolvedat
+      type: object
+      required:
+      - id
+      - resource
+      - ruleKey
+      - ruleVersion
+      - severity
+      - status
+      - openedAt
+      title: Finding
+    FindingStatus:
+      type: string
+      enum:
+      - open
+      - resolved
+      - suppressed
+      title: FindingStatus
+      description: 'Spec 003 owns the lifecycle semantics (FR-055).
+
+
+        These members are the schema''s accommodation of them, not the authoritative
+
+        definition. Spec 003 may extend this enum by additive migration without
+
+        renegotiating the table.'
+    FindingsList:
+      properties:
+        findings:
+          items:
+            $ref: '#/components/schemas/Finding'
+          type: array
+          title: Findings
+      type: object
+      required:
+      - findings
+      title: FindingsList
     HTTPValidationError:
       properties:
         detail:
@@ -1459,4 +1585,3 @@ components:
         then re-validated for role cardinality by the application (research.md R-004).
 security:
 - cognitoJwt: []
-

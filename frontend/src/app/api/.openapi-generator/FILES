@@ -4,6 +4,8 @@ api.module.ts
 api/accounts.service.ts
 api/accounts.serviceInterface.ts
 api/api.ts
+api/findings.service.ts
+api/findings.serviceInterface.ts
 api/identity.service.ts
 api/identity.serviceInterface.ts
 api/rules.service.ts
@@ -26,6 +28,9 @@ model/error-body.ts
 model/error-detail.ts
 model/error-envelope.ts
 model/external-id-response.ts
+model/finding-status.ts
+model/finding.ts
+model/findings-list.ts
 model/health-response.ts
 model/http-validation-error.ts
 model/location-inner.ts
