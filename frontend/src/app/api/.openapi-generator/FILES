@@ -10,6 +10,8 @@ api/findings.service.ts
 api/findings.serviceInterface.ts
 api/identity.service.ts
 api/identity.serviceInterface.ts
+api/ownership.service.ts
+api/ownership.serviceInterface.ts
 api/rules.service.ts
 api/rules.serviceInterface.ts
 api/sdas.service.ts
@@ -38,6 +40,8 @@ model/health-response.ts
 model/http-validation-error.ts
 model/location-inner.ts
 model/models.ts
+model/ownership-evidence.ts
+model/resource-ownership.ts
 model/resource-summary.ts
 model/rule-create.ts
 model/rule-definition.ts

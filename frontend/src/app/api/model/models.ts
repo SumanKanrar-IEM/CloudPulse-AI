@@ -16,6 +16,8 @@ export * from './findings-list';
 export * from './http-validation-error';
 export * from './health-response';
 export * from './location-inner';
+export * from './ownership-evidence';
+export * from './resource-ownership';
 export * from './resource-summary';
 export * from './rule';
 export * from './rule-create';

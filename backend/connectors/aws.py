@@ -442,6 +442,104 @@ ENRICHMENT_FUNCTIONS: dict[str, Callable[[Any, NormalizedResource], dict[str, An
 }
 
 
+# --- Ownership attribution: bulk CloudTrail sweep (FR-020, research.md R-302) ---
+
+# Tied 1:1 to the ten types ENRICHMENT_FUNCTIONS already treats as
+# governance-critical (R-202) -- a bounded, testable creation-event list, not an
+# attempt to enumerate every AWS service's creation-event name. FR-020's "for
+# every resource" is satisfied by leaving anything else's creator undetermined
+# (FR-022), not by chasing full coverage here.
+_CREATION_EVENT_NAMES = frozenset(
+    {
+        "RunInstances",
+        "CreateVolume",
+        "AllocateAddress",
+        "CreateBucket",
+        "CreateDBInstance",
+        "CreateFunction",
+        "CreateCluster",
+        "CreateTable",
+        "CreateLoadBalancer",
+        "CreateRole",
+    }
+)
+
+
+def _parse_user_identity(event: dict[str, Any]) -> dict[str, Any]:
+    """`LookupEvents`' summary fields (`Username`, etc.) don't carry principal
+    *type* -- only the full `CloudTrailEvent` JSON string does."""
+    raw = event.get("CloudTrailEvent")
+    if not raw:
+        return {}
+    try:
+        detail = json.loads(raw)
+    except (TypeError, ValueError):
+        return {}
+    identity = detail.get("userIdentity")
+    return identity if isinstance(identity, dict) else {}
+
+
+def _is_human_principal(user_identity: dict[str, Any]) -> bool:
+    """FR-021, this spec's P1 scope: a human IAM principal is a named IAM user
+    or the account's root user. An assumed role or an AWS-service principal is
+    not treated as human here -- P2's fallback chain (FR-024) is what a
+    non-human creator falls through to."""
+    return user_identity.get("type") in ("IAMUser", "Root")
+
+
+def sweep_cloudtrail_events(
+    account: ConnectorAccount, region: str, *, since: Any
+) -> dict[str, dict[str, Any]]:
+    """FR-020, research.md R-302: one bulk, paginated `LookupEvents` call per
+    (account, region, window), never one per resource.
+
+    Returns a map from a resource's short identifier (the same trailing
+    segment `NormalizedResource.resource_id.rsplit("/", 1)[-1]` yields) to its
+    earliest creation-type event in the window -- the direct-creator candidate
+    `app.governance.ownership` correlates against the scan's resource set.
+    `is_human` is resolved here (not left to the caller) because only this
+    function has access to the raw `CloudTrailEvent` JSON `userIdentity` is
+    parsed from. `is_write` is always `True` in this map today, since only
+    creation-type events are ever captured -- it exists for P2's fallback
+    chain (FR-024), which will need to widen this sweep to general write
+    events, not just creations.
+    """
+    from botocore.exceptions import BotoCoreError, ClientError
+
+    session = _build_session(account, session_name="cloudpulse-ownership")
+    client = session.client("cloudtrail", region_name=region)
+    events_by_resource: dict[str, dict[str, Any]] = {}
+    try:
+        paginator = client.get_paginator("lookup_events")
+        for page in paginator.paginate(StartTime=since):
+            for event in page.get("Events", []):
+                event_name = event.get("EventName", "")
+                if event_name not in _CREATION_EVENT_NAMES:
+                    continue
+                event_time = event.get("EventTime")
+                identity = _parse_user_identity(event)
+                for res in event.get("Resources") or []:
+                    resource_id = res.get("ResourceName")
+                    if not resource_id:
+                        continue
+                    existing = events_by_resource.get(resource_id)
+                    if existing is not None and existing["event_time"] <= event_time:
+                        continue
+                    events_by_resource[resource_id] = {
+                        "principal": identity.get("arn") or event.get("Username"),
+                        "is_human": _is_human_principal(identity),
+                        "event_name": event_name,
+                        "event_time": event_time,
+                        "event_id": event.get("EventId"),
+                        "is_write": True,
+                    }
+    except (ClientError, BotoCoreError):
+        # Same discipline as `_sweep_tagging_api`: a failed sweep is retried at
+        # the worker/orchestration layer (T027), not swallowed here.
+        raise
+    return events_by_resource
+
+
 class AwsConnector:
     """The one connector implementation this spec ships (FR-014, data-model.md).
 

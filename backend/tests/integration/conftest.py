@@ -85,3 +85,18 @@ def db_session(engine: Engine) -> Iterator[Session]:
     finally:
         session.rollback()
         session.close()
+
+
+@pytest.fixture(autouse=True)
+def _noop_governance_enqueue(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+    """T026 (spec 003, research.md R-303) added an SQS enqueue call to
+    `finalize_scan` -- a no-op here by default so every finalize_scan-calling
+    test that predates this spec keeps testing what it already tests (scan
+    status transitions, diffing, history), not SQS wiring.
+
+    `test_governance_worker_wiring.py` (T030) overrides this fixture -- same
+    name, nearer scope wins in pytest -- to exercise the real enqueue call
+    against moto-mocked SQS queues instead.
+    """
+    monkeypatch.setattr("app.scan.orchestrator._enqueue_governance_messages", lambda scan: None)
+    yield

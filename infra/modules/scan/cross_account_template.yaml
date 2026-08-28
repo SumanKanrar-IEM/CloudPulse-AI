@@ -53,6 +53,12 @@ Resources:
                   - cloudformation:ListResources
                   - cloudformation:GetResource
                   - sts:GetCallerIdentity
+                  # spec 003, FR-020, research.md R-302/R-306: the ownership-
+                  # attribution worker's bulk audit-trail sweep, cross-account. A
+                  # free API call against CloudTrail's default Event History -- no
+                  # Trail, no S3 bucket, no write/configuration action against this
+                  # account (FR-005 still holds).
+                  - cloudtrail:LookupEvents
                 Resource: "*"
               # FR-019's six P1 governance-critical types -- targeted enrichment
               # describes (research.md R-202). All read-only (Describe/Get/List).

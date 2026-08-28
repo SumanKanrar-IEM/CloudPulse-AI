@@ -23,13 +23,6 @@ variable "db_secret_arn" {
   }
 }
 
-variable "snapshot_bucket_name" {
-  type        = string
-  description = "spec 1's provisioned, empty-until-now raw-scan-snapshot bucket (FR-028)."
-}
-
-variable "snapshot_bucket_arn" { type = string }
-
 variable "log_retention_days" {
   type        = number
   description = "FR-046a: 30 days. Passed in so every module agrees (T044, spec 1)."
@@ -37,33 +30,10 @@ variable "log_retention_days" {
 
 variable "package_path" {
   type        = string
-  description = "Path to the deployment zip, built by CI -- the same package api's Lambdas use."
+  description = "Path to the deployment zip, built by CI -- the same package api/scan's Lambdas use."
 }
 
 variable "package_hash" {
   type        = string
   description = "base64 sha256 of the package, so a code change redeploys."
-}
-
-variable "schedule_expression" {
-  type        = string
-  description = "FR-026: the daily scan schedule (EventBridge Scheduler cron/rate expression)."
-  default     = "cron(0 6 * * ? *)"
-}
-
-variable "compliance_validation_queue_arn" {
-  type        = string
-  description = "spec 003, T026, research.md R-303: the scan-worker's finalize_scan step enqueues here."
-}
-
-variable "compliance_validation_queue_url" {
-  type = string
-}
-
-variable "ownership_attribution_queue_arn" {
-  type = string
-}
-
-variable "ownership_attribution_queue_url" {
-  type = string
 }

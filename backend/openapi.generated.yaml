@@ -1005,6 +1005,59 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /resources/{resource_id}/owner:
+    get:
+      tags:
+      - ownership
+      summary: Retrieve a resource's attributed owner
+      description: 'FR-020-FR-028. Any role may view (FR-030). 200 with a null `ownerEmail`/
+
+        `confidence` (not 404) when the resource exists but is queued
+
+        unattributed (FR-022) -- a resource genuinely not found still 404s.'
+      operationId: getResourceOwner
+      parameters:
+      - name: resource_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Resource Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResourceOwnership'
+        '401':
+          description: No valid identity presented.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Valid identity, but the caller's role does not permit the action
+            -- or the caller maps to zero or multiple directory groups and therefore
+            has no resolvable role (FR-032a, FR-034).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '404':
+          description: Target record does not exist, or the caller is not entitled
+            to know that it does.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
 components:
   schemas:
     Account:
@@ -1371,6 +1424,59 @@ components:
       - checks
       - correlationId
       title: HealthResponse
+    OwnershipEvidence:
+      properties:
+        kind:
+          type: string
+          title: Kind
+        cloudtrailEventId:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Cloudtraileventid
+        principal:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Principal
+        eventTime:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Eventtime
+      type: object
+      required:
+      - kind
+      title: OwnershipEvidence
+    ResourceOwnership:
+      properties:
+        resourceId:
+          type: string
+          title: Resourceid
+        ownerEmail:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Owneremail
+        confidence:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Confidence
+        evidence:
+          anyOf:
+          - $ref: '#/components/schemas/OwnershipEvidence'
+          - type: 'null'
+        attributedAt:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Attributedat
+      type: object
+      required:
+      - resourceId
+      title: ResourceOwnership
     ResourceSummary:
       properties:
         id:
