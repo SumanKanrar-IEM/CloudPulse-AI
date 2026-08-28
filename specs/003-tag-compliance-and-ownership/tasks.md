@@ -444,10 +444,21 @@ mocked tests — that's Phase 8.
 AWS account, the way specs 001/002 did. Playbook §0.5.5: run `/speckit-analyze` a second time after
 this phase, before starting Phase 9.
 
-- [ ] T031 Write `backend/tests/integration/test_role_matrix_governance.py` — the full role matrix
+- [X] T031 Write `backend/tests/integration/test_role_matrix_governance.py` — the full role matrix
       across rules/SDAs/findings/scores/ownership (quickstart.md V7): admin-only write on
       rules/SDAs, all-role read everywhere, explicitly asserting a non-admin write attempt is
       refused rather than inferred from admin's own success — S18–S21, FR-029, FR-030
+      **Done**: no deviations. 34 cells (6 view actions x 3 roles + 5 write actions x 3 roles),
+      matching quickstart.md V7's table exactly (its P2 owner-identity-pattern/override row is
+      deliberately excluded — that surface doesn't exist yet, Phase 9). View cells need real
+      account/SDA/resource rows to return anything but an empty list — inserted directly via the
+      ORM since the accounts router isn't mounted in this app (out of V7's scope). Also surfaced
+      and fixed an unrelated environment issue: the shared `/private/tmp/cloudpulse_venv` this
+      session's earlier phases used had been wiped by macOS's tmp-directory cleanup mid-session
+      (all installed packages' `.py` sources gone, only empty package directories left) — rebuilt
+      in the session scratchpad instead (`pip install --ignore-requires-python -e ".[dev]"`, the
+      same override the original venv must have used, since this Mac has no Python 3.12 and
+      `pyproject.toml` pins `==3.12.*`).
 - [ ] T032 **Live-verification.** Deploy this spec's work to dev (flip `DEV_AUTO_DEPLOY` or
       dispatch `Deploy dev` manually, per spec 002's precedent), and walk quickstart.md V1–V4, V6,
       V7, V8 against the real primary AWS account — confirms SC-001–SC-004 and SC-006–SC-008
