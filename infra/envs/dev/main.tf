@@ -54,6 +54,22 @@ module "storage" {
   account_id  = local.account_id
 }
 
+module "governance" {
+  source             = "../../modules/governance"
+  environment        = var.environment
+  vpc_id             = module.network.vpc_id
+  private_subnet_ids = module.network.private_subnet_ids
+
+  db_host       = module.database.connection_endpoint
+  db_name       = module.database.database_name
+  db_user       = "cloudpulse_admin"
+  db_secret_arn = module.database.master_user_secret_arn
+
+  log_retention_days = local.log_retention_days
+  package_path       = var.package_path
+  package_hash       = var.package_hash
+}
+
 module "scan" {
   source             = "../../modules/scan"
   environment        = var.environment
@@ -67,6 +83,12 @@ module "scan" {
 
   snapshot_bucket_name = module.storage.bucket_name
   snapshot_bucket_arn  = module.storage.bucket_arn
+
+  # spec 003, T026, research.md R-303: finalize_scan's enqueue target.
+  compliance_validation_queue_arn = module.governance.compliance_validation_queue_arn
+  compliance_validation_queue_url = module.governance.compliance_validation_queue_url
+  ownership_attribution_queue_arn = module.governance.ownership_attribution_queue_arn
+  ownership_attribution_queue_url = module.governance.ownership_attribution_queue_url
 
   log_retention_days = local.log_retention_days
   package_path       = var.package_path

@@ -113,6 +113,15 @@ data "aws_iam_policy_document" "worker_runtime" {
     resources = [local.scan_state_machine_arn]
   }
 
+  # spec 003, T026, research.md R-303: `finalize_scan` enqueues one message to
+  # each of the governance pipeline's two queues on every finalized scan.
+  statement {
+    sid       = "EnqueueGovernanceMessages"
+    effect    = "Allow"
+    actions   = ["sqs:SendMessage"]
+    resources = [var.compliance_validation_queue_arn, var.ownership_attribution_queue_arn]
+  }
+
   statement {
     sid    = "WriteOwnLogs"
     effect = "Allow"
@@ -166,8 +175,11 @@ resource "aws_lambda_function" "worker" {
       CLOUDPULSE_DB_SECRET_ARN          = var.db_secret_arn
       CLOUDPULSE_SNAPSHOT_BUCKET        = var.snapshot_bucket_name
       CLOUDPULSE_SCAN_STATE_MACHINE_ARN = local.scan_state_machine_arn
-      POWERTOOLS_SERVICE_NAME           = "cloudpulse-scan-worker"
-      POWERTOOLS_LOG_LEVEL              = "INFO"
+      # spec 003, T026, research.md R-303.
+      CLOUDPULSE_COMPLIANCE_VALIDATION_QUEUE_URL = var.compliance_validation_queue_url
+      CLOUDPULSE_OWNERSHIP_ATTRIBUTION_QUEUE_URL = var.ownership_attribution_queue_url
+      POWERTOOLS_SERVICE_NAME                    = "cloudpulse-scan-worker"
+      POWERTOOLS_LOG_LEVEL                       = "INFO"
     }
   }
 

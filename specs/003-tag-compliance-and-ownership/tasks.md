@@ -315,7 +315,7 @@ is that console user with evidence citing the creation event.
 
 ### Tests for User Story 5
 
-- [ ] T021 [P] [US5] Write `backend/tests/unit/test_cloudtrail_sweep.py` — **research.md R-307
+- [X] T021 [P] [US5] Write `backend/tests/unit/test_cloudtrail_sweep.py` — **research.md R-307
       VERIFY resolved here, before writing the rest of this file**: confirm empirically whether
       moto mocks `cloudtrail.lookup_events` with enough fidelity to auto-generate events from other
       mocked API calls (e.g. does `ec2.run_instances` produce a correlatable `RunInstances` event),
@@ -323,49 +323,114 @@ is that console user with evidence citing the creation event.
       research.md R-209 already established for a different service). Either way, test the bulk
       sweep's pagination and event-to-resource correlation logic as actually written — S21, FR-020,
       research.md R-302, R-307
-- [ ] T022 [P] [US5] Write `backend/tests/unit/test_ownership_attribution.py` — direct attribution
+      **Done**: R-307 resolved definitively, not just partially like R-209 — moto raises
+      `NotImplementedError: The lookup_events action has not been implemented` unconditionally, so
+      every test in this file uses hand-built `lookup_events` fixtures (MagicMock client/paginator),
+      with no partial-fidelity path at all. Covers pagination, creation-event-name filtering,
+      resource correlation, earliest-event-wins on duplicates, and human/non-human (`IAMUser`/`Root`
+      vs `AssumedRole`) principal classification parsed from the `CloudTrailEvent` JSON field.
+- [X] T022 [P] [US5] Write `backend/tests/unit/test_ownership_attribution.py` — direct attribution
       for a human-principal creation event with evidence citing the event; a resource outside the
       90-day window (or with no determinable creator) stays queued unattributed rather than guessed;
       an existing attribution is never overwritten by a later, lower-confidence result (the guarded
       `UPDATE ... WHERE confidence <= :new` pattern data-model.md's `resource_owner` section
       defines) — S21, FR-020–FR-023
-
-### Implementation for User Story 5
-
-- [ ] T023 [US5] Extend `backend/connectors/aws.py` — one new method: a bulk, paginated
+      **Done**: moved to `tests/integration/` (same precedent as T013/T018 — FR-023's guarded
+      `ON CONFLICT ... WHERE` upsert is a real Postgres behavior, not something a mock proves). The
+      guard direction needed care: `owner_confidence` is declared `(high, medium, low)` in migration
+      0001, so Postgres's native enum ordinal has `high` sort first/smallest — "new is
+      same-or-better than existing" is `EXCLUDED.confidence <= resource_owner.confidence`, verified
+      by a dedicated test that a MEDIUM write cannot clobber an existing HIGH row, and that a
+      same-confidence write updates in place.
+- [X] T023 [US5] Extend `backend/connectors/aws.py` — one new method: a bulk, paginated
       `cloudtrail:lookup_events` sweep for one `(account, region, 90-day window)`, returning a map
       from resource identifier to `{principal, event_name, event_time, is_write}` (research.md
       R-302) — stays behind the FR-054 connector boundary spec 001 established, no new AWS-access
       path outside it — S21, FR-020
-- [ ] T024 [US5] Write `backend/app/governance/ownership.py` — direct-creator attribution: correlate
+      **Done**: `sweep_cloudtrail_events()`. Creation events are recognized via a bounded,
+      documented allow-list (`_CREATION_EVENT_NAMES`) tied 1:1 to the ten types
+      `ENRICHMENT_FUNCTIONS` already treats as governance-critical (R-202) — FR-020's "for every
+      resource" is satisfied by leaving anything outside that list's creator undetermined (FR-022),
+      not by attempting exhaustive AWS service coverage. `is_human` is resolved here (not left to
+      the caller) since only this function parses the raw `CloudTrailEvent` JSON for
+      `userIdentity.type`; a human principal is `IAMUser` or `Root` for this spec's P1 scope.
+- [X] T024 [US5] Write `backend/app/governance/ownership.py` — direct-creator attribution: correlate
       T023's event map against the scan's current resource set, write `ResourceOwner` rows with
       `confidence=high` and `evidence={"kind":"direct",...}` (FR-021), leave unmatched/out-of-window
       resources unattributed (FR-022), guard every write against overwriting a higher-confidence
       existing row (FR-023) — S21, FR-020–FR-023
-- [ ] T025 [US5] Write `infra/modules/governance/main.tf` — two SQS queues + DLQs
+      **Done**: `attribute_ownership()`/`_write_attribution()`, via `postgresql.insert(...)
+      .on_conflict_do_update(..., where=...)`. Applies to every non-deleted resource, top-level or
+      child — FR-020 carries no top-level-only qualifier the way FR-013/FR-018 do, confirmed by a
+      dedicated test. `owner_email` stores the raw principal ARN/identity string directly for P1
+      (quickstart.md V4's own documented behavior: "the raw identity, if email resolution hasn't
+      run — P2"), not a resolved email — S23a's resolution chain is P2, out of scope here.
+- [X] T025 [US5] Write `infra/modules/governance/main.tf` — two SQS queues + DLQs
       (`compliance-validation`, `ownership-attribution`, Standard not FIFO per research.md R-306),
       two Lambda workers (arm64, 1024MB, matching spec 002's scan-worker sizing), and one IAM
       policy extension: `cloudtrail:LookupEvents` added to spec 002's existing scanner role (not a
       new role) — wire into `infra/envs/{dev,prod}/main.tf` — S21, research.md R-303, R-306
-- [ ] T026 [US5] Extend `backend/app/scan/orchestrator.py`'s `finalize_scan` — after it sets the
+      **Done**: no deviations. `cloudtrail:LookupEvents` added to `cross_account_template.yaml`'s
+      `cloudpulse-scanner` role (cross-account mode) and directly to the ownership-worker's own
+      runtime policy (same-account/local mode) — both paths this spec's two connection modes can
+      take. `infra/modules/scan`'s worker IAM policy and Lambda environment also needed extending
+      (new `sqs:SendMessage` permission + queue-URL env vars) since T026's enqueue call runs inside
+      the existing scan-worker Lambda, not a new one — the governance module is declared before the
+      scan module in both env files so its queue outputs can feed into it. `terraform fmt`/
+      `validate` run locally against both dev and prod (no AWS credentials needed for validate).
+- [X] T026 [US5] Extend `backend/app/scan/orchestrator.py`'s `finalize_scan` — after it sets the
       scan's final status and runs the deleted-marker sweep (spec 002's existing behavior,
       unchanged), enqueue one message per finalized scan to both new SQS queues (research.md
       R-303) — this is the one integration point connecting spec 002's scan lifecycle to this
       spec's governance pipeline; no second orchestration mechanism — S19, S20, S21, research.md
       R-303
-- [ ] T027 [US5] Write `backend/handlers/ownership_attribution_worker_handler.py` — SQS-triggered
+      **Done**: `_enqueue_governance_messages()`, gated inside the same
+      `if final_status is not ScanStatus.FAILED:` block as the deleted-marker sweep (matching
+      Phase 5's own FR-017 gate — a failed scan starts no governance work). `app/scan/orchestrator.py`
+      was already allow-listed in `check_connector_boundary.py` for its own Step Functions calls
+      (platform infrastructure, not a scanned account); the new `boto3.client("sqs")` call is the
+      same class of exception, no gate change needed. This is finalize_scan's *first* AWS call ever
+      — broke all four pre-existing integration tests that call it directly, since none mocked SQS.
+      Fixed with a `conftest.py` autouse fixture (`_noop_governance_enqueue`) that no-ops the
+      enqueue by default for every integration test; T030's own file overrides it (same fixture
+      name, nearer scope) to exercise the real call.
+- [X] T027 [US5] Write `backend/handlers/ownership_attribution_worker_handler.py` — SQS-triggered
       Lambda entrypoint calling T023/T024 for the finalized scan's account/regions — S21, FR-020
-- [ ] T028 [US5] Write `backend/handlers/compliance_validation_worker_handler.py` — SQS-triggered
+      **Done**: no deviations. Sweeps every region in `account.scan_regions`, merges the per-region
+      event maps, then calls `attribute_ownership` once for the whole account.
+- [X] T028 [US5] Write `backend/handlers/compliance_validation_worker_handler.py` — SQS-triggered
       Lambda entrypoint calling T011's SDA matching, T016's validation, and T019's scoring, in that
       order, for the finalized scan's resources — S18a, S19, S20
-- [ ] T029 [US5] Write `backend/app/api/routers/ownership.py` — `GET /resources/{resourceId}/owner`,
+      **Done**: found a genuine ordering bug while wiring this handler, fixed before it ever shipped
+      — T016's `resolve_parent_child_relationships()` is called explicitly *before* T011's SDA
+      matching (which this task's own stated order lists first), not after. SDA matching only
+      evaluates `parent_resource_id IS NULL` resources; on a brand-new resource's very first scan,
+      nothing had resolved `parent_resource_id` for it yet, so a genuine child resource would have
+      been incorrectly SDA-matched as top-level had matching run first. `validate_account` still
+      calls the same resolution again internally (idempotent, cheap) as part of its own contract.
+      T019's scoring is logged for observability only — the score itself is never persisted
+      (data-model.md: computed fresh on every `GET .../compliance-score` call).
+- [X] T029 [US5] Write `backend/app/api/routers/ownership.py` — `GET /resources/{resourceId}/owner`,
       returns 200 with a null `owner` field for a queued-unattributed resource (not 404), all-role
       read — S21, FR-020, FR-030
-- [ ] T030 [P] [US5] Write `backend/tests/integration/test_governance_worker_wiring.py` — proves
+      **Done**: no deviations.
+- [X] T030 [P] [US5] Write `backend/tests/integration/test_governance_worker_wiring.py` — proves
       `finalize_scan` actually enqueues to both queues and both worker handlers actually process a
       finalized scan end-to-end (LocalStack SQS, or moto if LocalStack's SQS coverage proves
       thinner — same either-way-workable framing as spec 002's R-210) — S18a, S19, S20, S21,
       research.md R-303
+      **Done**: LocalStack SQS proved sufficient (no moto fallback needed for this leg). Follows
+      R-210's established split for this codebase exactly: real LocalStack SQS proves the *enqueue*
+      reaches a real SQS-compatible API with the correct message shape; the worker handler
+      *functions* are invoked directly in-process against real Testcontainers Postgres (R-210's own
+      "Lambda-level tests" fallback, since a full LocalStack Lambda deployment was already found
+      impractical there) — `app.core.db.get_engine` monkeypatched onto the test container
+      (bypassing Secrets Manager, which no test container provides) and
+      `connectors.aws.sweep_cloudtrail_events` monkeypatched (R-307: no moto coverage to route that
+      leg through). One test proves the full chain: finalize_scan → both real queues receive the
+      correct message → the compliance worker's SDA-match+validate produces the expected
+      `sda_id`/`Finding` state → the ownership worker's sweep+attribute produces the expected
+      `ResourceOwner` row.
 
 **Checkpoint**: 🏁 **P1 functionally complete.** Every P1 user story is implemented and wired to a
 real scan's completion. What remains before declaring P1 done is proving it against real AWS, not

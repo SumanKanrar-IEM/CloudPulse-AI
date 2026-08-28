@@ -116,6 +116,39 @@ def _start_step_functions_execution(execution_input: dict[str, Any]) -> str:
     return str(response["executionArn"])
 
 
+# --- Governance pipeline enqueue (spec 003, T026, research.md R-303) -----------
+#
+# `finalize_scan` enqueues one message per finalized scan to each of two new SQS
+# queues -- not a second orchestration mechanism, an event-driven consumer of this
+# scan lifecycle's own completion event, the same relationship the state machine
+# above already has to the scan-worker Lambda (research.md R-303).
+
+_GOVERNANCE_QUEUE_ENV_VARS = (
+    "CLOUDPULSE_COMPLIANCE_VALIDATION_QUEUE_URL",
+    "CLOUDPULSE_OWNERSHIP_ATTRIBUTION_QUEUE_URL",
+)
+
+
+def _enqueue_governance_messages(scan: Scan) -> None:
+    import os
+
+    import boto3
+
+    body = json.dumps(
+        {
+            "scan_id": str(scan.id),
+            "tenant_id": str(scan.tenant_id),
+            "cloud_account_id": str(scan.cloud_account_id),
+        }
+    )
+    client = boto3.client("sqs")
+    for env_var in _GOVERNANCE_QUEUE_ENV_VARS:
+        queue_url = os.environ.get(env_var)
+        if not queue_url:
+            raise RuntimeError(f"{env_var} is not set")
+        client.send_message(QueueUrl=queue_url, MessageBody=body)
+
+
 # --- Daily trigger (FR-026) ---------------------------------------------------------
 
 
@@ -264,6 +297,10 @@ def finalize_scan(
             scan_started_at=scan.started_at,
             completed_regions=succeeded_regions,
         )
+        # T026, research.md R-303: same succeeded/partial-only gate as the sweep
+        # above and Phase 5's own FR-017 validation gate -- a failed scan starts
+        # no governance work at all.
+        _enqueue_governance_messages(scan)
 
     scan.resource_count = session.raw.execute(
         select(func.count())
