@@ -8,6 +8,17 @@
 
 **Input**: User description: "Give admins, operators, and viewers a single web dashboard where the entire governance story is visible: compliance posture, full inventory, findings with AI-suggested fixes, and scan operations. Functional scope (backlog S27–S31, S33; renders spec 6's suggestions): Authenticated shell (S27) [P1]: sign-in/sign-out against the platform identity service, role-based navigation guards (viewer never sees admin pages), responsive layout shell. Compliance overview (S28) [P1]: score cards, findings by type/severity charts, and a per-account summary table; numbers always match the API; loads under 2 seconds at 5,000 resources. Inventory explorer (S29) [P1]: server-side paged and filtered table (account, service, region, tag status, SDA), with a resource detail panel showing tags, owner + evidence, findings, and enrichment detail; filter \"missing owner tag\" returns the correct set. Findings workbench (S30) [P1]: list/filter findings, acknowledge them, and see each finding's AI remediation suggestion with its blast-radius note (produced by the ai-insights-agent spec) inline; acknowledging updates status immediately. Scan operations (S31) [P2]: scan history page (last run, duration, deltas) and an on-demand \"Scan now\" button with live status. Hardening (S33) [P2]: end-to-end smoke tests for the P1 journeys, empty/error states, deployment polish; e2e runs in CI against dev after each deploy. Success criteria: a viewer, operator, and admin each see exactly their permitted surface; the full demo path (onboard → scan → findings + suggestions → acknowledge) is walkable end-to-end in the UI without console access. Out of scope: notification bell/feed (cut), approval workflows (no remediation execution in MVP), cost and utilization pages (spec 5), agent chat interfaces."
 
+## Clarifications
+
+### Session 2026-08-31
+
+- Q: Does the demo path's "findings + suggestions" step (SC-002) need to show an actual
+  populated AI suggestion, even though the AI-insights spec that generates them doesn't
+  exist yet? → A: Add a minimal, admin-only mechanism to seed a demo/QA test suggestion
+  and blast-radius note on a finding — explicitly test tooling, not real AI generation —
+  so FR-018's populated-display path is provable in this spec's own P1 demo path, not
+  left permanently unverified until a later spec ships.
+
 ## User Scenarios & Testing *(mandatory)*
 
 <!--
@@ -126,6 +137,11 @@ what they care about, and for each finding sees whatever AI-generated remediatio
 suggestion and blast-radius note the platform has produced for it, shown inline with the
 finding itself. When they've reviewed a finding and decided it's being handled, they mark
 it acknowledged, and that status is reflected immediately — no page reload, no stale state.
+Because the capability that actually generates a suggestion is a later spec, an admin can
+also attach a demo/QA test suggestion and blast-radius note directly to a finding — clearly
+marked as test data, never presented as a real platform-generated recommendation — so this
+story's suggestion-display behavior is provable now rather than staying permanently
+unverified until that later spec ships.
 
 **Why this priority**: Findings are the spec's namesake "namesake capability" once
 compliance posture (User Story 2) has already said something is wrong; this is where a
@@ -155,6 +171,10 @@ finding with none shows a clear "no suggestion available" state rather than an e
 5. **Given** a viewer (not admin or operator), **When** they view the findings workbench,
    **Then** they can see every finding and its suggestion, but have no control available to
    acknowledge one.
+6. **Given** an admin attaching a demo/QA test suggestion to a finding, **When** it is
+   saved, **Then** it displays inline exactly as a platform-generated suggestion would
+   (Acceptance Scenario 3), visibly marked as test data, and **When** a non-admin views the
+   same finding, **Then** they see the suggestion but have no control to attach or edit one.
 
 ---
 
@@ -195,11 +215,11 @@ and updates until the scan completes, without needing to reload the page manuall
 
 ### Edge Cases
 
-- **A finding's AI remediation suggestion has not been generated yet (true for every
-  finding until the AI-insights capability that produces them exists)**: this is the
-  normal, expected state for every finding in this spec's demo path, not an error —
-  User Story 4's "no suggestion available" state applies, not a loading spinner or a
-  failure banner.
+- **A finding's AI remediation suggestion has not been generated yet (true for most
+  findings until the AI-insights capability that produces them exists — a demo/QA
+  test suggestion attached via FR-020a is the documented exception)**: this is the
+  normal, expected state, not an error — User Story 4's "no suggestion available" state
+  applies, not a loading spinner or a failure banner.
 - **A person's role permits reading a page but not acting on it** (a viewer on the
   findings workbench or scan-operations screen): the page renders fully; only the
   write-side control (acknowledge, trigger scan) is unavailable to them.
@@ -284,6 +304,11 @@ and updates until the scan completes, without needing to reload the page manuall
 - **FR-020**: Acknowledging the same finding a second time (including a near-simultaneous
   second attempt) MUST NOT error and MUST NOT create more than one acknowledgment record
   for that finding.
+- **FR-020a**: An admin MUST be able to attach a demo/QA test suggestion and blast-radius
+  note directly to a finding, for use before the platform's own AI-generated suggestions
+  exist; a suggestion attached this way MUST display exactly as a platform-generated one
+  would (FR-018), visibly marked as test data, and MUST NOT be presented as a genuine
+  platform recommendation (Clarifications, Session 2026-08-31).
 
 #### Scan operations (S31) [P2]
 
@@ -315,6 +340,10 @@ and updates until the scan completes, without needing to reload the page manuall
   to the admin and operator roles; a viewer MUST NOT be able to perform either action,
   consistent with account onboarding and discovery's existing operator-may-act,
   viewer-read-only precedent.
+- **FR-028a**: Attaching a demo/QA test suggestion to a finding (FR-020a) MUST be
+  restricted to the admin role — an operator or viewer MUST NOT have this control
+  available, consistent with tag compliance and ownership's existing precedent that
+  configuration-shaped actions are admin-only.
 
 ### Key Entities *(include if feature involves data)*
 
@@ -322,12 +351,15 @@ and updates until the scan completes, without needing to reload the page manuall
   attached to the existing `Finding` entity (tag compliance and ownership) as metadata
   parallel to its existing resolved-at timestamp — orthogonal to the finding's own
   open/resolved lifecycle, never itself changing that lifecycle or any compliance score.
-- **Remediation Suggestion**: the AI-generated fix suggestion and blast-radius note for
-  one finding, produced and populated by the AI-insights capability (a later spec) and
-  merely displayed here — this spec defines where a suggestion is shown and how its
-  absence is handled, not how a suggestion is generated. Modeled as its own entity tied to
-  one finding, the same way an attributed owner is its own entity tied to one resource
-  rather than columns bolted onto the resource itself.
+- **Remediation Suggestion**: the fix suggestion and blast-radius note for one finding.
+  In its real, permanent form it is produced and populated by the AI-insights capability
+  (a later spec) and merely displayed here. Until that capability exists, this spec also
+  lets an admin attach a suggestion directly (FR-020a) — the same entity and display path,
+  visibly marked as test data rather than a genuine platform recommendation (Clarifications,
+  Session 2026-08-31) — so this spec does not depend on that later spec to prove its own
+  suggestion-display behavior. Modeled as its own entity tied to one finding, the same way
+  an attributed owner is its own entity tied to one resource rather than columns bolted
+  onto the resource itself.
 
 ## Success Criteria *(mandatory)*
 
@@ -336,9 +368,10 @@ and updates until the scan completes, without needing to reload the page manuall
 - **SC-001**: A viewer, an operator, and an admin, each signed in separately, each see
   exactly the screens and controls their role permits — no role sees a control it cannot
   use, and no role is missing a view it is entitled to.
-- **SC-002**: The full demo path — onboard an account, scan it, review findings and
-  whatever suggestions exist for them, acknowledge one — is walkable end-to-end through
-  the dashboard alone, with no AWS console access and no raw API client.
+- **SC-002**: The full demo path — onboard an account, scan it, review findings including
+  at least one showing a populated suggestion (real or admin-seeded test data per
+  FR-020a), acknowledge one — is walkable end-to-end through the dashboard alone, with no
+  AWS console access and no raw API client.
 - **SC-003**: The compliance overview loads within 2 seconds for an account with up to
   5,000 resources.
 - **SC-004**: Every score and count the dashboard displays exactly matches the
@@ -371,11 +404,13 @@ and updates until the scan completes, without needing to reload the page manuall
   compliance and ownership already built and tested — keeping compliance scoring
   reproducible from account state alone (Principle IV) rather than letting a subjective
   "someone looked at it" flag participate in it.
-- **A finding's remediation suggestion legitimately does not exist for any finding until
-  the AI-insights capability (a later spec) is built and has run.** This spec's own
-  P1 demo path is provable with every finding showing the "no suggestion available"
-  state — User Story 4's acceptance scenarios and FR-019 make that the normal case, not a
-  degraded one, so this spec does not block on that later spec's existence.
+- **A finding's real, AI-generated remediation suggestion legitimately does not exist for
+  any finding until the AI-insights capability (a later spec) is built and has run** —
+  FR-019's "no suggestion available" state is the normal, expected case for most findings
+  even after this spec ships. Resolved by Clarifications (Session 2026-08-31): this spec
+  does not sit idle waiting on that later spec for its own demo path to be provable —
+  FR-020a's admin-seeded test suggestion exercises the exact same display path (FR-018)
+  now, visibly marked as test data so it is never confused with a genuine recommendation.
 - **"5,000 resources" (SC-003) is a single connected account's resource count**, matching
   tag compliance and ownership's own established demo-scale framing (a handful of
   connected accounts, tens of thousands of resources in the largest one).
@@ -399,9 +434,9 @@ and updates until the scan completes, without needing to reload the page manuall
   client are reused directly for authentication, role gating, and every API call this
   dashboard makes.
 - The AI-insights capability (a later spec) is what will populate the Remediation
-  Suggestion entity's content; this spec depends on it only for that content to eventually
-  exist, never for its own P1 demo path, which is fully provable with every finding
-  showing the "no suggestion available" state.
+  Suggestion entity's content for real, at scale, across every finding; this spec depends
+  on it only for that — its own P1 demo path is fully provable without it, via FR-020a's
+  admin-seeded test suggestion (Clarifications, Session 2026-08-31).
 
 ## Out of Scope
 
