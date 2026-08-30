@@ -594,8 +594,13 @@ extends the same dev deployment T032/T033 already covered, redeployed if it was 
 
 ## Final Phase: Polish & Cross-Cutting Concerns
 
-- [ ] T043 [P] Update `backend/README.md` and `infra/README.md` to describe the new
+- [X] T043 [P] Update `backend/README.md` and `infra/README.md` to describe the new
       `app/governance/` and `infra/modules/governance/` ownership — Principle I
+      **Done**: both updated, plus two related staleness fixes found while writing them —
+      `app/workers/README.md` claimed spec 003's workers would land there (they landed in
+      `handlers/` instead, per T027/T028's own literal file paths) and
+      `frontend/src/app/features/README.md` still said "empty by design" after T034-T037
+      populated it. Both corrected for the same Principle I reason T043 itself exists.
 - [ ] T044 Re-run `/speckit-analyze` on spec 003 (playbook §8's second-run note) and resolve any
       finding before spec 004 begins — Governance
 
