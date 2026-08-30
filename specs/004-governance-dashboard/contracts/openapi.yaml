@@ -1,0 +1,262 @@
+openapi: 3.1.0
+
+# CloudPulse AI — governance dashboard contract additions (spec 004).
+#
+# THIS FILE IS THE DESIGN-TIME REFERENCE for what this spec adds. The binding artifact at
+# runtime remains the single document generated from the FastAPI application (FR-048) — there
+# is still only one platform contract, no version prefix, additive-only (spec 1 FR-048a/b/c).
+# This file does not restate specs 1–3's existing paths; it shows only the new paths and schema
+# additions spec 4 contributes, to be merged into the one generated document, never a second
+# document. One existing spec-002-owned schema also changes, additively: `GET
+# /accounts/{accountId}/scans`'s response gains three new optional fields (`added`/`removed`/
+# `changed`, research.md R-405) — not restated here in full; see the note at the bottom of this
+# file.
+#
+# Every schema and response shape not defined here (Role, ErrorEnvelope, the standard error
+# responses, Account, Scan, Rule, Sda, Finding's existing shape) is specs 1–3's, unchanged,
+# reused by reference.
+
+info:
+  title: CloudPulse AI API — governance dashboard additions
+  version: 0.1.0
+
+tags:
+  - name: resources
+    description: Resource inventory listing and detail. Owned by spec 004 — no general
+      resource-listing endpoint existed before this spec (confirmed against the router
+      directory during planning, not assumed).
+  - name: findings
+    description: Extends spec 003's findings tag — acknowledgment and remediation suggestions.
+
+security:
+  - cognitoJwt: []
+
+paths:
+  /resources:
+    get:
+      tags: [resources]
+      operationId: listResources
+      summary: List the resource inventory, paged and filtered (FR-010, FR-011)
+      parameters:
+        - name: accountId
+          in: query
+          schema: { type: string, format: uuid }
+        - name: service
+          in: query
+          schema: { type: string }
+        - name: region
+          in: query
+          schema: { type: string }
+        - name: sdaId
+          in: query
+          description: Pass the literal string "none" to filter to the "No SDA" bucket.
+          schema: { type: string }
+        - name: tagStatus
+          in: query
+          description: "compliant, or a specific rule key's violation state (e.g. missing:owner)"
+          schema: { type: string }
+        - name: ownerStatus
+          in: query
+          schema: { type: string, enum: [unattributed] }
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: pageSize
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 200, default: 50 }
+      responses:
+        "200":
+          description: A page of matching resources.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ResourcesPage" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /resources/{resourceId}:
+    get:
+      tags: [resources]
+      operationId: getResourceDetail
+      summary: One resource's tags, owner + evidence, findings, and enrichment detail (FR-012)
+      parameters:
+        - name: resourceId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: The resource's full governance detail.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ResourceDetail" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /findings/{findingId}/acknowledge:
+    post:
+      tags: [findings]
+      operationId: acknowledgeFinding
+      summary: Acknowledge an open finding (FR-015–FR-017, FR-020)
+      description: >-
+        Admin or operator only. Never changes the finding's open/resolved status and never
+        affects any compliance score (FR-017) — a human triage signal, recorded once
+        (idempotent: acknowledging an already-acknowledged finding is a no-op, not an error,
+        per FR-020).
+      parameters:
+        - name: findingId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: The finding's current acknowledgment state.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FindingAcknowledgment" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /findings/{findingId}/suggestion:
+    get:
+      tags: [findings]
+      operationId: getFindingSuggestion
+      summary: A finding's remediation suggestion and blast-radius note, if one exists (FR-018, FR-019)
+      parameters:
+        - name: findingId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: >-
+            The suggestion if one exists, or an explicit empty body (not a 404) if none does
+            yet — FR-019's "no suggestion available" is a normal, expected response shape, not
+            an error condition.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RemediationSuggestion" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    put:
+      tags: [findings]
+      operationId: setFindingSuggestionSeed
+      summary: Attach a demo/QA test suggestion to a finding (FR-020a, FR-028a)
+      description: >-
+        Admin only. Always writes `source: admin_seeded` — this endpoint has no path to
+        writing `source: ai_generated` (research.md's data-model.md), so a seeded suggestion
+        can never be mistaken for a genuine platform recommendation at the write layer.
+      parameters:
+        - name: findingId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RemediationSuggestionSeed" }
+      responses:
+        "200":
+          description: >-
+            The suggestion as it will now display (FR-020a — identical shape to a real one,
+            visibly marked as test data).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RemediationSuggestion" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+components:
+  schemas:
+    ResourceSummary:
+      type: object
+      required: [id, arn, resourceType, service, region, tagStatus]
+      properties:
+        id: { type: string, format: uuid }
+        accountId: { type: string, format: uuid }
+        arn: { type: string }
+        resourceType: { type: string }
+        service: { type: string }
+        region: { type: string }
+        sdaId: { type: string, format: uuid, nullable: true }
+        tagStatus: { type: string, description: "compliant, or the violated rule key" }
+        ownerStatus: { type: string, enum: [attributed, unattributed] }
+
+    ResourcesPage:
+      type: object
+      required: [resources, page, pageSize, totalCount]
+      properties:
+        resources:
+          type: array
+          items: { $ref: "#/components/schemas/ResourceSummary" }
+        page: { type: integer }
+        pageSize: { type: integer }
+        totalCount: { type: integer }
+
+    ResourceDetail:
+      type: object
+      required: [id, arn, resourceType, service, region, tags, findings]
+      properties:
+        id: { type: string, format: uuid }
+        arn: { type: string }
+        resourceType: { type: string }
+        service: { type: string }
+        region: { type: string }
+        tags: { type: object, additionalProperties: { type: string } }
+        detail: { type: object, description: "Enrichment payload, spec 002's Resource.detail" }
+        owner:
+          nullable: true
+          description: "Null if unattributed (FR-012's explicit state, not an error)"
+          allOf:
+            - $ref: "#/components/schemas/ResourceOwner"
+        findings:
+          type: array
+          items: { $ref: "#/components/schemas/Finding" }
+
+    ResourceOwner:
+      type: object
+      description: "Specs 003's existing shape, referenced not redefined."
+
+    Finding:
+      type: object
+      description: "Specs 003's existing shape, referenced not redefined."
+
+    FindingAcknowledgment:
+      type: object
+      required: [findingId, acknowledgedAt, acknowledgedBy]
+      properties:
+        findingId: { type: string, format: uuid }
+        acknowledgedAt: { type: string, format: date-time }
+        acknowledgedBy: { type: string, format: uuid }
+
+    RemediationSuggestion:
+      type: object
+      properties:
+        findingId: { type: string, format: uuid }
+        suggestionText: { type: string, nullable: true }
+        blastRadiusNote: { type: string, nullable: true }
+        source: { type: string, enum: [ai_generated, admin_seeded], nullable: true }
+
+    RemediationSuggestionSeed:
+      type: object
+      required: [suggestionText, blastRadiusNote]
+      properties:
+        suggestionText: { type: string }
+        blastRadiusNote: { type: string }
+
+  responses:
+    Unauthorized:
+      description: "Spec 1's standard 401 envelope, referenced not redefined."
+    Forbidden:
+      description: "Spec 1's standard 403 envelope, referenced not redefined."
+    NotFound:
+      description: "Spec 1's standard 404 envelope, referenced not redefined."
+
+# Scan schema note (research.md R-405): `GET /accounts/{accountId}/scans`'s existing `Scan`
+# schema (spec 002) gains three new, additive, non-required integer fields — `added`, `removed`,
+# `changed` — computed at query time, not persisted (data-model.md). Not restated here in full;
+# this is the only change this spec makes to a spec-002-owned schema.
