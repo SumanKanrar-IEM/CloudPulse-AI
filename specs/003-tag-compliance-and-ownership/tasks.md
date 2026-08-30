@@ -507,15 +507,27 @@ excepted, per the Tier Summary above).
 
 ### User Story 7 — Attribute ownership even when a pipeline created the resource (Priority: P2)
 
-- [ ] T038 [P] [US7] **[P2]** Write `backend/tests/unit/test_attribution_fallback.py` — a pipeline/
+- [X] T038 [P] [US7] **[P2]** Write `backend/tests/unit/test_attribution_fallback.py` — a pipeline/
       automation creator triggers the fallback path; a human modifier with ≥3 write events in the
       lookback window is attributed at reduced confidence with fallback-specific evidence; fewer
       than 3 events leaves the resource unattributed rather than a below-threshold guess — S22,
       FR-024–FR-026
-- [ ] T039 [US7] **[P2]** Extend `backend/app/governance/ownership.py` — when T024's direct-creator
+      **Done**: moved to `tests/integration/`, same precedent as T022 — FR-023's guarded upsert
+      underlies every write here too. Covers: automation-creator fallback to the most-frequent
+      human modifier; below-threshold (<3) stays unattributed; most-frequent-wins when multiple
+      humans qualify; non-human write events never count toward the threshold; direct attribution
+      always takes priority over fallback when both apply.
+- [X] T039 [US7] **[P2]** Extend `backend/app/governance/ownership.py` — when T024's direct-creator
       step finds an automation identity instead of a human, fall back to the most frequent human
       modifier meeting the ≥3-write-event threshold (FR-024/FR-025), else leave the resource
       unattributed (FR-026) — S22, FR-024–FR-026
+      **Done**: `attribute_ownership()` gained an optional `write_events_by_resource` param;
+      `connectors/aws.py` gained a sibling `sweep_write_events()` function (a second, independent
+      `LookupEvents` pass rather than widening T023's own return shape — keeps the tested P1 sweep
+      untouched, at the cost of one extra paginated call, immaterial at demo-scale event volume).
+      Fallback confidence is MEDIUM, not LOW — a documented plan-level choice (data-model.md leaves
+      the exact level to implementation sizing, only requiring it be lower than direct). Wired into
+      `handlers/ownership_attribution_worker_handler.py`.
 
 ### User Story 8 — Resolve any attributed owner to a real email address (Priority: P2)
 

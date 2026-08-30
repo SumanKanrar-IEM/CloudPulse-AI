@@ -13,8 +13,10 @@ same reasoning applies here, so it isn't repeated). The worker handler
 Testcontainers Postgres -- the "Lambda-level tests" fallback R-210 already
 established -- with `app.core.db.get_engine` monkeypatched onto the test
 container (bypassing Secrets Manager, which no test container provides) and
-`connectors.aws.sweep_cloudtrail_events` monkeypatched (R-307: moto has zero
-CloudTrail `lookup_events` coverage to route that leg through instead).
+`connectors.aws.sweep_cloudtrail_events`/`sweep_write_events` monkeypatched
+(R-307: moto has zero CloudTrail `lookup_events` coverage to route that leg
+through instead) -- this file proves direct attribution only; the fallback
+chain (P2, T038/T039) has its own dedicated test file.
 """
 
 from __future__ import annotations
@@ -249,6 +251,7 @@ def test_a_finalized_scan_enqueues_and_both_workers_process_it(
     monkeypatch.setattr(
         ownership_handler_module, "sweep_cloudtrail_events", lambda *a, **k: fake_events
     )
+    monkeypatch.setattr(ownership_handler_module, "sweep_write_events", lambda *a, **k: {})
     ownership_event = {"Records": [{"body": ownership_messages[0]["Body"]}]}
     ownership_handler_module.handler(ownership_event)
 

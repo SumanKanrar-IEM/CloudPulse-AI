@@ -540,6 +540,48 @@ def sweep_cloudtrail_events(
     return events_by_resource
 
 
+def sweep_write_events(
+    account: ConnectorAccount, region: str, *, since: Any
+) -> dict[str, list[dict[str, Any]]]:
+    """FR-024/FR-025 (P2 fallback): every write (non-read-only) event in the
+    window, per resource -- not just creation events, since the fallback
+    needs a *count* of modifications per human principal.
+
+    A second, independent `LookupEvents` pass rather than widening
+    `sweep_cloudtrail_events`'s own return shape: this keeps the P1
+    direct-attribution sweep's tested shape untouched, at the cost of one
+    extra paginated sweep -- immaterial at this project's demo-scale event
+    volume (research.md R-306).
+    """
+    from botocore.exceptions import BotoCoreError, ClientError
+
+    session = _build_session(account, session_name="cloudpulse-ownership")
+    client = session.client("cloudtrail", region_name=region)
+    events_by_resource: dict[str, list[dict[str, Any]]] = {}
+    try:
+        paginator = client.get_paginator("lookup_events")
+        for page in paginator.paginate(StartTime=since):
+            for event in page.get("Events", []):
+                if event.get("ReadOnly") != "false":
+                    continue
+                identity = _parse_user_identity(event)
+                for res in event.get("Resources") or []:
+                    resource_id = res.get("ResourceName")
+                    if not resource_id:
+                        continue
+                    events_by_resource.setdefault(resource_id, []).append(
+                        {
+                            "principal": identity.get("arn") or event.get("Username"),
+                            "is_human": _is_human_principal(identity),
+                            "event_time": event.get("EventTime"),
+                            "event_id": event.get("EventId"),
+                        }
+                    )
+    except (ClientError, BotoCoreError):
+        raise
+    return events_by_resource
+
+
 class AwsConnector:
     """The one connector implementation this spec ships (FR-014, data-model.md).
 
