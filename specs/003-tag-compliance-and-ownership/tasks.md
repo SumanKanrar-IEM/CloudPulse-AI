@@ -465,17 +465,22 @@ this phase, before starting Phase 9.
       against reality, not mocks. **V5 (fallback chain) is out of scope for this task** — it needs
       P2's T038/T039, which don't exist yet; live-verifying it is Phase 9's concern once P2 lands,
       not silently skipped forever — S18–S21, SC-001–SC-004, SC-006–SC-008
+      **Deferred (2026-08-29)**: explicit user decision, same as spec 002's T053/T054 — not
+      attempted and not abandoned. Cost estimated first (research.md R-306: this spec's own new
+      resources round to under $0.01 for a verification session; the real cost is specs 001/002's
+      existing dev footprint staying up, unchanged by this spec). User: revisit later, remind when
+      needed — do not resurface unprompted.
 - [ ] T033 **Teardown and cost sweep**, immediately following T032, never separated from it by
       other work: run the full playbook §0.5.3 sweep, plus this spec's own additions from
       research.md R-306 — confirm `aws sqs list-queues` shows neither new queue nor their DLQs, and
       confirm the two new Lambda workers' CloudWatch log groups are gone or have a retention policy
       set (not `retentionInDays: null`) — S18–S21, playbook §0.5.3
+      **Deferred (2026-08-29)**: blocked on T032 — nothing to tear down since nothing was deployed.
 
-**Checkpoint**: ⚠️ or 🏁 depending on outcome — **P1 complete, live verification attempted per
-T032's actual result.** (Spec 002's own T053/T054 outcome — live verification surfaced a real
-infrastructure gap and was stopped by explicit decision rather than completed — is a live example
-of this checkpoint sometimes landing honestly short of 🏁; this phase's own tasks.md entries get
-annotated the same way if that happens here.)
+**Checkpoint**: ⚠️ **P1 implemented and merged; live verification deferred by explicit user
+decision (2026-08-29), same shape as spec 002's own T053/T054 outcome** — not attempted, not
+abandoned. Every P1 story is implemented, tested against mocks, and role-matrix-verified; what's
+missing is proof against real AWS. Revisit T032/T033 when the user raises it again.
 
 ---
 
