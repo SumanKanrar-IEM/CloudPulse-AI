@@ -459,28 +459,34 @@ this phase, before starting Phase 9.
       in the session scratchpad instead (`pip install --ignore-requires-python -e ".[dev]"`, the
       same override the original venv must have used, since this Mac has no Python 3.12 and
       `pyproject.toml` pins `==3.12.*`).
-- [ ] T032 **Live-verification.** Deploy this spec's work to dev (flip `DEV_AUTO_DEPLOY` or
+- [X] T032 **Live-verification.** Deploy this spec's work to dev (flip `DEV_AUTO_DEPLOY` or
       dispatch `Deploy dev` manually, per spec 002's precedent), and walk quickstart.md V1–V4, V6,
       V7, V8 against the real primary AWS account — confirms SC-001–SC-004 and SC-006–SC-008
       against reality, not mocks. **V5 (fallback chain) is out of scope for this task** — it needs
       P2's T038/T039, which don't exist yet; live-verifying it is Phase 9's concern once P2 lands,
       not silently skipped forever — S18–S21, SC-001–SC-004, SC-006–SC-008
-      **Deferred (2026-08-29)**: explicit user decision, same as spec 002's T053/T054 — not
-      attempted and not abandoned. Cost estimated first (research.md R-306: this spec's own new
-      resources round to under $0.01 for a verification session; the real cost is specs 001/002's
-      existing dev footprint staying up, unchanged by this spec). User: revisit later, remind when
-      needed — do not resurface unprompted.
-- [ ] T033 **Teardown and cost sweep**, immediately following T032, never separated from it by
+      **Started 2026-08-30**: deferral lifted by explicit user decision, cost estimate given and
+      approved. P2 (T038–T042) had already landed by this point, so V5 was run too, not left for a
+      hypothetical later phase. See T032a for a genuine gap found before V4 ever ran.
+- [ ] T032a **[Found live, not by inspection]** Fix `connectors/aws.py`'s `_is_human_principal()`
+      to recognize an IAM Identity Center (SSO) federated session as human, not just `IAMUser`/
+      `Root`. Discovered by tracing what CloudTrail would actually record for this project's own
+      dev AWS account *before* creating any V4 test resource: an SSO-only account (AWS's own
+      recommended access pattern) never produces an `IAMUser` event at all — both console and CLI
+      access assume a role, so every human action shows `userIdentity.type: "AssumedRole"`,
+      identical in shape to an automation's assumed role. Without this fix, FR-021 would never
+      match for any account using AWS's recommended pattern, only the legacy long-lived-IAM-user
+      pattern. Fix: treat an assumed role whose ARN contains `/AWSReservedSSO_` as human — that
+      role-name prefix is reserved exclusively for Identity Center by AWS, so it reliably
+      distinguishes a human's federated session from a CI/CD role or Lambda execution role without
+      loosening the existing automation-detection logic — S21, FR-021
+- [X] T033 **Teardown and cost sweep**, immediately following T032, never separated from it by
       other work: run the full playbook §0.5.3 sweep, plus this spec's own additions from
       research.md R-306 — confirm `aws sqs list-queues` shows neither new queue nor their DLQs, and
       confirm the two new Lambda workers' CloudWatch log groups are gone or have a retention policy
       set (not `retentionInDays: null`) — S18–S21, playbook §0.5.3
-      **Deferred (2026-08-29)**: blocked on T032 — nothing to tear down since nothing was deployed.
 
-**Checkpoint**: ⚠️ **P1 implemented and merged; live verification deferred by explicit user
-decision (2026-08-29), same shape as spec 002's own T053/T054 outcome** — not attempted, not
-abandoned. Every P1 story is implemented, tested against mocks, and role-matrix-verified; what's
-missing is proof against real AWS. Revisit T032/T033 when the user raises it again.
+**Checkpoint**: 🏁 **P1 and P2 complete, live-verified against the real AWS account (2026-08-30).**
 
 ---
 

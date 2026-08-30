@@ -480,11 +480,30 @@ def _parse_user_identity(event: dict[str, Any]) -> dict[str, Any]:
 
 
 def _is_human_principal(user_identity: dict[str, Any]) -> bool:
-    """FR-021, this spec's P1 scope: a human IAM principal is a named IAM user
-    or the account's root user. An assumed role or an AWS-service principal is
-    not treated as human here -- P2's fallback chain (FR-024) is what a
-    non-human creator falls through to."""
-    return user_identity.get("type") in ("IAMUser", "Root")
+    """FR-021: a human IAM principal is a named IAM user, the account's root
+    user, or an IAM Identity Center (SSO) federated session. A non-SSO
+    assumed role or an AWS-service principal is not treated as human here --
+    P2's fallback chain (FR-024) is what a non-human creator falls through to.
+
+    Found live (T032 verification, not by inspection): an account that uses
+    AWS SSO/Identity Center exclusively for human access -- this project's
+    own dev account among them -- never produces an `IAMUser` event at all,
+    since *both* console and CLI access assume a role under the hood.
+    Without recognizing the SSO shape specifically, FR-021 would never match
+    for any account following AWS's own recommended access pattern, only for
+    the (increasingly rare) legacy pattern of long-lived IAM user
+    credentials. `AWSReservedSSO_` is a role-name prefix AWS reserves
+    exclusively for Identity Center, so it reliably distinguishes a human's
+    federated session from an automation's assumed role -- unlike `type`
+    alone, which is identical (`AssumedRole`) for both.
+    """
+    principal_type = user_identity.get("type")
+    if principal_type in ("IAMUser", "Root"):
+        return True
+    if principal_type == "AssumedRole":
+        arn = user_identity.get("arn") or ""
+        return "/AWSReservedSSO_" in arn
+    return False
 
 
 def sweep_cloudtrail_events(
