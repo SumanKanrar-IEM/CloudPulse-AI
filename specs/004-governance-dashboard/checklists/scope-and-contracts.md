@@ -21,7 +21,7 @@ quality. It does not mean implementation work is complete.
 - [x] CHK002 Is FR-020a's own priority tier stated explicitly, given it sits in a P1-labeled
       section (Findings workbench) but exists specifically to unblock a dependency on a
       different, later-tiered spec's eventual output? [Clarity, Spec §FR-020a]
-- [ ] CHK003 Does the spec identify which success criteria depend on P2-tier requirements, so a
+- [x] CHK003 Does the spec identify which success criteria depend on P2-tier requirements, so a
       P1-only delivery's provable subset of SC-001–SC-008 is unambiguous without cross-referencing
       the plan? [Completeness, Gap]
 - [x] CHK004 Is it stated whether User Story 5 (P2, scan operations) being dropped entirely still
@@ -34,16 +34,16 @@ quality. It does not mean implementation work is complete.
 
 ## Acceptance Criteria Testability
 
-- [ ] CHK006 Is "loads within 2 seconds" (SC-003) anchored to a specific, observable milestone
+- [x] CHK006 Is "loads within 2 seconds" (SC-003) anchored to a specific, observable milestone
       (e.g., all score cards populated with real data) rather than left to whichever loading
       signal an implementation happens to expose? [Measurability, Spec §SC-003]
 - [x] CHK007 Is "on every check" (SC-004) specific about verification cadence — every render, or a
       sampled/periodic check — so the criterion is objectively falsifiable rather than aspirational?
       [Clarity, Spec §SC-004]
-- [ ] CHK008 Are the "common phone, tablet, and desktop viewport widths" FR-004 requires usable
+- [x] CHK008 Are the "common phone, tablet, and desktop viewport widths" FR-004 requires usable
       layout at given as specific breakpoints, or left to implementation discretion in a way that
       makes FR-004 unfalsifiable as written? [Measurability, Spec §FR-004]
-- [ ] CHK009 Does the spec require that a loading state exist for each P1 screen, or does FR-025
+- [x] CHK009 Does the spec require that a loading state exist for each P1 screen, or does FR-025
       only require empty/error states be *distinct from* a loading state without ever requiring
       one be present at all? [Gap, Spec §FR-025]
 - [x] CHK010 Is SC-006's "same interaction" (acknowledging a finding) given an objective boundary —
@@ -63,7 +63,7 @@ quality. It does not mean implementation work is complete.
       that no "apply this fix" or "execute suggestion" action exists anywhere in this feature's
       surface, closing the gap an implementer could otherwise read into "AI-suggested fixes"
       language? [Clarity, Spec §Out of Scope]
-- [ ] CHK014 Is there a requirement or explicit note guarding against FR-020a's admin-seeded
+- [x] CHK014 Is there a requirement or explicit note guarding against FR-020a's admin-seeded
       suggestion path being wired to any live model call — given it exists precisely to avoid a
       dependency on the (still non-existent) AI-insights capability — so "test data only" is a
       requirement, not merely an intent stated in prose? [Gap, Spec §FR-020a]
@@ -77,22 +77,22 @@ quality. It does not mean implementation work is complete.
 
 ## Cross-Spec Contract Consistency
 
-- [ ] CHK017 Does the spec state, anywhere a reviewer would find it without reading the
+- [x] CHK017 Does the spec state, anywhere a reviewer would find it without reading the
       implementation plan, that this feature introduces no new cloud-provider API call and
       therefore no new connector-interface surface? [Gap, Spec §Dependencies]
-- [ ] CHK018 Does FR-017's "MUST NOT change its open/resolved status" account for the finding
+- [x] CHK018 Does FR-017's "MUST NOT change its open/resolved status" account for the finding
       lifecycle's full state space as tag compliance and ownership actually defines it, or does it
       contrast acknowledgment against only two of that lifecycle's states while a third,
       already-reserved state goes unmentioned — leaving a reviewer to independently discover
       whether acknowledgment could be confused with it? [Ambiguity, Spec §FR-017]
-- [ ] CHK019 Is the relationship between this spec's new "acknowledged" concept and tag compliance
+- [x] CHK019 Is the relationship between this spec's new "acknowledged" concept and tag compliance
       and ownership's existing finding-lifecycle vocabulary made explicit in the spec itself
       (not only inferable from a later planning artifact)? [Gap, Spec §FR-017]
-- [ ] CHK020 Does the inventory explorer's SDA filter (FR-010) address what a filtered view shows
+- [x] CHK020 Does the inventory explorer's SDA filter (FR-010) address what a filtered view shows
       when the targeted SDA is removed while the filter is active — reverting to "No SDA" per tag
       compliance and ownership's own removal semantics, or some other defined behavior — rather
       than leaving that transition unstated? [Edge Case, Gap, Spec §Edge Cases]
-- [ ] CHK021 Is "missing owner tag" (FR-013) given requirement language precise enough to be
+- [x] CHK021 Is "missing owner tag" (FR-013) given requirement language precise enough to be
       unambiguously distinguishable from an unattributed `ResourceOwner`, given both are real,
       separate facts in tag compliance and ownership's schema and the backlog's own original
       phrasing could be read either way? [Ambiguity, Spec §FR-013]
@@ -114,40 +114,37 @@ quality. It does not mean implementation work is complete.
 - `checklists/requirements.md` has a separate built-in lifecycle maintained by `/speckit-specify`
   and `/speckit-clarify`
 
-### Evaluation (2026-08-31) — 13/23 passing, 10 real gaps found
+### Evaluation (2026-08-31) — 13/23 passing on first read; 10 gaps found and fixed same day
 
 Evaluated against the current spec.md text directly (re-read in full, not from memory). 13 items
-pass as written; 10 identify genuine, actionable gaps — none are showstoppers for `/speckit-tasks`,
-but each is a concrete, fixable spec.md imprecision:
+passed as written. 10 identified genuine, actionable gaps — none were showstoppers for
+`/speckit-tasks`, but each was a concrete, fixable spec.md imprecision. All 10 were fixed in
+spec.md the same day, at the reviewer's request, and are now re-checked above:
 
-- **CHK003** [Gap] — spec.md never states which SC depends on P2 (SC-008 on User Story 5); a
-  reader without plan.md can't derive the P1-only-provable subset without inferring it themselves.
-- **CHK006** [Measurability] — SC-003's "loads" has no defined milestone (first paint? all cards
-  populated?); two implementers could reasonably disagree on what to measure.
-- **CHK008** [Measurability] — FR-004's "common phone, tablet, and desktop viewport widths" names
-  no breakpoints; defensible as spec-level (pinning exact pixels risks being an implementation
-  detail), but genuinely leaves room for disagreement at the margins.
-- **CHK009** [Gap] — FR-025 requires empty/error states be *distinct from* a loading state but
-  never actually requires a loading state to exist at all; likely an oversight, not intentional.
-- **CHK014** [Gap] — FR-020a constrains how a seeded suggestion must be *labeled*, never how it
-  must be *produced*; nothing forbids an implementer from wiring the seed feature to a real model
-  call "under the hood" while still satisfying the letter of the requirement.
-- **CHK017** [Gap] — spec.md never explicitly states "this feature makes no new cloud-provider API
-  call" — that statement currently exists only in plan.md's Constitution Check, not in spec.md
-  itself, so a spec-only reader has to infer it from absence rather than read it directly.
-- **CHK018/CHK019** [Ambiguity/Gap] — FR-017 contrasts acknowledgment against "open/resolved" but
-  never mentions the finding-lifecycle's third, already-reserved `suppressed` status; the
-  distinction was independently found and resolved during `/speckit-plan` (research.md R-404), but
-  spec.md's own text was never corrected to make it explicit.
-- **CHK020** [Edge Case, Gap] — no Edge Cases bullet covers what an active inventory filter on a
-  specific SDA should show if that SDA is removed while the filter is applied.
-- **CHK021** [Ambiguity] — same pattern as CHK018/019: FR-013's "missing owner tag" ambiguity was
-  independently found and resolved during `/speckit-plan` (research.md R-403), but spec.md's own
-  wording was never tightened to state the distinction explicitly.
+- **CHK003** [Gap → Fixed] — spec.md never stated which SC depends on P2. Fixed: a new "Tier
+  dependency" line after Success Criteria states SC-008 depends on User Story 5 (P2); SC-001–007
+  hold from P1 alone.
+- **CHK006** [Measurability → Fixed] — SC-003's "loads" had no defined milestone. Fixed: SC-003
+  now specifies "every score card, chart, and per-account table row populated with real data."
+- **CHK008** [Measurability → Fixed] — FR-004 named no breakpoints. Fixed: added approximate
+  reference widths (≈375px/768px/1280px) without over-specifying exact implementation values.
+- **CHK009** [Gap → Fixed] — FR-025 never required a loading state to exist. Fixed: FR-025 now
+  requires a loading state directly, alongside empty and error states.
+- **CHK014** [Gap → Fixed] — FR-020a constrained labeling but not production. Fixed: FR-020a now
+  explicitly requires admin-authored text and forbids the seed mechanism from calling any AI/model
+  service.
+- **CHK017** [Gap → Fixed] — the "no new connector surface" claim existed only in plan.md. Fixed:
+  added an explicit Dependencies bullet stating this directly in spec.md.
+- **CHK018/CHK019** [Ambiguity/Gap → Fixed] — FR-017 never mentioned the finding lifecycle's
+  reserved `suppressed` status. Fixed: FR-017 and the Finding Acknowledgment key entity both now
+  name all three states and state acknowledgment is never a stand-in for `suppressed`.
+- **CHK020** [Edge Case, Gap → Fixed] — no Edge Case covered an SDA being removed mid-filter.
+  Fixed: added a new Edge Cases bullet.
+- **CHK021** [Ambiguity → Fixed] — FR-013's "missing owner tag" was ambiguous against
+  tag-compliance status. Fixed: FR-013 now explicitly distinguishes attribution from raw-tag
+  validation and cross-references FR-010's separate tag-status filter.
 
-**Recommendation**: CHK018/019/021 are the highest-value fixes — both were real ambiguities a
-downstream planning pass had to independently rediscover and resolve; folding research.md R-403/
-R-404's own resolving language back into spec.md's FR-013/FR-017 text would close the loop so a
-future reader of spec.md alone gets the same clarity this session's planning pass had to work out.
-CHK003/006/008/009/014/017/020 are smaller, standalone precision fixes — worth a short follow-up
-pass before `/speckit-tasks`, but none block starting it.
+All 23 items now pass. This checklist's own requirements-quality bar is satisfied; the two
+highest-value fixes (CHK018/019, CHK021) close a real gap where a downstream `/speckit-plan` pass
+had already independently rediscovered and resolved both ambiguities (research.md R-403, R-404)
+without the fix ever reaching spec.md itself — it now has.

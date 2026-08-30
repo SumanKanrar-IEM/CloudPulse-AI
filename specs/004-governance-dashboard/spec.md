@@ -238,6 +238,12 @@ and updates until the scan completes, without needing to reload the page manuall
   discovery / tag compliance and ownership's own documented behavior): the inventory
   detail panel shows this plainly ("unattributed") rather than an empty field that looks
   like a loading failure.
+- **An inventory filter targeting a specific SDA is active when that SDA is removed**:
+  every resource that reverts to the "No SDA" bucket (tag compliance and ownership's own
+  immediate-revert-on-removal semantics) no longer matches the active filter on its next
+  refresh — the view is not left showing a stale result set for an SDA that no longer
+  exists, and no error is raised by the filter itself continuing to reference a removed
+  `sdaId`.
 
 ## Requirements *(mandatory)*
 
@@ -253,8 +259,8 @@ and updates until the scan completes, without needing to reload the page manuall
   purpose is a write action a role cannot perform, or a page with no content a role is
   permitted to see, MUST NOT be presented in that role's navigation.
 - **FR-004**: The dashboard's layout MUST remain usable — readable and operable, no
-  horizontal scrolling of the page itself — across common phone, tablet, and desktop
-  viewport widths, for every P1 screen.
+  horizontal scrolling of the page itself — across common phone (≈375px), tablet
+  (≈768px), and desktop (≈1280px and wider) viewport widths, for every P1 screen.
 - **FR-005**: Signing out MUST end the session such that a subsequent page load requires
   signing in again.
 
@@ -281,8 +287,14 @@ and updates until the scan completes, without needing to reload the page manuall
   attributed owner and the evidence behind that attribution (or an explicit
   "unattributed" state), its findings, and its captured enrichment detail.
 - **FR-013**: A "missing owner tag" filter MUST return exactly the resources genuinely
-  lacking an attributed owner — no resource with an attributed owner included, no
-  unattributed resource excluded.
+  lacking an *attributed owner* (no `ResourceOwner` record) — no resource with an
+  attributed owner included, no unattributed resource excluded. This is a distinct fact
+  from whether a resource's raw `owner` *tag* passes tag-compliance validation: a
+  resource can carry a perfectly valid `owner` tag yet still have no attribution (its
+  creation may predate the 90-day lookback window tag compliance and ownership's own
+  attribution mechanism uses), or vice versa. FR-010's `tag-compliance status` filter is
+  the separate dimension that covers the raw-tag reading; this filter never conflates the
+  two.
 
 #### Findings workbench (S30) [P1]
 
@@ -294,8 +306,11 @@ and updates until the scan completes, without needing to reload the page manuall
 - **FR-016**: Acknowledging a finding MUST record who acknowledged it and when, as an
   auditable action, consistent with the platform's existing audit-record requirement for
   every state-changing operation.
-- **FR-017**: Acknowledging a finding MUST NOT change its open/resolved status and MUST
-  NOT affect any compliance score — it is a human triage signal, not a resolution.
+- **FR-017**: Acknowledging a finding MUST NOT change its status — open, resolved, or the
+  finding-lifecycle's third, reserved-but-otherwise-unused `suppressed` state tag
+  compliance and ownership's schema already carries for a future spec to define — and
+  MUST NOT affect any compliance score. It is a human triage signal, not a resolution,
+  and is never a stand-in for whatever a later spec eventually uses `suppressed` for.
 - **FR-018**: When a finding has a platform-generated remediation suggestion and
   blast-radius note available, the workbench MUST display both inline with the finding.
 - **FR-019**: When a finding has no remediation suggestion available yet, the workbench
@@ -308,7 +323,11 @@ and updates until the scan completes, without needing to reload the page manuall
   note directly to a finding, for use before the platform's own AI-generated suggestions
   exist; a suggestion attached this way MUST display exactly as a platform-generated one
   would (FR-018), visibly marked as test data, and MUST NOT be presented as a genuine
-  platform recommendation (Clarifications, Session 2026-08-31).
+  platform recommendation (Clarifications, Session 2026-08-31). The text MUST be
+  admin-authored, entered directly — this mechanism MUST NOT itself call any AI or model
+  service to generate the suggestion's content, which would defeat the entire reason it
+  exists (proving the display path without a dependency on a model call this spec does
+  not own, per Principle IV).
 
 #### Scan operations (S31) [P2]
 
@@ -325,9 +344,9 @@ and updates until the scan completes, without needing to reload the page manuall
 - **FR-024**: End-to-end smoke tests MUST cover each P1 user story's primary journey
   (sign in as each role; view compliance overview; filter and drill into inventory; filter,
   view a suggestion on, and acknowledge a finding). **[P2]**
-- **FR-025**: Every P1 screen MUST have a defined empty state (no data yet) and error state
-  (platform API unreachable or erroring), distinct from each other and from a loading
-  state. **[P2]**
+- **FR-025**: Every P1 screen MUST have a defined loading state, a defined empty state (no
+  data yet), and a defined error state (platform API unreachable or erroring) — each
+  visually and behaviorally distinct from the other two. **[P2]**
 - **FR-026**: The end-to-end smoke suite MUST run in CI against the dev environment after
   each deploy to dev. **[P2]**
 
@@ -350,7 +369,8 @@ and updates until the scan completes, without needing to reload the page manuall
 - **Finding Acknowledgment**: a record of who acknowledged an open finding and when,
   attached to the existing `Finding` entity (tag compliance and ownership) as metadata
   parallel to its existing resolved-at timestamp — orthogonal to the finding's own
-  open/resolved lifecycle, never itself changing that lifecycle or any compliance score.
+  status lifecycle (open, resolved, or the reserved `suppressed` state, FR-017), never
+  itself changing that status or any compliance score.
 - **Remediation Suggestion**: the fix suggestion and blast-radius note for one finding.
   In its real, permanent form it is produced and populated by the AI-insights capability
   (a later spec) and merely displayed here. Until that capability exists, this spec also
@@ -372,8 +392,9 @@ and updates until the scan completes, without needing to reload the page manuall
   at least one showing a populated suggestion (real or admin-seeded test data per
   FR-020a), acknowledge one — is walkable end-to-end through the dashboard alone, with no
   AWS console access and no raw API client.
-- **SC-003**: The compliance overview loads within 2 seconds for an account with up to
-  5,000 resources.
+- **SC-003**: The compliance overview finishes loading — every score card, chart, and
+  per-account table row populated with real data, not a placeholder — within 2 seconds
+  for an account with up to 5,000 resources.
 - **SC-004**: Every score and count the dashboard displays exactly matches the
   corresponding platform API response for the same query, on every check.
 - **SC-005**: A "missing owner tag" inventory filter returns exactly the resources that
@@ -385,6 +406,11 @@ and updates until the scan completes, without needing to reload the page manuall
   perpetual loading indicator.
 - **SC-008**: An on-demand scan triggered from the dashboard shows a status that updates
   through to a final state without a manual page reload.
+
+**Tier dependency**: SC-008 is the one success criterion tied to User Story 5 (P2, scan
+operations) — it cannot be demonstrated without that story. SC-001 through SC-007 are all
+provable from User Stories 1–4 (P1) alone; dropping User Story 5 entirely leaves them
+intact, per User Story 5's own "Why this priority" note.
 
 ## Assumptions
 
@@ -437,6 +463,11 @@ and updates until the scan completes, without needing to reload the page manuall
   Suggestion entity's content for real, at scale, across every finding; this spec depends
   on it only for that — its own P1 demo path is fully provable without it, via FR-020a's
   admin-seeded test suggestion (Clarifications, Session 2026-08-31).
+- **This spec makes no call to any cloud-provider API and introduces no new
+  connector-interface surface.** Every new read or write this spec adds is against the
+  platform's own database (finding acknowledgment, remediation suggestions) or a
+  pass-through read of an existing platform API — never a new or extended call into a
+  scanned AWS account.
 
 ## Out of Scope
 
