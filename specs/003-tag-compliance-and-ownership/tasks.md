@@ -642,8 +642,18 @@ extends the same dev deployment T032/T033 already covered, redeployed if it was 
       `handlers/` instead, per T027/T028's own literal file paths) and
       `frontend/src/app/features/README.md` still said "empty by design" after T034-T037
       populated it. Both corrected for the same Principle I reason T043 itself exists.
-- [ ] T044 Re-run `/speckit-analyze` on spec 003 (playbook §8's second-run note) and resolve any
+- [X] T044 Re-run `/speckit-analyze` on spec 003 (playbook §8's second-run note) and resolve any
       finding before spec 004 begins — Governance
+      **Done, 2026-08-31**: mechanical FR/SC-to-task coverage 100% (all 32 FR keys, all 8 SC
+      keys), zero ambiguity, zero duplication, zero unmapped tasks. One finding — **H1
+      CRITICAL**: `AI_WORKFLOW_JOURNAL.md` had zero entries for spec 003's entire pipeline
+      (specify through this analyze pass), directly violating Principle I. The identical
+      failure mode spec 002's own second analyze pass already caught and fixed once (its
+      journal's H1). Fixed by adding the full spec 003 section, reconstructed from git
+      history (PR numbers, dates, merge order — not recollection), same structure as spec
+      002's section. No other findings; the apparent `{ruleKey}` vs `{rule_key}` mismatch
+      between the design-time and generated OpenAPI contracts checked and confirmed
+      cosmetic, not drift.
 
 ---
 

@@ -685,3 +685,173 @@ orphaned. Two findings:
 
 Zero ambiguity findings, zero duplication findings, zero unmapped tasks. Spec 002's
 analyze run is now clean; per Principle VII's testable clause, spec 003 may begin.
+
+## Spec 003 — Tag Compliance and Ownership (2026-08-25 to 2026-08-31)
+
+Written retroactively, after a second `/speckit-analyze` pass on spec 003 found the
+absence of any entry here as its own CRITICAL finding (Principle I) — the identical
+mistake spec 002 made and this file's own H1 entry above already documents. Reconstructed
+from git history — commit dates, PR numbers, and merge order below are pulled from the
+actual log, not recollection.
+
+### Specification, planning, and tasks (2026-08-25)
+
+- **`/speckit-specify`** ([PR #54](https://github.com/SumanKanrar-IEM/CloudPulse-AI/pull/54)):
+  produced 8 user stories (5 P1, 3 P2) across backlog S18/S18a/S18b/S19/S20/S21/S22/S23a,
+  30 functional requirements, 8 success criteria.
+- **`/speckit-clarify` + `/speckit-plan`** ([PR #55](https://github.com/SumanKanrar-IEM/CloudPulse-AI/pull/55)):
+  one clarification round (does a finding stay tied to a rule's stable key across edits,
+  or get orphaned against the version that first opened it? — answered: stable key,
+  re-evaluated against whichever version is currently enabled). research.md settled
+  three dominant decisions: R-301 (a finding's `rule_id` is re-pointed to the newest
+  enabled version on re-evaluation, found by joining through `Rule.key`), R-302 (one
+  bulk, paginated CloudTrail `LookupEvents` sweep per scan, never one call per resource),
+  R-303 (the governance pipeline is two new SQS-queued Lambda workers enqueued from
+  `finalize_scan`, not a second orchestration mechanism). Constitution check PASS at
+  both gates, Complexity Tracking empty.
+- **`/speckit-checklist`** ([PR #56](https://github.com/SumanKanrar-IEM/CloudPulse-AI/pull/56)):
+  `checklists/readiness.md`, 29 reviewer-owned items — found one genuine gap, CHK029.
+- **CHK029 fix** ([PR #57](https://github.com/SumanKanrar-IEM/CloudPulse-AI/pull/57)):
+  SDA removal had a schema-level default (`ON DELETE SET NULL`) but no spec-level
+  requirement or acceptance scenario. Added FR-010b (removal never refused for attached
+  resources; every attached resource reverts to "No SDA" immediately, not on the next
+  scan) and Acceptance Scenario US2.5; `DELETE /sdas/{sdaId}` added to the contract,
+  which had been missing it entirely. Checklist closed at 16/16.
+- **`/speckit-tasks`** ([PR #58](https://github.com/SumanKanrar-IEM/CloudPulse-AI/pull/58)):
+  tasks.md generated, P1 (T001–T033) ordered before P2 (T034–T042), each task citing its
+  backlog S-number and requirement, with T032 (live-verification) and T033 (teardown)
+  placed adjacent per playbook §0.5.3 — the same pairing spec 002's T053/T054 established
+  after the fact; this spec's task list got it right from generation.
+
+### Pre-implementation `/speckit-analyze` (2026-08-26)
+
+- **[PR #59](https://github.com/SumanKanrar-IEM/CloudPulse-AI/pull/59)**: three findings,
+  all coverage gaps, zero CRITICAL, zero constitution violations. **E1 (HIGH)**: the SDA
+  registry's *primary* matching/reclassification behavior (FR-008/FR-010, SC-006/SC-007)
+  had no dedicated test — only its two edge cases (overlap, removal) did; added T008a.
+  **E2 (MEDIUM)**: SC-002/SC-003 were satisfied by T013/T014/T018 but never cited by
+  them, swallowed by range notation. **E3 (MEDIUM)**: T013 lacked an explicit assertion
+  that validation must not run against a `failed` scan (FR-017) — only the
+  implementation task cited the gate, not its test. All three fixed same day, before any
+  implementation task started.
+
+### Implementation — P1, Phases 1–8 (2026-08-26 to 2026-08-29)
+
+One PR per phase, same-branch-per-PR ritual throughout:
+[#60](https://github.com/SumanKanrar-IEM/CloudPulse-AI/pull/60) setup, schema, seed
+rules · [#61](https://github.com/SumanKanrar-IEM/CloudPulse-AI/pull/61) rules-as-data API
+(US1) · [#62](https://github.com/SumanKanrar-IEM/CloudPulse-AI/pull/62) SDA registry —
+match, reclassify, overlap, removal (US2) ·
+[#63](https://github.com/SumanKanrar-IEM/CloudPulse-AI/pull/63) validation engine —
+parent/child resolution, rule evaluation, findings API (US3) ·
+[#64](https://github.com/SumanKanrar-IEM/CloudPulse-AI/pull/64) compliance scoring per
+account and per SDA (US4) · [#65](https://github.com/SumanKanrar-IEM/CloudPulse-AI/pull/65)
+ownership attribution — CloudTrail sweep, SQS+Lambda governance pipeline (US5) ·
+[#66](https://github.com/SumanKanrar-IEM/CloudPulse-AI/pull/66) full role matrix across
+rules/SDAs/findings/scores/ownership.
+
+**Real bugs found by running the code, not by inspection:**
+
+- T002's rule-seeding migration passed `json.dumps({...})` (a Python `str`) into a JSONB
+  column via `op.bulk_insert` — SQLAlchemy's JSONB type serialized it *again*, so the
+  column held a JSON string literal containing JSON text, not a JSON object. Every read
+  back through the ORM failed pydantic validation, surfacing as a 500 on `GET /rules`.
+  T002's own upgrade/downgrade check didn't catch it — raw SQL prints a JSON-shaped
+  string either way. Fixed by passing the plain dict, no `json.dumps`.
+- T014's dedicated FK-repointing test caught a genuine FR-006 bug in T016: the
+  auto-close branch resolved a violation but never re-pointed `rule_id`/`rule_version`
+  onto the closing version, so a finding resolved under an edited rule kept showing the
+  stale version that originally opened it.
+- T028's handler wiring surfaced an ordering bug the task's own stated order (SDA-match
+  before validate) would have shipped: SDA matching only evaluates
+  `parent_resource_id IS NULL` resources, but on a resource's very first scan nothing
+  had resolved that column yet, so a genuine child resource would have been
+  SDA-matched as top-level. Fixed by resolving parent/child relationships explicitly
+  before SDA matching in the handler.
+- T012 found FastAPI asserts a 204 response can't declare a body-carrying
+  `response_model` — `remove_sda` needed `response_model=None` explicit.
+- T026 (SQS enqueue) was `finalize_scan`'s first-ever AWS call, breaking four
+  pre-existing integration tests with no SQS mock; fixed with an autouse
+  `conftest.py` fixture that no-ops the enqueue by default.
+- R-307's VERIFY resolved definitively during T021: moto raises
+  `NotImplementedError` for `cloudtrail.lookup_events` unconditionally — no
+  partial-fidelity path the way R-209's tagging-API case had; every CloudTrail test in
+  this spec uses hand-built `lookup_events` fixtures.
+
+### Live verification — deferred, then run (2026-08-29 to 2026-08-31)
+
+Initially **deferred** ([PR #67](https://github.com/SumanKanrar-IEM/CloudPulse-AI/pull/67)):
+cost was estimated first (research.md R-306 — this spec's own new resources round to
+under $0.01 for a verification session), and the maintainer chose to defer anyway and
+revisit later — recorded, not silently skipped, the same shape as spec 002's own
+non-attempt pattern.
+
+**Deferral lifted 2026-08-30**, explicit authorization given after a cost estimate for
+the full live-verify-and-teardown activity. Deployed to dev; before any quickstart
+scenario ran, tracing what CloudTrail would actually record for this dev account
+(IAM Identity Center / SSO-only, AWS's own recommended access pattern) surfaced a
+genuine gap: `_is_human_principal()` only recognized `IAMUser`/`Root`, so an SSO-only
+account would never produce a human-attributed owner at all. Fixed and merged same day
+([PR #72](https://github.com/SumanKanrar-IEM/CloudPulse-AI/pull/72), T032a — an assumed
+role whose ARN contains `/AWSReservedSSO_` is now treated as human), dev redeployed to
+pick it up. Then attempted V1 (`POST /accounts`, `connectionMode: local`) as the first
+live mutation: the request hung to Lambda's 30-second timeout, `503`, nothing logged
+past framework warnings. Diagnosed via CloudWatch — **identical root cause to spec
+002's T053**: `infra/modules/network/main.tf` still provisions only the S3 gateway and
+Secrets Manager interface endpoints; there is still no NAT gateway and no interface
+endpoints for STS or the Resource Groups Tagging API, both of which
+`register_account`'s local-mode path calls. A VPC-attached Lambda's ENI has no public
+IP by AWS's own platform constraint, so both calls had no path out. This is the same
+gap spec 002's T053 already priced out (NAT instance ~$3–4/mo, NAT gateway ~$32/mo,
+~6 interface endpoints ~$88–100/mo) and the maintainer had already declined to pay for
+once; nothing changed to revisit that call, so verification stopped here by the same
+standing decision rather than re-asking. V1–V8 remain unproven against reality;
+SC-001–SC-004 and SC-006–SC-008 remain proven at the mocked-test level (CI) only.
+
+Teardown ran immediately after, never separated from live-verification by other work.
+`terraform destroy` ran ~31 minutes and stopped one resource short — the same failure
+mode as spec 002's T054: the frontend S3 bucket had 10 object versions Terraform's
+`aws_s3_bucket` won't auto-empty (`BucketNotEmpty`). Emptied directly, destroy re-run
+to a clean `Destroy complete!`, `terraform state list` empty. Full cost sweep across
+every resource category the playbook and this spec's own R-306 name — including the
+two governance SQS queues/DLQs and the two workers' CloudWatch log groups — confirmed
+zero residual cost. Recorded in
+[PR #73](https://github.com/SumanKanrar-IEM/CloudPulse-AI/pull/73); T032/T032a/T033
+marked complete in tasks.md with the honest account of what was and wasn't proven.
+
+### Phase 9 (P2) and Polish (2026-08-30)
+
+[#68](https://github.com/SumanKanrar-IEM/CloudPulse-AI/pull/68) attribution fallback for
+automation-created resources (US7) · [#69](https://github.com/SumanKanrar-IEM/CloudPulse-AI/pull/69)
+owner-identity resolution chain and admin config endpoints (US8) ·
+[#70](https://github.com/SumanKanrar-IEM/CloudPulse-AI/pull/70) SDA admin UI — CRUD
+screen, "No SDA" triage, e2e coverage (US6) ·
+[#71](https://github.com/SumanKanrar-IEM/CloudPulse-AI/pull/71) README ownership updates
+for `app/governance/` and `infra/modules/governance/`.
+
+**PR #70 found and fixed a genuine, pre-existing gap while writing its Playwright
+test**: neither `/sdas` nor spec 002's `/accounts` route was reachable at all, locally
+or in CI — `authGuard` redirected to `/sign-in`, which had never been implemented, and
+no mock-auth mechanism existed anywhere in the frontend. Stopped and asked the
+maintainer rather than working around it silently; the maintainer chose a minimal
+test-only auth bypass (`window.__CLOUDPULSE_CONFIG__.e2eMockRole`, seeded via an
+`APP_INITIALIZER`, set only by Playwright before app boot — cannot grant real access,
+since `authGuard` is documented as a usability control, not a security control).
+
+### Second `/speckit-analyze` pass (2026-08-31)
+
+Run per playbook §8's rule (analyze again after full implementation, before spec 004
+begins). FR/SC-to-task coverage checked mechanically: all 32 spec-003 FR keys
+(FR-001–FR-030, including FR-010a/b, FR-013a, FR-019a) and all 8 SC keys, 100% covered,
+zero orphaned requirements, zero unmapped tasks. One finding:
+
+- **H1 CRITICAL** — this file had zero entries for spec 003 despite the entire pipeline
+  above, directly violating Principle I — the identical failure mode spec 002's own H1
+  already caught and fixed once. This section is that fix.
+
+Zero ambiguity findings, zero duplication findings. The apparent path-parameter
+mismatch between `specs/003-tag-compliance-and-ownership/contracts/openapi.yaml`
+(`{ruleKey}`) and the generated, authoritative `backend/openapi.generated.yaml`
+(`{rule_key}`) checked and confirmed cosmetic — a naming-convention difference, not
+drift; all 11 spec-003 paths present in both. Spec 003's analyze run is now clean; per
+Principle VII's testable clause, spec 004 may begin.
