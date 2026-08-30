@@ -22,6 +22,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from app.core.db import TenantSession
 from app.core.logging import logger
+from app.governance.identity_resolution import resolve_owner_email
 from app.models.core import Resource, ResourceOwner
 from app.models.enums import OwnerConfidence
 
@@ -131,10 +132,17 @@ def attribute_ownership(
         short_id = resource.arn.rsplit("/", 1)[-1]
         event = events_by_resource.get(short_id) or events_by_resource.get(resource.arn)
         if event is not None and event.get("is_human") and event.get("principal"):
+            # FR-027: resolve to a contact email where possible; the raw
+            # principal identity (quickstart.md V4's documented behavior)
+            # otherwise.
+            owner_email = (
+                resolve_owner_email(session, resource.tags, event["principal"])
+                or event["principal"]
+            )
             wrote = _write_attribution(
                 session,
                 resource_id=resource.id,
-                owner_email=event["principal"],
+                owner_email=owner_email,
                 confidence=OwnerConfidence.HIGH,
                 evidence={
                     "kind": "direct",
@@ -155,10 +163,14 @@ def attribute_ownership(
         if fallback is None:
             continue
         count, winner_event = fallback
+        owner_email = (
+            resolve_owner_email(session, resource.tags, winner_event["principal"])
+            or winner_event["principal"]
+        )
         wrote = _write_attribution(
             session,
             resource_id=resource.id,
-            owner_email=winner_event["principal"],
+            owner_email=owner_email,
             # FR-025: lower confidence than direct attribution. MEDIUM, not
             # LOW -- a >=3-write-event signal is a reasonably confident one,
             # not a last-resort guess (the exact level was left to

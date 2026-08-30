@@ -13,6 +13,9 @@ import { Observable }                                        from 'rxjs';
 
 import { ErrorEnvelope } from '../model/models';
 import { HTTPValidationError } from '../model/models';
+import { OwnerIdentityOverrideBody } from '../model/models';
+import { OwnerIdentityOverridesList } from '../model/models';
+import { OwnerIdentityPatternBody } from '../model/models';
 import { ResourceOwnership } from '../model/models';
 
 
@@ -25,11 +28,41 @@ export interface OwnershipServiceInterface {
     configuration: Configuration;
 
     /**
+     * Retrieve the configured owner-identity resolution pattern
+     * FR-028. Any role may view.
+     * @endpoint get /owner-identity-pattern
+     */
+    getOwnerIdentityPattern(extraHttpRequestParams?: any): Observable<OwnerIdentityPatternBody>;
+
+    /**
      * Retrieve a resource\&#39;s attributed owner
      * FR-020-FR-028. Any role may view (FR-030). 200 with a null &#x60;ownerEmail&#x60;/ &#x60;confidence&#x60; (not 404) when the resource exists but is queued unattributed (FR-022) -- a resource genuinely not found still 404s.
      * @endpoint get /resources/{resource_id}/owner
      * @param resourceId 
      */
     getResourceOwner(resourceId: string, extraHttpRequestParams?: any): Observable<ResourceOwnership>;
+
+    /**
+     * List manual owner-identity overrides
+     * FR-027. Any role may view.
+     * @endpoint get /owner-identity-overrides
+     */
+    listOwnerIdentityOverrides(extraHttpRequestParams?: any): Observable<OwnerIdentityOverridesList>;
+
+    /**
+     * Create or replace a manual owner-identity override
+     * FR-027. Admin only (FR-029). Upserts on &#x60;(tenant_id, principal_id)&#x60; -- consulted last in the resolution chain, after the owner tag and pattern.
+     * @endpoint put /owner-identity-overrides
+     * @param ownerIdentityOverrideBody 
+     */
+    setOwnerIdentityOverride(ownerIdentityOverrideBody: OwnerIdentityOverrideBody, extraHttpRequestParams?: any): Observable<OwnerIdentityOverrideBody>;
+
+    /**
+     * Set the owner-identity resolution pattern
+     * FR-028. Admin only (FR-029) -- takes effect immediately, no redeploy.
+     * @endpoint put /owner-identity-pattern
+     * @param ownerIdentityPatternBody 
+     */
+    setOwnerIdentityPattern(ownerIdentityPatternBody: OwnerIdentityPatternBody, extraHttpRequestParams?: any): Observable<OwnerIdentityPatternBody>;
 
 }

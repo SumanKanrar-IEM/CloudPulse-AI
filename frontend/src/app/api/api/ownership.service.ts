@@ -21,6 +21,12 @@ import { ErrorEnvelope } from '../model/error-envelope';
 // @ts-ignore
 import { HTTPValidationError } from '../model/http-validation-error';
 // @ts-ignore
+import { OwnerIdentityOverrideBody } from '../model/owner-identity-override-body';
+// @ts-ignore
+import { OwnerIdentityOverridesList } from '../model/owner-identity-overrides-list';
+// @ts-ignore
+import { OwnerIdentityPatternBody } from '../model/owner-identity-pattern-body';
+// @ts-ignore
 import { ResourceOwnership } from '../model/resource-ownership';
 
 // @ts-ignore
@@ -40,6 +46,62 @@ export class OwnershipService extends BaseService implements OwnershipServiceInt
 
     constructor(protected httpClient: HttpClient, @Optional() @Inject(BASE_PATH) basePath: string|string[], @Optional() configuration?: Configuration) {
         super(basePath, configuration);
+    }
+
+    /**
+     * Retrieve the configured owner-identity resolution pattern
+     * FR-028. Any role may view.
+     * @endpoint get /owner-identity-pattern
+     * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
+     * @param reportProgress flag to report request and response progress.
+     * @param options additional options
+     */
+    public getOwnerIdentityPattern(observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<OwnerIdentityPatternBody>;
+    public getOwnerIdentityPattern(observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<OwnerIdentityPatternBody>>;
+    public getOwnerIdentityPattern(observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<OwnerIdentityPatternBody>>;
+    public getOwnerIdentityPattern(observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
+
+        let localVarHeaders = this.defaultHeaders;
+
+        // authentication (cognitoJwt) required
+        localVarHeaders = this.configuration.addCredentialToHeaders('cognitoJwt', 'Authorization', localVarHeaders, 'Bearer ');
+
+        const localVarHttpHeaderAcceptSelected: string | undefined = options?.httpHeaderAccept ?? this.configuration.selectHeaderAccept([
+            'application/json'
+        ]);
+        if (localVarHttpHeaderAcceptSelected !== undefined) {
+            localVarHeaders = localVarHeaders.set('Accept', localVarHttpHeaderAcceptSelected);
+        }
+
+        const localVarHttpContext: HttpContext = options?.context ?? new HttpContext();
+
+        const localVarTransferCache: boolean = options?.transferCache ?? true;
+
+
+        let responseType_: 'text' | 'json' | 'blob' = 'json';
+        if (localVarHttpHeaderAcceptSelected) {
+            if (localVarHttpHeaderAcceptSelected.startsWith('text')) {
+                responseType_ = 'text';
+            } else if (this.configuration.isJsonMime(localVarHttpHeaderAcceptSelected)) {
+                responseType_ = 'json';
+            } else {
+                responseType_ = 'blob';
+            }
+        }
+
+        let localVarPath = `/owner-identity-pattern`;
+        const { basePath, withCredentials } = this.configuration;
+        return this.httpClient.request<OwnerIdentityPatternBody>('get', `${basePath}${localVarPath}`,
+            {
+                context: localVarHttpContext,
+                responseType: <any>responseType_,
+                ...(withCredentials ? { withCredentials } : {}),
+                headers: localVarHeaders,
+                observe: observe,
+                ...(localVarTransferCache !== undefined ? { transferCache: localVarTransferCache } : {}),
+                reportProgress: reportProgress
+            }
+        );
     }
 
     /**
@@ -92,6 +154,202 @@ export class OwnershipService extends BaseService implements OwnershipServiceInt
         return this.httpClient.request<ResourceOwnership>('get', `${basePath}${localVarPath}`,
             {
                 context: localVarHttpContext,
+                responseType: <any>responseType_,
+                ...(withCredentials ? { withCredentials } : {}),
+                headers: localVarHeaders,
+                observe: observe,
+                ...(localVarTransferCache !== undefined ? { transferCache: localVarTransferCache } : {}),
+                reportProgress: reportProgress
+            }
+        );
+    }
+
+    /**
+     * List manual owner-identity overrides
+     * FR-027. Any role may view.
+     * @endpoint get /owner-identity-overrides
+     * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
+     * @param reportProgress flag to report request and response progress.
+     * @param options additional options
+     */
+    public listOwnerIdentityOverrides(observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<OwnerIdentityOverridesList>;
+    public listOwnerIdentityOverrides(observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<OwnerIdentityOverridesList>>;
+    public listOwnerIdentityOverrides(observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<OwnerIdentityOverridesList>>;
+    public listOwnerIdentityOverrides(observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
+
+        let localVarHeaders = this.defaultHeaders;
+
+        // authentication (cognitoJwt) required
+        localVarHeaders = this.configuration.addCredentialToHeaders('cognitoJwt', 'Authorization', localVarHeaders, 'Bearer ');
+
+        const localVarHttpHeaderAcceptSelected: string | undefined = options?.httpHeaderAccept ?? this.configuration.selectHeaderAccept([
+            'application/json'
+        ]);
+        if (localVarHttpHeaderAcceptSelected !== undefined) {
+            localVarHeaders = localVarHeaders.set('Accept', localVarHttpHeaderAcceptSelected);
+        }
+
+        const localVarHttpContext: HttpContext = options?.context ?? new HttpContext();
+
+        const localVarTransferCache: boolean = options?.transferCache ?? true;
+
+
+        let responseType_: 'text' | 'json' | 'blob' = 'json';
+        if (localVarHttpHeaderAcceptSelected) {
+            if (localVarHttpHeaderAcceptSelected.startsWith('text')) {
+                responseType_ = 'text';
+            } else if (this.configuration.isJsonMime(localVarHttpHeaderAcceptSelected)) {
+                responseType_ = 'json';
+            } else {
+                responseType_ = 'blob';
+            }
+        }
+
+        let localVarPath = `/owner-identity-overrides`;
+        const { basePath, withCredentials } = this.configuration;
+        return this.httpClient.request<OwnerIdentityOverridesList>('get', `${basePath}${localVarPath}`,
+            {
+                context: localVarHttpContext,
+                responseType: <any>responseType_,
+                ...(withCredentials ? { withCredentials } : {}),
+                headers: localVarHeaders,
+                observe: observe,
+                ...(localVarTransferCache !== undefined ? { transferCache: localVarTransferCache } : {}),
+                reportProgress: reportProgress
+            }
+        );
+    }
+
+    /**
+     * Create or replace a manual owner-identity override
+     * FR-027. Admin only (FR-029). Upserts on &#x60;(tenant_id, principal_id)&#x60; -- consulted last in the resolution chain, after the owner tag and pattern.
+     * @endpoint put /owner-identity-overrides
+     * @param ownerIdentityOverrideBody 
+     * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
+     * @param reportProgress flag to report request and response progress.
+     * @param options additional options
+     */
+    public setOwnerIdentityOverride(ownerIdentityOverrideBody: OwnerIdentityOverrideBody, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<OwnerIdentityOverrideBody>;
+    public setOwnerIdentityOverride(ownerIdentityOverrideBody: OwnerIdentityOverrideBody, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<OwnerIdentityOverrideBody>>;
+    public setOwnerIdentityOverride(ownerIdentityOverrideBody: OwnerIdentityOverrideBody, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<OwnerIdentityOverrideBody>>;
+    public setOwnerIdentityOverride(ownerIdentityOverrideBody: OwnerIdentityOverrideBody, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
+        if (ownerIdentityOverrideBody === null || ownerIdentityOverrideBody === undefined) {
+            throw new Error('Required parameter ownerIdentityOverrideBody was null or undefined when calling setOwnerIdentityOverride.');
+        }
+
+        let localVarHeaders = this.defaultHeaders;
+
+        // authentication (cognitoJwt) required
+        localVarHeaders = this.configuration.addCredentialToHeaders('cognitoJwt', 'Authorization', localVarHeaders, 'Bearer ');
+
+        const localVarHttpHeaderAcceptSelected: string | undefined = options?.httpHeaderAccept ?? this.configuration.selectHeaderAccept([
+            'application/json'
+        ]);
+        if (localVarHttpHeaderAcceptSelected !== undefined) {
+            localVarHeaders = localVarHeaders.set('Accept', localVarHttpHeaderAcceptSelected);
+        }
+
+        const localVarHttpContext: HttpContext = options?.context ?? new HttpContext();
+
+        const localVarTransferCache: boolean = options?.transferCache ?? true;
+
+
+        // to determine the Content-Type header
+        const consumes: string[] = [
+            'application/json'
+        ];
+        const httpContentTypeSelected: string | undefined = this.configuration.selectHeaderContentType(consumes);
+        if (httpContentTypeSelected !== undefined) {
+            localVarHeaders = localVarHeaders.set('Content-Type', httpContentTypeSelected);
+        }
+
+        let responseType_: 'text' | 'json' | 'blob' = 'json';
+        if (localVarHttpHeaderAcceptSelected) {
+            if (localVarHttpHeaderAcceptSelected.startsWith('text')) {
+                responseType_ = 'text';
+            } else if (this.configuration.isJsonMime(localVarHttpHeaderAcceptSelected)) {
+                responseType_ = 'json';
+            } else {
+                responseType_ = 'blob';
+            }
+        }
+
+        let localVarPath = `/owner-identity-overrides`;
+        const { basePath, withCredentials } = this.configuration;
+        return this.httpClient.request<OwnerIdentityOverrideBody>('put', `${basePath}${localVarPath}`,
+            {
+                context: localVarHttpContext,
+                body: ownerIdentityOverrideBody,
+                responseType: <any>responseType_,
+                ...(withCredentials ? { withCredentials } : {}),
+                headers: localVarHeaders,
+                observe: observe,
+                ...(localVarTransferCache !== undefined ? { transferCache: localVarTransferCache } : {}),
+                reportProgress: reportProgress
+            }
+        );
+    }
+
+    /**
+     * Set the owner-identity resolution pattern
+     * FR-028. Admin only (FR-029) -- takes effect immediately, no redeploy.
+     * @endpoint put /owner-identity-pattern
+     * @param ownerIdentityPatternBody 
+     * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
+     * @param reportProgress flag to report request and response progress.
+     * @param options additional options
+     */
+    public setOwnerIdentityPattern(ownerIdentityPatternBody: OwnerIdentityPatternBody, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<OwnerIdentityPatternBody>;
+    public setOwnerIdentityPattern(ownerIdentityPatternBody: OwnerIdentityPatternBody, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<OwnerIdentityPatternBody>>;
+    public setOwnerIdentityPattern(ownerIdentityPatternBody: OwnerIdentityPatternBody, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<OwnerIdentityPatternBody>>;
+    public setOwnerIdentityPattern(ownerIdentityPatternBody: OwnerIdentityPatternBody, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
+        if (ownerIdentityPatternBody === null || ownerIdentityPatternBody === undefined) {
+            throw new Error('Required parameter ownerIdentityPatternBody was null or undefined when calling setOwnerIdentityPattern.');
+        }
+
+        let localVarHeaders = this.defaultHeaders;
+
+        // authentication (cognitoJwt) required
+        localVarHeaders = this.configuration.addCredentialToHeaders('cognitoJwt', 'Authorization', localVarHeaders, 'Bearer ');
+
+        const localVarHttpHeaderAcceptSelected: string | undefined = options?.httpHeaderAccept ?? this.configuration.selectHeaderAccept([
+            'application/json'
+        ]);
+        if (localVarHttpHeaderAcceptSelected !== undefined) {
+            localVarHeaders = localVarHeaders.set('Accept', localVarHttpHeaderAcceptSelected);
+        }
+
+        const localVarHttpContext: HttpContext = options?.context ?? new HttpContext();
+
+        const localVarTransferCache: boolean = options?.transferCache ?? true;
+
+
+        // to determine the Content-Type header
+        const consumes: string[] = [
+            'application/json'
+        ];
+        const httpContentTypeSelected: string | undefined = this.configuration.selectHeaderContentType(consumes);
+        if (httpContentTypeSelected !== undefined) {
+            localVarHeaders = localVarHeaders.set('Content-Type', httpContentTypeSelected);
+        }
+
+        let responseType_: 'text' | 'json' | 'blob' = 'json';
+        if (localVarHttpHeaderAcceptSelected) {
+            if (localVarHttpHeaderAcceptSelected.startsWith('text')) {
+                responseType_ = 'text';
+            } else if (this.configuration.isJsonMime(localVarHttpHeaderAcceptSelected)) {
+                responseType_ = 'json';
+            } else {
+                responseType_ = 'blob';
+            }
+        }
+
+        let localVarPath = `/owner-identity-pattern`;
+        const { basePath, withCredentials } = this.configuration;
+        return this.httpClient.request<OwnerIdentityPatternBody>('put', `${basePath}${localVarPath}`,
+            {
+                context: localVarHttpContext,
+                body: ownerIdentityPatternBody,
                 responseType: <any>responseType_,
                 ...(withCredentials ? { withCredentials } : {}),
                 headers: localVarHeaders,
