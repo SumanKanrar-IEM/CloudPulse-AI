@@ -132,6 +132,35 @@ def test_an_assumed_role_principal_is_not_human(monkeypatch: Any) -> None:
     assert events["my-bucket"]["is_human"] is False
 
 
+def test_an_sso_assumed_role_principal_is_human(monkeypatch: Any) -> None:
+    """T032a, found live: an SSO/Identity-Center-only AWS account never
+    produces `IAMUser` events at all -- both console and CLI access assume a
+    role. `AWSReservedSSO_` is reserved exclusively for Identity Center by
+    AWS, so it reliably distinguishes a human's federated session from an
+    automation's assumed role, unlike `type` alone (identical for both)."""
+    t = datetime(2026, 3, 1, tzinfo=UTC)
+    events = _sweep(
+        monkeypatch,
+        [
+            {
+                "Events": [
+                    _event(
+                        event_name="RunInstances",
+                        event_time=t,
+                        resource_name="i-sso",
+                        identity_type="AssumedRole",
+                        identity_arn=(
+                            "arn:aws:sts::123456789012:assumed-role/"
+                            "AWSReservedSSO_AdministratorAccess_abc123/alice"
+                        ),
+                    )
+                ]
+            }
+        ],
+    )
+    assert events["i-sso"]["is_human"] is True
+
+
 def test_pagination_combines_events_across_pages(monkeypatch: Any) -> None:
     t1 = datetime(2026, 3, 1, tzinfo=UTC)
     t2 = datetime(2026, 3, 2, tzinfo=UTC)
