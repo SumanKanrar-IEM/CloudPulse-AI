@@ -1058,6 +1058,143 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /owner-identity-pattern:
+    get:
+      tags:
+      - ownership
+      summary: Retrieve the configured owner-identity resolution pattern
+      description: FR-028. Any role may view.
+      operationId: getOwnerIdentityPattern
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OwnerIdentityPatternBody'
+        '401':
+          description: No valid identity presented.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Valid identity, but the caller's role does not permit the action
+            -- or the caller maps to zero or multiple directory groups and therefore
+            has no resolvable role (FR-032a, FR-034).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+    put:
+      tags:
+      - ownership
+      summary: Set the owner-identity resolution pattern
+      description: FR-028. Admin only (FR-029) -- takes effect immediately, no redeploy.
+      operationId: setOwnerIdentityPattern
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OwnerIdentityPatternBody'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OwnerIdentityPatternBody'
+        '401':
+          description: No valid identity presented.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Valid identity, but the caller's role does not permit the action
+            -- or the caller maps to zero or multiple directory groups and therefore
+            has no resolvable role (FR-032a, FR-034).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '422':
+          description: Request body or parameters failed validation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /owner-identity-overrides:
+    get:
+      tags:
+      - ownership
+      summary: List manual owner-identity overrides
+      description: FR-027. Any role may view.
+      operationId: listOwnerIdentityOverrides
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OwnerIdentityOverridesList'
+        '401':
+          description: No valid identity presented.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Valid identity, but the caller's role does not permit the action
+            -- or the caller maps to zero or multiple directory groups and therefore
+            has no resolvable role (FR-032a, FR-034).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+    put:
+      tags:
+      - ownership
+      summary: Create or replace a manual owner-identity override
+      description: 'FR-027. Admin only (FR-029). Upserts on `(tenant_id, principal_id)`
+        --
+
+        consulted last in the resolution chain, after the owner tag and pattern.'
+      operationId: setOwnerIdentityOverride
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OwnerIdentityOverrideBody'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OwnerIdentityOverrideBody'
+        '401':
+          description: No valid identity presented.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Valid identity, but the caller's role does not permit the action
+            -- or the caller maps to zero or multiple directory groups and therefore
+            has no resolvable role (FR-032a, FR-034).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '422':
+          description: Request body or parameters failed validation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
 components:
   schemas:
     Account:
@@ -1424,6 +1561,39 @@ components:
       - checks
       - correlationId
       title: HealthResponse
+    OwnerIdentityOverrideBody:
+      properties:
+        principalId:
+          type: string
+          title: Principalid
+        ownerEmail:
+          type: string
+          title: Owneremail
+      type: object
+      required:
+      - principalId
+      - ownerEmail
+      title: OwnerIdentityOverrideBody
+    OwnerIdentityOverridesList:
+      properties:
+        overrides:
+          items:
+            $ref: '#/components/schemas/OwnerIdentityOverrideBody'
+          type: array
+          title: Overrides
+      type: object
+      required:
+      - overrides
+      title: OwnerIdentityOverridesList
+    OwnerIdentityPatternBody:
+      properties:
+        pattern:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Pattern
+      type: object
+      title: OwnerIdentityPatternBody
     OwnershipEvidence:
       properties:
         kind:

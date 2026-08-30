@@ -531,15 +531,30 @@ excepted, per the Tier Summary above).
 
 ### User Story 8 — Resolve any attributed owner to a real email address (Priority: P2)
 
-- [ ] T040 [P] [US8] **[P2]** Write `backend/tests/unit/test_owner_identity_resolution.py` — the
+- [X] T040 [P] [US8] **[P2]** Write `backend/tests/unit/test_owner_identity_resolution.py` — the
       precedence chain: a syntactically valid `owner` tag wins outright; else the admin-configured
       pattern applied to the audit-trail identity; else the manual override table; a changed
       pattern takes effect immediately with no redeploy — S23a, FR-027, FR-028
-- [ ] T041 [US8] **[P2]** Write `backend/app/governance/identity_resolution.py` — the three-step
+      **Done**: moved to `tests/integration/` (same precedent as every other governance test this
+      spec moved) — the chain reads real `Tenant.owner_identity_pattern` and
+      `owner_identity_override` state. Also covers case-insensitive `owner`-tag lookup, matching
+      FR-002's established convention, and "nothing resolves returns `None`" (the caller's
+      fallback, not this chain's job).
+- [X] T041 [US8] **[P2]** Write `backend/app/governance/identity_resolution.py` — the three-step
       resolution chain T040 tests — S23a, FR-027, FR-028
-- [ ] T042 [US8] **[P2]** Extend `backend/app/api/routers/ownership.py` —
+      **Done**: `resolve_owner_email()`. Wired into `app/governance/ownership.py`'s direct and
+      fallback attribution paths — `owner_email` is now the resolved contact email when the chain
+      produces one, falling back to the raw principal identity otherwise (quickstart.md V4's
+      documented pre-P2 behavior, now also the genuine "nothing resolved" case). `evidence.principal`
+      always stays the raw audit-trail identity regardless — the resolved email is a display
+      convenience, not a replacement for the evidence trail.
+- [X] T042 [US8] **[P2]** Extend `backend/app/api/routers/ownership.py` —
       `GET`/`PUT /owner-identity-pattern`, `GET`/`PUT /owner-identity-overrides`, admin write /
       all-role read — S23a, FR-027–FR-030
+      **Done**: no deviations. Override writes upsert on `(tenant_id, principal_id)` via
+      `ON CONFLICT DO UPDATE`, matching the table's own unique constraint. Role-matrix cells added
+      to `test_role_matrix_governance.py` (quickstart.md V7's last row, previously excluded as
+      "doesn't exist yet").
 
 **Checkpoint**: P2 stretch scope complete; SC-005 now provable; quickstart.md V5 can be run live as
 a follow-up to Phase 8's T032 if desired (not itself re-numbered as a new live-verify task — it

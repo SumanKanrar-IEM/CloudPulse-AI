@@ -275,10 +275,62 @@ def test_remove_sda(governance_app, seeded_ids, groups, expected) -> None:  # ty
     assert response.status_code == expected, response.text
 
 
-def test_the_matrix_covers_every_v7_p1_cell() -> None:
-    """Guard against a row silently disappearing and the suite still passing.
-    P2's owner-identity-pattern/override row (quickstart.md V7's last row) is
-    deliberately excluded -- that surface doesn't exist yet (Phase 9)."""
+@pytest.mark.parametrize(
+    ("groups", "expected"),
+    [(ADMIN, 200), (OPERATOR, 200), (VIEWER, 200)],
+    ids=["admin", "operator", "viewer"],
+)
+def test_view_owner_identity_pattern(governance_app, groups, expected) -> None:  # type: ignore[no-untyped-def]
+    client, stager, tenant_id = governance_app
+    _stage(stager, tenant_id, groups)
+    assert client.get("/owner-identity-pattern").status_code == expected
+
+
+@pytest.mark.parametrize(
+    ("groups", "expected"),
+    [(ADMIN, 200), (OPERATOR, 403), (VIEWER, 403)],
+    ids=["admin", "operator", "viewer"],
+)
+def test_set_owner_identity_pattern(governance_app, groups, expected) -> None:  # type: ignore[no-untyped-def]
+    client, stager, tenant_id = governance_app
+    _stage(stager, tenant_id, groups)
+    response = client.put(
+        "/owner-identity-pattern", json={"pattern": "{principal_local_part}@example.com"}
+    )
+    assert response.status_code == expected, response.text
+
+
+@pytest.mark.parametrize(
+    ("groups", "expected"),
+    [(ADMIN, 200), (OPERATOR, 200), (VIEWER, 200)],
+    ids=["admin", "operator", "viewer"],
+)
+def test_view_owner_identity_overrides(governance_app, groups, expected) -> None:  # type: ignore[no-untyped-def]
+    client, stager, tenant_id = governance_app
+    _stage(stager, tenant_id, groups)
+    assert client.get("/owner-identity-overrides").status_code == expected
+
+
+@pytest.mark.parametrize(
+    ("groups", "expected"),
+    [(ADMIN, 200), (OPERATOR, 403), (VIEWER, 403)],
+    ids=["admin", "operator", "viewer"],
+)
+def test_set_owner_identity_override(governance_app, groups, expected) -> None:  # type: ignore[no-untyped-def]
+    client, stager, tenant_id = governance_app
+    _stage(stager, tenant_id, groups)
+    response = client.put(
+        "/owner-identity-overrides",
+        json={
+            "principalId": "arn:aws:iam::123456789012:user/alice",
+            "ownerEmail": "alice@example.com",
+        },
+    )
+    assert response.status_code == expected, response.text
+
+
+def test_the_matrix_covers_every_v7_cell() -> None:
+    """Guard against a row silently disappearing and the suite still passing."""
     view_actions = {
         "view_rules",
         "view_sdas",
@@ -286,7 +338,17 @@ def test_the_matrix_covers_every_v7_p1_cell() -> None:
         "view_account_score",
         "view_sda_score",
         "view_ownership",
+        "view_owner_identity_pattern",
+        "view_owner_identity_overrides",
     }
-    write_actions = {"create_rule", "update_rule", "register_sda", "update_sda", "remove_sda"}
+    write_actions = {
+        "create_rule",
+        "update_rule",
+        "register_sda",
+        "update_sda",
+        "remove_sda",
+        "set_owner_identity_pattern",
+        "set_owner_identity_override",
+    }
     roles = {"admin", "operator", "viewer"}
-    assert (len(view_actions) + len(write_actions)) * len(roles) == 33
+    assert (len(view_actions) + len(write_actions)) * len(roles) == 45

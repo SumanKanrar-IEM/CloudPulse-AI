@@ -40,6 +40,9 @@ model/health-response.ts
 model/http-validation-error.ts
 model/location-inner.ts
 model/models.ts
+model/owner-identity-override-body.ts
+model/owner-identity-overrides-list.ts
+model/owner-identity-pattern-body.ts
 model/ownership-evidence.ts
 model/resource-ownership.ts
 model/resource-summary.ts
