@@ -465,10 +465,27 @@ this phase, before starting Phase 9.
       against reality, not mocks. **V5 (fallback chain) is out of scope for this task** — it needs
       P2's T038/T039, which don't exist yet; live-verifying it is Phase 9's concern once P2 lands,
       not silently skipped forever — S18–S21, SC-001–SC-004, SC-006–SC-008
-      **Started 2026-08-30**: deferral lifted by explicit user decision, cost estimate given and
-      approved. P2 (T038–T042) had already landed by this point, so V5 was run too, not left for a
-      hypothetical later phase. See T032a for a genuine gap found before V4 ever ran.
-- [ ] T032a **[Found live, not by inspection]** Fix `connectors/aws.py`'s `_is_human_principal()`
+      **2026-08-30, partially completed, blocked by the same pre-existing gap spec 002's T053 hit,
+      and stopped**: deferral lifted by explicit user decision, cost estimate given and approved.
+      Deployed to dev (health check passed, version matched the merged trunk). Before any V-scenario
+      could run, tracing what CloudTrail would record for this dev account (SSO-only, AWS's
+      recommended access pattern) surfaced a genuine gap in `_is_human_principal()` — fixed via
+      T032a, its own PR, redeployed. Then attempted V1 (`POST /accounts`, `connectionMode: local`)
+      as the first live mutation: request hung to Lambda's 30s timeout, `503`, nothing logged past
+      framework warnings. Diagnosed via CloudWatch — **identical root cause to spec 002's T053**:
+      `infra/modules/network/main.tf` still provisions only the S3 gateway and Secrets Manager
+      interface endpoints; there is still no NAT gateway and no interface endpoints for STS or the
+      Resource Groups Tagging API, both of which `register_account`'s local-mode path calls
+      (`get_local_account_id` → STS; `verify_access` → `resourcegroupstaggingapi`). A VPC-attached
+      Lambda's ENI has no public IP by AWS's own platform constraint, so both calls had no path out
+      and hung silently. This is the same gap T053 already priced out (NAT instance ~$3–4/mo, NAT
+      gateway ~$32/mo, ~6 paid interface endpoints ~$88–100/mo) and the user already declined to pay
+      for once; nothing changed to revisit that call, so verification stopped here by the same
+      standing decision rather than re-asking. V1–V8 remain unproven against reality — SC-001–
+      SC-004 and SC-006–SC-008 remain proven at the mocked-test level (CI) only, same as spec 002's
+      outcome. T032a's SSO fix is real and merged regardless of this — S18–S21, SC-001–SC-004,
+      SC-006–SC-008
+- [X] T032a **[Found live, not by inspection]** Fix `connectors/aws.py`'s `_is_human_principal()`
       to recognize an IAM Identity Center (SSO) federated session as human, not just `IAMUser`/
       `Root`. Discovered by tracing what CloudTrail would actually record for this project's own
       dev AWS account *before* creating any V4 test resource: an SSO-only account (AWS's own
@@ -479,14 +496,32 @@ this phase, before starting Phase 9.
       pattern. Fix: treat an assumed role whose ARN contains `/AWSReservedSSO_` as human — that
       role-name prefix is reserved exclusively for Identity Center by AWS, so it reliably
       distinguishes a human's federated session from a CI/CD role or Lambda execution role without
-      loosening the existing automation-detection logic — S21, FR-021
-- [X] T033 **Teardown and cost sweep**, immediately following T032, never separated from it by
-      other work: run the full playbook §0.5.3 sweep, plus this spec's own additions from
-      research.md R-306 — confirm `aws sqs list-queues` shows neither new queue nor their DLQs, and
-      confirm the two new Lambda workers' CloudWatch log groups are gone or have a retention policy
-      set (not `retentionInDays: null`) — S18–S21, playbook §0.5.3
+      loosening the existing automation-detection logic. Own PR (#72), merged, dev redeployed to
+      pick it up before V1 was attempted — S21, FR-021
+- [X] T033 **Teardown and cost sweep** — completed 2026-08-30, immediately following T032, never
+      separated from it by other work. `ops/teardown.sh dev` → `terraform destroy` ran ~31 minutes
+      (security-group and RDS-cluster deletion dominated) and stopped one resource short — same
+      failure mode as spec 002's T054: the frontend S3 bucket
+      (`cloudpulse-dev-frontend-767828743440`) had 10 object versions Terraform's `aws_s3_bucket`
+      won't auto-empty, `BucketNotEmpty`. Emptied it directly (`delete-objects` on all 10 versions)
+      and re-ran `terraform destroy -auto-approve`, which completed cleanly: `Destroy complete!
+      Resources: 1 destroyed.`, `terraform state list` empty. Full cost sweep — RDS (clusters/
+      instances/both snapshot types), Lambda, VPC, NAT gateways, EC2, Elastic IPs, ELB/ALB,
+      CloudFront, Cognito, API Gateway, VPC endpoints, Secrets Manager, EventBridge/Scheduler
+      rules, SQS (this spec's own addition from research.md R-306 — confirmed `aws sqs list-queues
+      --queue-name-prefix cloudpulse` returns nothing, i.e. neither governance queue nor either
+      DLQ survived), Step Functions, SNS, CloudWatch alarms, the two governance workers' log
+      groups (R-306 — gone entirely, not merely retention-capped), app S3 buckets, DynamoDB, and
+      KMS aliases: all empty. Only the Terraform state buckets/lock tables
+      (`cloudpulse-tfstate-{dev,prod}-767828743440`, `cloudpulse-tflock-{dev,prod}`) remain —
+      bootstrap infrastructure outside this spec's stack. `DEV_AUTO_DEPLOY` was never flipped to
+      `true` in CI — deploy was dispatched manually — nothing to revert there — S18–S21, playbook
+      §0.5.3
 
-**Checkpoint**: 🏁 **P1 and P2 complete, live-verified against the real AWS account (2026-08-30).**
+**Checkpoint**: 🏁 **P1 and P2 complete at the mocked-test level (CI). Live verification against
+the real AWS account was attempted 2026-08-30, found and fixed one genuine gap (T032a), then
+stopped at the same pre-existing VPC-networking gap spec 002's T053 already priced out and the
+user already declined to fund — see T032. Environment torn down cleanly (T033).**
 
 ---
 
