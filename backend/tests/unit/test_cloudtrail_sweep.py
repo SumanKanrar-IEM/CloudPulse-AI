@@ -18,7 +18,7 @@ from datetime import UTC, datetime
 from typing import Any
 from unittest.mock import MagicMock
 
-from connectors.aws import sweep_cloudtrail_events
+from connectors.aws import sweep_cloudtrail_events, sweep_write_events
 from connectors.base import ConnectorAccount
 
 _ACCOUNT = ConnectorAccount(aws_account_id="123456789012", connection_mode="local")
@@ -34,6 +34,7 @@ def _event(
     identity_type: str = "IAMUser",
     identity_arn: str = "arn:aws:iam::123456789012:user/alice",
     event_id: str = "evt-1",
+    read_only: str = "false",
 ) -> dict[str, Any]:
     resources = (
         [{"ResourceType": resource_type, "ResourceName": resource_name}] if resource_name else []
@@ -44,6 +45,7 @@ def _event(
         "EventTime": event_time,
         "Username": username,
         "Resources": resources,
+        "ReadOnly": read_only,
         "CloudTrailEvent": json.dumps(
             {"userIdentity": {"type": identity_type, "arn": identity_arn}}
         ),
@@ -204,3 +206,60 @@ def test_a_root_principal_is_treated_as_human(monkeypatch: Any) -> None:
         ],
     )
     assert events["eipalloc-root1"]["is_human"] is True
+
+
+# --- sweep_write_events (P2 fallback, FR-024/FR-025) ---------------------------
+
+
+def _sweep_writes(monkeypatch: Any, pages: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
+    fake_session = _fake_session(pages)
+    monkeypatch.setattr("connectors.aws._build_session", lambda *a, **k: fake_session)
+    return sweep_write_events(_ACCOUNT, "us-east-1", since=datetime(2026, 1, 1, tzinfo=UTC))
+
+
+def test_write_events_are_collected_per_resource(monkeypatch: Any) -> None:
+    t = datetime(2026, 3, 1, tzinfo=UTC)
+    events = _sweep_writes(
+        monkeypatch,
+        [{"Events": [_event(event_name="StopInstances", event_time=t, resource_name="i-abc")]}],
+    )
+    assert len(events["i-abc"]) == 1
+    assert events["i-abc"][0]["principal"] == "arn:aws:iam::123456789012:user/alice"
+    assert events["i-abc"][0]["is_human"] is True
+
+
+def test_read_only_events_are_excluded(monkeypatch: Any) -> None:
+    t = datetime(2026, 3, 1, tzinfo=UTC)
+    events = _sweep_writes(
+        monkeypatch,
+        [
+            {
+                "Events": [
+                    _event(
+                        event_name="DescribeInstances",
+                        event_time=t,
+                        resource_name="i-abc",
+                        read_only="true",
+                    )
+                ]
+            }
+        ],
+    )
+    assert events == {}
+
+
+def test_multiple_write_events_accumulate_for_the_same_resource(monkeypatch: Any) -> None:
+    t1 = datetime(2026, 3, 1, tzinfo=UTC)
+    t2 = datetime(2026, 3, 2, tzinfo=UTC)
+    events = _sweep_writes(
+        monkeypatch,
+        [
+            {
+                "Events": [
+                    _event(event_name="StopInstances", event_time=t1, resource_name="i-abc"),
+                    _event(event_name="StartInstances", event_time=t2, resource_name="i-abc"),
+                ]
+            }
+        ],
+    )
+    assert len(events["i-abc"]) == 2

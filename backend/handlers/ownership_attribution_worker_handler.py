@@ -1,11 +1,12 @@
 """SQS-triggered Lambda entrypoint for ownership attribution (spec 003, T027,
-research.md R-302, R-303).
+research.md R-302, R-303; P2 fallback wiring, T039).
 
 Triggered by the `ownership-attribution` queue -- one message per finalized
-scan, enqueued by `app.scan.orchestrator.finalize_scan` (T026). Runs the bulk
-CloudTrail sweep (`connectors.aws.sweep_cloudtrail_events`, R-302) once per
-scan region, then correlates the combined event map against the account's
-resource set in one call (`app.governance.ownership.attribute_ownership`).
+scan, enqueued by `app.scan.orchestrator.finalize_scan` (T026). Runs both
+bulk CloudTrail sweeps (`connectors.aws.sweep_cloudtrail_events`/
+`sweep_write_events`) once per scan region, then correlates the combined
+event maps against the account's resource set in one call
+(`app.governance.ownership.attribute_ownership`).
 """
 
 from __future__ import annotations
@@ -22,7 +23,7 @@ from app.core.logging import logger
 from app.governance.ownership import attribute_ownership
 from app.models.core import CloudAccount
 from app.models.enums import ConnectionMode
-from connectors.aws import read_external_id, sweep_cloudtrail_events
+from connectors.aws import read_external_id, sweep_cloudtrail_events, sweep_write_events
 from connectors.base import ConnectorAccount
 
 # FR-020: "the preceding 90 days."
@@ -52,12 +53,19 @@ def _process_scan(scan_id: str, tenant_id: uuid.UUID, cloud_account_id: uuid.UUI
 
         since = datetime.now(UTC) - timedelta(days=_LOOKBACK_DAYS)
         events_by_resource: dict[str, dict[str, Any]] = {}
+        write_events_by_resource: dict[str, list[dict[str, Any]]] = {}
         for region in account.scan_regions:
             events_by_resource.update(
                 sweep_cloudtrail_events(connector_account, region, since=since)
             )
+            for resource_id, events in sweep_write_events(
+                connector_account, region, since=since
+            ).items():
+                write_events_by_resource.setdefault(resource_id, []).extend(events)
 
-        attributed = attribute_ownership(session, cloud_account_id, events_by_resource)
+        attributed = attribute_ownership(
+            session, cloud_account_id, events_by_resource, write_events_by_resource
+        )
 
     logger.info(
         "ownership attribution worker completed",
