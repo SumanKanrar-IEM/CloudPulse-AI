@@ -14,7 +14,8 @@ environment that is not a variable, it belongs in the module.
 | `modules/api/` | HTTP API, Lambda authorizer, api/migrate/pre-token/authorizer Lambdas |
 | `modules/frontend/` | S3 origin + CloudFront with OAC |
 | `modules/storage/` | raw scan snapshot bucket, 30-day-class lifecycle rule (spec 002, research.md R-207) |
-| `modules/scan/` | **spec 002** — scan-worker Lambda, Step Functions Standard state machine (`scan_workflow.asl.json`, validated by `ops/scripts/check_stepfunctions_asl.py`), EventBridge Scheduler daily trigger, cross-account onboarding CloudFormation template |
+| `modules/scan/` | **spec 002** — scan-worker Lambda, Step Functions Standard state machine (`scan_workflow.asl.json`, validated by `ops/scripts/check_stepfunctions_asl.py`), EventBridge Scheduler daily trigger, cross-account onboarding CloudFormation template. Since spec 003: also grants the scan-worker `sqs:SendMessage` on the two governance queues below (`finalize_scan`'s enqueue, research.md R-303) |
+| `modules/governance/` | **spec 003** — two SQS queues + DLQs (`compliance-validation`, `ownership-attribution`; Standard not FIFO, research.md R-306) and their Lambda workers (arm64, sized like the scan-worker). Declared *before* `modules/scan/` in each `envs/{dev,prod}/main.tf` so its queue ARN/URL outputs can feed into `modules/scan/`'s variables — the reverse order would be a Terraform dependency cycle |
 | `modules/observability/` | **P2** — dashboard and alarms; default off |
 | `envs/{dev,prod}/` | root modules |
 
