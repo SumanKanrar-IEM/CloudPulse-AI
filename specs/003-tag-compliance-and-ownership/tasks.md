@@ -492,18 +492,48 @@ excepted, per the Tier Summary above).
 
 ### User Story 6 — Manage projects and triage unmatched resources from a screen (Priority: P2)
 
-- [ ] T034 [P] [US6] **[P2]** Write `frontend/src/app/features/sdas/sdas-list.component.spec.ts`
+- [X] T034 [P] [US6] **[P2]** Write `frontend/src/app/features/sdas/sdas-list.component.spec.ts`
       (or the project's established Playwright pattern for a P1-equivalent screen, per spec 002's
       US2 frontend tests) — create/edit/remove an SDA from the screen, confirm effect matches the
       API directly — S18b, FR-011
-- [ ] T035 [US6] **[P2]** Write `frontend/src/app/features/sdas/sdas-list.component.ts` — CRUD
+      **Done**: written as `frontend/e2e/sdas.spec.ts` — spec 002's own `accounts` feature turned
+      out to have no dedicated frontend test at all (checked directly: no `.spec.ts` exists
+      anywhere under `features/`), so "the established Playwright pattern" meant only
+      `e2e/shell.spec.ts`'s a11y suite — this is the first *functional* Playwright test in the
+      repo, not a pre-existing pattern reused. Found and fixed a genuine, pre-existing gap while
+      writing it: neither `/sdas` nor spec 002's `/accounts` route could be reached at all locally
+      or in CI — `authGuard` redirects to `/sign-in`, which was never implemented (confirmed:
+      `NG04002: Cannot match any routes`), and no mock-auth mechanism existed. **Stopped and asked
+      the user** rather than silently working around it; the user chose a minimal test-only auth
+      bypass. Added `window.__CLOUDPULSE_CONFIG__.e2eMockRole` (api-config.ts) — the same
+      deploy-time runtime-config seam `apiBaseUrl` already uses, seeded via an `APP_INITIALIZER` in
+      `app.config.ts`, set only by a Playwright `page.addInitScript()` before app boot. Cannot
+      grant real access (`authGuard`'s own docstring: "a usability control, not a security
+      control") — every HTTP call the seeded session makes still needs a real or intercepted
+      response. The backend is not running in this suite (`playwright.config.ts`'s `webServer`
+      starts only the Angular dev server), so requests are intercepted and served from an in-memory
+      fixture store matching the generated client's contract shapes exactly — this proves the
+      contract-level half of "effect matches the API"; the real backend/database half is T032's
+      live-verification concern, already deferred by explicit user decision. 6/6 tests pass;
+      13/13 across the full e2e suite (no regression on `shell.spec.ts`'s a11y checks).
+- [X] T035 [US6] **[P2]** Write `frontend/src/app/features/sdas/sdas-list.component.ts` — CRUD
       screen for SDAs and their tag-value mappings, equivalent in effect to FR-007–FR-010b's API
       surface — S18b, FR-011
-- [ ] T036 [US6] **[P2]** Write `frontend/src/app/features/sdas/no-sda-triage.component.ts` —
+      **Done**: no deviations. Mirrors `accounts-list.component.ts`'s established pattern exactly
+      (standalone component, signals, role-guarded controls disabled not hidden, per spec 1's
+      role-guard precedent). Tag-value mapping is edited as one "key=value" per line rather than a
+      dynamic multi-row widget — the same minimal-input style `account-form.component.ts` already
+      uses for its comma-separated region list.
+- [X] T036 [US6] **[P2]** Write `frontend/src/app/features/sdas/no-sda-triage.component.ts` —
       triage view over `GET /sdas/unmatched-resources` (T012) — S18b, FR-012
-- [ ] T037 [US6] **[P2]** Wire the `sdas` feature into `frontend/src/app/app.config.ts` routes;
+      **Done**: no deviations. Extracted as its own component and embedded in
+      `sdas-list.component.ts` (one route, two composed components) rather than a second nav item
+      -- FR-012's own requirement is a triage *view*, not a separate top-level screen.
+- [X] T037 [US6] **[P2]** Wire the `sdas` feature into `frontend/src/app/app.config.ts` routes;
       regenerate the OpenAPI-generated frontend API client for the new `/rules`/`/sdas`/`/findings`/
       `/compliance`/`/ownership` paths — S18b, FR-011
+      **Done**: no deviations. The generated client was already current (regenerated after every
+      earlier phase's router change); this task's own scope was route wiring only.
 
 ### User Story 7 — Attribute ownership even when a pipeline created the resource (Priority: P2)
 
