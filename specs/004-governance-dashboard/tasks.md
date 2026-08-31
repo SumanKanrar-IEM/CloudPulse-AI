@@ -108,10 +108,12 @@ next page load requires signing in again.
       exchanges the authorization code + PKCE verifier for tokens at Cognito's `/oauth2/token`,
       calls `GET /me` with the access token, populates `AuthService`, navigates to `returnTo`
       (`authGuard` already sets this query param today) — S27, FR-001, research.md R-402
-- [ ] T008 [US1] Extend `frontend/src/app/core/auth.service.ts` — in-memory token storage
-      (`sessionStorage` for the PKCE round-trip only, never `localStorage` for the tokens
-      themselves) alongside the existing signal-based user state — S27, FR-001, plan.md
-      Constraints ("zero stored credentials" applied to the frontend layer)
+- [ ] T008 [US1] Extend `frontend/src/app/core/auth.service.ts` — the access/ID tokens
+      themselves are held in memory only (a service field, never `sessionStorage` or
+      `localStorage`), alongside the existing signal-based user state. (`sessionStorage` is used
+      solely by T006/T007 for the PKCE verifier and `state` during the redirect round-trip — a
+      separate concern from the tokens this task stores.) — S27, FR-001, plan.md Constraints
+      ("zero stored credentials" applied to the frontend layer)
 - [ ] T009 [US1] Extend `frontend/src/app/shared/shell.component.ts` — replace the "Overview"
       placeholder nav item with real per-role navigation (compliance overview, inventory, findings,
       scan operations — each present or absent per FR-003's rule: a control whose only purpose a
@@ -185,8 +187,11 @@ owner/evidence, findings, and enrichment detail all match what the underlying AP
       (Acceptance Scenario US3.2, FR-013); `GET /resources/{resourceId}` returns tags, owner +
       evidence (or explicit "unattributed"), findings, and enrichment detail (Acceptance Scenario
       US3.4, FR-012); a soft-deleted resource (`deleted_at IS NOT NULL`) is excluded from the
-      default listing but its detail view remains reachable directly by ID (data-model.md) — S29,
-      FR-010–FR-013, SC-005
+      default listing but its detail view remains reachable directly by ID (data-model.md); an
+      `sdaId` filter's result set updates correctly when that SDA is removed mid-session — a
+      resource that reverts to "No SDA" (tag compliance and ownership's immediate-revert
+      semantics) no longer matches the now-removed `sdaId`, with no error from the filter
+      continuing to reference it (spec.md Edge Cases) — S29, FR-010–FR-013, SC-005
 - [ ] T016 [P] [US3] Write `frontend/e2e/inventory-explorer.spec.ts` — mocked `GET /resources`
       responses: applying filters narrows the visible table (FR-010); paging fetches from the
       platform rather than loading everything up front (FR-011); opening a resource's detail panel
@@ -200,7 +205,10 @@ owner/evidence, findings, and enrichment detail all match what the underlying AP
       `ResourceOwner`, findings via the same query shape `GET /findings?resourceId=...` already
       proves, enrichment via `Resource.detail`) — S29, FR-010–FR-013
 - [ ] T018 [US3] Wire the `resources` router into `backend/app/api/main.py`; regenerate
-      `backend/openapi.generated.yaml` — S29, FR-048 (spec 001 contract discipline)
+      `backend/openapi.generated.yaml` and the OpenAPI-generated frontend API client (a new
+      `resources.service.ts`/`resources.serviceInterface.ts` pair, matching every existing
+      per-tag service file) — T019/T020 depend on the generated client existing, and
+      `client-drift` (CI) fails on any mismatch — S29, FR-048 (spec 001 contract discipline)
 - [ ] T019 [US3] Write `frontend/src/app/features/inventory/inventory-explorer.component.ts` —
       server-side paged/filtered table — S29, FR-010, FR-011
 - [ ] T020 [US3] Write `frontend/src/app/features/inventory/resource-detail.component.ts` — detail
@@ -270,7 +278,9 @@ inline, and a finding with none shows the explicit "no suggestion available" sta
       /findings/{findingId}/acknowledge` (admin/operator, FR-015–FR-017, FR-020, FR-028) via the
       guarded `UPDATE ... WHERE acknowledged_at IS NULL`; `GET /findings/{findingId}/suggestion`
       (all-role, FR-018, FR-019, FR-027) and `PUT /findings/{findingId}/suggestion` (admin-only,
-      FR-020a, FR-028a) calling T027 — S30, FR-015–FR-020a, FR-027, FR-028a
+      FR-020a, FR-028a) calling T027; regenerate `backend/openapi.generated.yaml` and the
+      OpenAPI-generated frontend `findings.service.ts`/`findings.serviceInterface.ts` — T029
+      depends on the regenerated client existing — S30, FR-015–FR-020a, FR-027, FR-028a
 - [ ] T029 [US4] Write `frontend/src/app/features/findings/findings-workbench.component.ts` —
       list/filter, acknowledge control, suggestion display inline with an admin-only seed control
       — S30, FR-014–FR-020a
@@ -306,7 +316,8 @@ this phase, before starting Phase 8.
       30-second timeout — a VPC-networking gap unrelated to this spec's own code, already priced
       out and twice declined by the user to fund. If still open, scope this task honestly to what's
       actually provable — V1 (sign-in, every role) and V2 (empty/error states with zero connected
-      accounts) — and record SC-003–SC-007 as proven at the mocked-test level only, the same
+      accounts) — and record SC-002–SC-007 as proven at the mocked-test level only (SC-002
+      depends on V3–V6 exactly as much as SC-003–SC-007 do), the same
       honest-outcome pattern specs 002/003 both landed on. Do not re-litigate the NAT/VPC-endpoint
       cost tradeoff a third time without a new signal from the user — S27–S30, SC-001–SC-002,
       SC-003–SC-007
@@ -348,7 +359,10 @@ additive response-shape extension (research.md R-405).
 
 - [ ] T036 [US5] **[P2]** Extend `backend/app/api/routers/accounts.py`'s `list_scan_history` /
       `ScansList` response model — three new, additive, non-required integer fields computed at
-      query time per T034/research.md R-405; no new column, no new table — S31, FR-021
+      query time per T034/research.md R-405; no new column, no new table. Regenerate
+      `backend/openapi.generated.yaml` and the frontend `accounts.service.ts`/
+      `accounts.serviceInterface.ts` — T037 depends on the regenerated client exposing the new
+      fields — S31, FR-021
 - [ ] T037 [US5] **[P2]** Write `frontend/src/app/features/scans/scan-operations.component.ts` —
       history table with deltas, "Scan now" trigger control (admin/operator only, FR-023), polled
       status until a final state — S31, FR-021–FR-023
