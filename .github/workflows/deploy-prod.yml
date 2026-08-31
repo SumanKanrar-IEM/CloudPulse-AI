@@ -155,6 +155,9 @@ jobs:
             echo "api_endpoint=$(terraform output -raw api_endpoint)"
             echo "frontend_bucket=$(terraform output -raw frontend_bucket)"
             echo "cloudfront_id=$(terraform output -raw cloudfront_distribution_id)"
+            echo "frontend_url=$(terraform output -raw frontend_url)"
+            echo "cognito_client_id=$(terraform output -raw cognito_client_id)"
+            echo "cognito_hosted_ui_domain=$(terraform output -raw cognito_hosted_ui_domain)"
           } >> "$GITHUB_OUTPUT"
 
       # --- Migrations BEFORE the deployment record (FR-016) --------------
@@ -203,9 +206,42 @@ jobs:
           fi
           echo "deployment_id=$(jq -r '.deployment_id' /tmp/record_start.json)" >> "$GITHUB_OUTPUT"
 
+      # governance dashboard (spec 004, research.md R-401): resolves apiBaseUrl and Cognito
+      # Hosted UI parameters at runtime, since the API Gateway URL isn't known until after
+      # `terraform apply`. Injected into the already-built index.html, not baked in at build time.
+      - name: Inject runtime config into the frontend build
+        env:
+          API_BASE_URL: ${{ steps.apply.outputs.api_endpoint }}
+          COGNITO_DOMAIN: ${{ steps.apply.outputs.cognito_hosted_ui_domain }}
+          COGNITO_CLIENT_ID: ${{ steps.apply.outputs.cognito_client_id }}
+          COGNITO_REDIRECT_URI: ${{ steps.apply.outputs.frontend_url }}/auth/callback
+        run: |
+          CONFIG_JSON=$(jq -nc \
+            --arg apiBaseUrl "$API_BASE_URL" \
+            --arg cognitoDomain "$COGNITO_DOMAIN" \
+            --arg cognitoClientId "$COGNITO_CLIENT_ID" \
+            --arg cognitoRedirectUri "$COGNITO_REDIRECT_URI" \
+            '{apiBaseUrl:$apiBaseUrl,cognitoDomain:$cognitoDomain,cognitoClientId:$cognitoClientId,cognitoRedirectUri:$cognitoRedirectUri}')
+          python3 - "$CONFIG_JSON" <<'PY'
+          import sys
+          config_json = sys.argv[1]
+          path = "frontend/dist/cloudpulse/browser/index.html"
+          with open(path, encoding="utf-8") as f:
+              html = f.read()
+          script = f"<script>window.__CLOUDPULSE_CONFIG__ = {config_json};</script></head>"
+          if "</head>" not in html:
+              raise SystemExit(f"{path}: no </head> found to inject into")
+          html = html.replace("</head>", script, 1)
+          with open(path, "w", encoding="utf-8") as f:
+              f.write(html)
+          PY
+
+      # T003a: the `application` builder always nests real output under `browser/`, regardless of
+      # the configured `outputPath` -- syncing the parent left `index.html` unreachable at the
+      # CloudFront root (`default_root_object = "index.html"`) through this pipeline until now.
       - name: Publish the frontend
         run: |
-          aws s3 sync frontend/dist/cloudpulse "s3://${{ steps.apply.outputs.frontend_bucket }}" --delete
+          aws s3 sync frontend/dist/cloudpulse/browser "s3://${{ steps.apply.outputs.frontend_bucket }}" --delete
           aws cloudfront create-invalidation \
             --distribution-id "${{ steps.apply.outputs.cloudfront_id }}" --paths "/*"
 
