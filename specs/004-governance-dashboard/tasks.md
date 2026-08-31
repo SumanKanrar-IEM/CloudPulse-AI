@@ -38,9 +38,11 @@ FR-021–FR-026 go with it.
 
 ## Phase 1: Setup
 
-- [ ] T001 Scaffold four new empty directories mirroring `accounts/`/`sdas/`'s existing
+- [X] T001 Scaffold four new empty directories mirroring `accounts/`/`sdas/`'s existing
       standalone-component layout: `frontend/src/app/features/{overview,inventory,findings,scans}/`
       — no logic yet, just the layout plan.md's Project Structure commits to.
+      **Done**: created locally; git cannot track empty directories, so each will be committed
+      for real alongside its own phase's first file (T012, T019/T020, T029, T037).
 
 **Checkpoint**: Directory layout exists; nothing yet imports from or deploys it.
 
@@ -53,16 +55,43 @@ live without research.md R-401's runtime-config fix — this is genuinely founda
 any one story, unlike this spec's schema (which only User Story 4 needs, and stays in that story's
 own phase per honest dependency ordering rather than being front-loaded here for convenience).
 
-- [ ] T002 [P] Extend `infra/envs/{dev,prod}/outputs.tf` — re-export `cognito_client_id` and
+- [X] T002 [P] Extend `infra/envs/{dev,prod}/outputs.tf` — re-export `cognito_client_id` and
       `cognito_hosted_ui_domain` from the identity module (`infra/modules/identity/outputs.tf`
       already computes both as `client_id`/`hosted_ui_domain`; confirmed during planning they were
       never re-exported at the env level) — S27, research.md R-401
-- [ ] T003 Extend `.github/workflows/deploy-dev.yml` and `.github/workflows/deploy-prod.yml` — one
+      **Done**: no deviations. `terraform fmt -check -recursive infra/` and `terraform validate`
+      pass for both envs.
+- [X] T003 Extend `.github/workflows/deploy-dev.yml` and `.github/workflows/deploy-prod.yml` — one
       new step between the existing "Terraform apply" and "Publish the frontend" steps that writes
       a `<script>window.__CLOUDPULSE_CONFIG__ = {...}</script>` block into the already-built
-      `frontend/dist/cloudpulse/index.html`, populated from `terraform output` (`api_endpoint`,
-      T002's two new outputs). No reordering of the existing build step — confirmed during planning
-      it already runs before `terraform apply` today — S27, research.md R-401
+      `frontend/dist/cloudpulse/browser/index.html` (see T003a for why `browser/`), populated from
+      `terraform output` (`api_endpoint`, `frontend_url`, T002's two new outputs). No reordering of
+      the existing build step — confirmed during planning it already runs before `terraform apply`
+      today — S27, research.md R-401
+      **Done**: no deviations. The exact `run:` block was extracted from the committed YAML via
+      `yaml.safe_load` (not a hand-retyped copy) and executed verbatim against the real `ng build`
+      output before committing — confirms the heredoc's indentation survives YAML's block-scalar
+      dedent correctly and the injected script lands immediately before `</head>`, valid HTML and
+      valid JSON.
+- [X] T003a **[Found live, not by inspection]** Fix `deploy-dev.yml`'s and `deploy-prod.yml`'s
+      frontend publish step — Angular's `application` builder (confirmed in `angular.json`) always
+      nests its real output under `dist/cloudpulse/browser/`, never directly in `dist/cloudpulse/`
+      regardless of the configured `outputPath`; confirmed empirically by running the actual build,
+      not assumed from the builder's docs. Both deploy workflows' "Publish the frontend" step syncs
+      `frontend/dist/cloudpulse` (the parent) to S3, so `index.html` has been landing at
+      `s3://bucket/browser/index.html` — CloudFront's `default_root_object = "index.html"`
+      (`infra/modules/frontend/main.tf`) looks for it at the bucket root, which was never
+      populated. The deployed frontend has not been reachable at its own CloudFront URL through
+      this pipeline since spec 001 — every prior live-verification session tested the API directly
+      (`/health`, Cognito flows) and never actually loaded the deployed SPA in a browser, which is
+      why this went uncaught for three specs. Found while implementing T003, which needs to know
+      the real `index.html` path to inject into — not a hypothetical, the build's actual output
+      directory was inspected directly. Fix: sync `frontend/dist/cloudpulse/browser` instead of
+      `frontend/dist/cloudpulse` in both workflows — S27, research.md R-401
+      **Done**: both workflows' "Publish the frontend" step now syncs the `browser/` subdirectory.
+      No live-verification session in this spec's history yet confirms the fix against a real
+      CloudFront distribution — that remains T032's job, same as every other live-behavior claim
+      in this spec.
 
 **Checkpoint**: Once deployed, every screen this spec builds can reach the real API and Cognito;
 nothing yet renders anything.

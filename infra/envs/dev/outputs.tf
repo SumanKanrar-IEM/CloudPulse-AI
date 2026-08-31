@@ -44,6 +44,16 @@ output "cognito_user_pool_id" {
   value = module.identity.user_pool_id
 }
 
+output "cognito_client_id" {
+  description = "Governance dashboard's sign-in flow (R-401): the app client the Angular SPA uses for Authorization Code + PKCE against the Hosted UI."
+  value       = module.identity.client_id
+}
+
+output "cognito_hosted_ui_domain" {
+  description = "Governance dashboard's sign-in flow (R-401): the Hosted UI domain the SPA redirects to for /oauth2/authorize and /oauth2/token."
+  value       = module.identity.hosted_ui_domain
+}
+
 output "cognito_group_names" {
   description = "Add the first administrator to the admin group by hand (FR-039)."
   value       = module.identity.group_names
