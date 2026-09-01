@@ -130,9 +130,7 @@ def test_a_finding_with_no_suggestion_shows_the_no_suggestion_state_not_an_error
     assert body.get("source") is None
 
 
-def test_admin_can_seed_a_suggestion_and_it_displays_like_a_real_one(
-    findings_app, seed
-) -> None:  # type: ignore[no-untyped-def]
+def test_admin_can_seed_a_suggestion_and_it_displays_like_a_real_one(findings_app, seed) -> None:  # type: ignore[no-untyped-def]
     client, _, _ = findings_app
     response = client.put(
         f"/findings/{seed['finding_id']}/suggestion",
@@ -148,9 +146,7 @@ def test_admin_can_seed_a_suggestion_and_it_displays_like_a_real_one(
     assert fetched.json() == body
 
 
-def test_seeding_never_writes_ai_generated_regardless_of_input(
-    findings_app, seed
-) -> None:  # type: ignore[no-untyped-def]
+def test_seeding_never_writes_ai_generated_regardless_of_input(findings_app, seed) -> None:  # type: ignore[no-untyped-def]
     """FR-020a: the endpoint has no parameter that can select `ai_generated` --
     the request body has no `source` field at all."""
     client, _, _ = findings_app

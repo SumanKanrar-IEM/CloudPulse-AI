@@ -152,9 +152,7 @@ def test_acknowledging_never_changes_status(findings_app, seed, clean_database) 
     session.close()
 
 
-def test_a_second_acknowledgment_is_a_no_op_not_an_error_or_a_duplicate(
-    findings_app, seed
-) -> None:  # type: ignore[no-untyped-def]
+def test_a_second_acknowledgment_is_a_no_op_not_an_error_or_a_duplicate(findings_app, seed) -> None:  # type: ignore[no-untyped-def]
     """FR-020: idempotent, including a near-simultaneous second attempt."""
     client, _, tenant_id = findings_app
     first = client.post(f"/findings/{seed['finding_id']}/acknowledge")

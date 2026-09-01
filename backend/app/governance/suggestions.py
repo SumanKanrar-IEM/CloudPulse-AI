@@ -23,9 +23,9 @@ def get_suggestion(
     session: TenantSession, finding_id: uuid.UUID
 ) -> FindingRemediationSuggestion | None:
     """FR-019: None means "no suggestion available", not an error."""
-    stmt = session.scoped(
-        select(FindingRemediationSuggestion), FindingRemediationSuggestion
-    ).where(FindingRemediationSuggestion.finding_id == finding_id)
+    stmt = session.scoped(select(FindingRemediationSuggestion), FindingRemediationSuggestion).where(
+        FindingRemediationSuggestion.finding_id == finding_id
+    )
     return session.raw.execute(stmt).scalar_one_or_none()
 
 
