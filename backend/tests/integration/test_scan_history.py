@@ -28,7 +28,7 @@ import app.core.db as db_module
 from app.api.errors import register_exception_handlers
 from app.api.middleware import CorrelationIdMiddleware
 from app.api.routers import accounts as accounts_router
-from app.models.core import CloudAccount, Scan
+from app.models.core import CloudAccount, Resource, Scan
 from app.models.enums import AccountStatus, ConnectionMode, ScanStatus, ScanTrigger
 
 pytestmark = pytest.mark.integration
@@ -120,6 +120,21 @@ def account_with_scans(
         )
         session.add_all([older, newer])
         session.flush()
+
+        # Discovered inside `older`'s [started_at, finished_at] window -- its
+        # one expected `added` delta (R-405).
+        resource = Resource(
+            tenant_id=real_tenant_id,
+            cloud_account_id=account.id,
+            arn="arn:aws:s3:::bucket-delta",
+            resource_type="AWS::S3::Bucket",
+            service="s3",
+            region="us-east-1",
+            tags={},
+            first_seen_at=older.started_at + timedelta(minutes=1),
+            last_seen_at=older.started_at + timedelta(minutes=1),
+        )
+        session.add(resource)
         session.commit()
         yield account.id, older.id, newer.id
     finally:
@@ -145,6 +160,10 @@ def test_scan_history_returns_trigger_timing_counts_outcome(
     assert scans[0]["status"] == "partial"
     assert scans[0]["resourceCount"] == 17
     assert scans[0]["finishedAt"] is None
+    # Still running -- no `finished_at`, so deltas are unknown, not guessed (R-405).
+    assert scans[0]["added"] is None
+    assert scans[0]["removed"] is None
+    assert scans[0]["changed"] is None
 
     assert scans[1]["id"] == str(older_id)
     assert scans[1]["trigger"] == "manual"
@@ -152,6 +171,9 @@ def test_scan_history_returns_trigger_timing_counts_outcome(
     assert scans[1]["resourceCount"] == 42
     assert scans[1]["startedAt"]
     assert scans[1]["finishedAt"]
+    assert scans[1]["added"] == 1
+    assert scans[1]["removed"] == 0
+    assert scans[1]["changed"] == 0
 
 
 @pytest.mark.parametrize(

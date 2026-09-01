@@ -78,7 +78,7 @@ export interface AccountsServiceInterface {
 
     /**
      * Trigger an on-demand scan
-     * FR-026/FR-026a. Operator only -- research.md R-205\&#39;s non-hierarchical-roles point, made concrete: admin\&#39;s account-management grant does not include this.
+     * FR-026/FR-026a (as amended by spec 004 FR-022). Admin or operator; viewer refused.
      * @endpoint post /accounts/{account_id}/scans
      * @param accountId 
      */

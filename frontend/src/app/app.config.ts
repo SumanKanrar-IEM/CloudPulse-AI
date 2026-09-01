@@ -49,6 +49,14 @@ export const routes: Routes = [
       ),
   },
   {
+    path: 'scans',
+    canActivate: [authGuard, roleGuard('admin', 'operator', 'viewer')],
+    loadComponent: () =>
+      import('./features/scans/scan-operations.component').then(
+        (m) => m.ScanOperationsComponent,
+      ),
+  },
+  {
     path: 'accounts',
     canActivate: [authGuard, roleGuard('admin', 'operator', 'viewer')],
     loadComponent: () =>

@@ -17,5 +17,17 @@ export interface Scan {
     startedAt: string;
     finishedAt?: string | null;
     resourceCount?: number | null;
+    /**
+     * Resources first seen during this scan\'s window (spec 004, R-405).
+     */
+    added?: number | null;
+    /**
+     * Resources marked deleted during this scan\'s window (spec 004, R-405).
+     */
+    removed?: number | null;
+    /**
+     * Pre-existing resources re-confirmed during this scan\'s window (R-405).
+     */
+    changed?: number | null;
 }
 
