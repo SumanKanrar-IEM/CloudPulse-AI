@@ -19,6 +19,8 @@ locals {
   name = "cloudpulse-${var.environment}"
 }
 
+data "aws_region" "current" {}
+
 resource "aws_cognito_user_pool" "this" {
   name = local.name
 

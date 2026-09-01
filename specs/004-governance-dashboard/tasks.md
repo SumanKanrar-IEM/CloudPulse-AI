@@ -497,6 +497,35 @@ this phase, before starting Phase 8.
       prod never sets `e2eMockRole`): `Object.assign({}, window.__CLOUDPULSE_CONFIG__, {...})`
       instead of a bare replace, so a pre-existing key survives and real values still win on every
       key they actually set — S27, research.md R-401
+      **T032b — a second, more severe real bug, found by continuing V1 in an actual browser after
+      the redeploy**: the smoke suite (mocked) passed, but a real sign-in attempt did not. Three
+      real Cognito users created (`admin-create-user`/`admin-set-user-password --permanent`/
+      `admin-add-user-to-group`, one per role, matching spec 001 quickstart's own established
+      procedure) and used to sign in through the actual Hosted UI in a real browser. The dashboard's
+      root page never rendered — the browser tab itself reported no document loaded. Root cause,
+      confirmed by comparing the raw HTTP response (healthy) against actual browser behavior (not
+      guessed): `SignInComponent.ngOnInit()` fires `window.location.href =
+      https://${config.domain}/oauth2/authorize?...` immediately on mount (no click required, per
+      its own docstring), and `config.domain` was `aws_cognito_user_pool_domain.this.domain` — the
+      Cognito domain *prefix* only (e.g. `cloudpulse-dev-767828743440`), not a resolvable host. The
+      real Hosted UI host is that prefix plus `.auth.<region>.amazoncognito.com` (confirmed via
+      `aws cognito-idp describe-user-pool-domain` and a direct `curl` against both forms — the
+      prefix alone doesn't resolve, the full form 302s to `/login` for real). The browser committed
+      to leaving the document for the bogus host and landed on an error page, which is why nothing
+      rendered — the same `window.location.href`-always-commits behavior this session's own T004
+      note already documented for a *different* symptom (sign-out), now the same root mechanism
+      surfacing a second, far more severe way: **this broke every real sign-in this platform has
+      ever offered, since spec 001 first built the Hosted UI redirect** — invisible until now
+      because no live-verification session before this one ever completed a real browser sign-in
+      (T003a's own finding already established that no session had even loaded the deployed SPA;
+      this is the next layer down that stayed hidden once that was fixed). Fixed at the source,
+      `infra/modules/identity/outputs.tf`'s `hosted_ui_domain` output (not scattered across every
+      frontend consumer): now returns the full FQDN via a new `data "aws_region" "current"` lookup,
+      matching every other module's own existing pattern for this (`scan`/`governance`/`network`/
+      `api` all already do this). `sign-in.component.ts`/`auth.service.ts` needed no change — they
+      already expected to consume a directly-usable host. This is spec 001's bug, not spec 004's,
+      but T032 is where it was found and where the honest record belongs — S27, spec 001 FR-001,
+      research.md (new note, spec 004's own R-408)
 - [ ] T033 **Teardown and cost sweep**, immediately following T032, never separated from it by
       other work: run the full playbook §0.5.3 sweep. Research.md R-406 states this spec adds zero
       new billable AWS resources, so there is no spec-004-specific sweep addition the way R-306
