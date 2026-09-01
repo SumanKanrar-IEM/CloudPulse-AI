@@ -17,7 +17,16 @@ output "client_id" {
 }
 
 output "hosted_ui_domain" {
-  value = aws_cognito_user_pool_domain.this.domain
+  # `aws_cognito_user_pool_domain.this.domain` is only the domain PREFIX -- the real
+  # Hosted UI host is that prefix plus `.auth.<region>.amazoncognito.com` (a Cognito-
+  # managed domain, not a custom one, confirmed via `aws cognito-idp describe-user-
+  # pool-domain`). Every consumer (`sign-in.component.ts`, `auth.service.ts`'s
+  # `signOut`) does a bare `https://${domain}/...`, so this output must be the full,
+  # directly-usable host, not the prefix. Found live during spec 004's T032: every
+  # real sign-in attempt since spec 001 redirected to an unresolvable host, never
+  # caught because no live-verification session had completed a real browser sign-in
+  # before that one.
+  value = "${aws_cognito_user_pool_domain.this.domain}.auth.${data.aws_region.current.name}.amazoncognito.com"
 }
 
 output "group_names" {

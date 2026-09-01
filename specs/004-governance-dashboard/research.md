@@ -188,3 +188,34 @@ without that gap resolved, this spec's live-verification can prove, at most, the
 every screen's empty/error states — not a populated dashboard. `tasks.md`'s own live-verification
 task should scope itself accordingly rather than presenting this as a new blocker to report to the
 user.
+
+## R-408 — Found live, T032: `hosted_ui_domain` was a domain prefix, not a resolvable host — every real sign-in since spec 001 was broken
+
+**What was wrong**: `infra/modules/identity/outputs.tf`'s `hosted_ui_domain` output returned
+`aws_cognito_user_pool_domain.this.domain` directly — a Cognito-managed domain's *prefix*
+(`cloudpulse-<env>-<account_id>`), not the host a browser can actually reach. Every consumer
+(`sign-in.component.ts`'s `window.location.href = https://${config.domain}/oauth2/authorize...`,
+`auth.service.ts`'s `signOut`) treated it as a directly-usable host. `SignInComponent.ngOnInit()`
+fires that redirect immediately on mount, no click required — so the moment `authGuard` sent an
+unauthenticated visitor to `/sign-in`, the browser committed to leaving the document for an
+unresolvable host and landed on an error page. This is spec 001's bug (the identity module and the
+sign-in component's redirect logic both predate this spec), invisible in every prior
+live-verification session across specs 001–003 because none of them completed a real browser
+sign-in — T003a already established that no session had even loaded the deployed SPA at all before
+this spec fixed that; this was the next layer down, hidden until this spec's T032 got that far.
+
+**How it was found**: not by inspection. Three real Cognito test users were created (one per role,
+`admin-create-user`/`admin-set-user-password --permanent`/`admin-add-user-to-group`, matching spec
+001 quickstart's own documented procedure) and used to sign in through the actual deployed Hosted
+UI in a real browser, per this spec's own T032/quickstart.md V1. The page never rendered. A raw
+`curl` against the deployed `index.html` showed a completely healthy response — the config
+injection (R-401, and this task's own T032a fix) was correct — which narrowed the fault to
+client-side behavior, not the server. Comparing `aws cognito-idp describe-user-pool-domain`'s
+output against the value the frontend was actually constructing a URL from surfaced the missing
+`.auth.<region>.amazoncognito.com` suffix directly.
+
+**Fix**: at the source, not scattered across consumers — `hosted_ui_domain` now appends
+`.auth.${data.aws_region.current.name}.amazoncognito.com` in the identity module itself, via a new
+`data "aws_region" "current"` lookup matching the exact pattern `scan`/`governance`/`network`/`api`
+modules already use for the same need. Every consumer of the output needed no change; they already
+expected a directly-usable host, which is what the contract should have been from the start.
