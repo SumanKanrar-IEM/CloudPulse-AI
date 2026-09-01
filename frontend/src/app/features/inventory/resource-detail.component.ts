@@ -14,6 +14,9 @@ import { InventoryService } from './inventory.service';
     @if (inventory.detailLoading()) {
       <p role="status">Loading resource detail…</p>
     }
+    @if (inventory.detailError()) {
+      <p role="alert">{{ inventory.detailError() }}</p>
+    }
     @if (!inventory.detailLoading() && inventory.detail(); as detail) {
       <h2>{{ detail.arn }}</h2>
 

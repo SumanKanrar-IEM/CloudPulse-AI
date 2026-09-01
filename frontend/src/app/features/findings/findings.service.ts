@@ -25,11 +25,13 @@ export class FindingsService {
   private readonly loadingState = signal(false);
   private readonly errorState = signal<string | null>(null);
   private readonly suggestionsState = signal<Record<string, RemediationSuggestion>>({});
+  private readonly suggestionErrorsState = signal<Record<string, string>>({});
 
   readonly findings = this.findingsState.asReadonly();
   readonly loading = this.loadingState.asReadonly();
   readonly error = this.errorState.asReadonly();
   readonly suggestions = this.suggestionsState.asReadonly();
+  readonly suggestionErrors = this.suggestionErrorsState.asReadonly();
 
   async load(filters: FindingsFilters): Promise<void> {
     this.loadingState.set(true);
@@ -47,8 +49,20 @@ export class FindingsService {
   }
 
   async loadSuggestion(findingId: string): Promise<void> {
-    const suggestion = await firstValueFrom(this.api.getFindingSuggestion(findingId));
-    this.suggestionsState.update((existing) => ({ ...existing, [findingId]: suggestion }));
+    this.suggestionErrorsState.update((existing) => {
+      const rest = { ...existing };
+      delete rest[findingId];
+      return rest;
+    });
+    try {
+      const suggestion = await firstValueFrom(this.api.getFindingSuggestion(findingId));
+      this.suggestionsState.update((existing) => ({ ...existing, [findingId]: suggestion }));
+    } catch {
+      this.suggestionErrorsState.update((existing) => ({
+        ...existing,
+        [findingId]: 'Could not load this suggestion. Try again.',
+      }));
+    }
   }
 
   /** FR-015-FR-017, FR-020: idempotent, never changes `status`. */

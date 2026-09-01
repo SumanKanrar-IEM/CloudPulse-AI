@@ -174,4 +174,26 @@ test.describe('findings workbench', () => {
     await page.getByRole('button', { name: 'Show suggestion' }).click();
     await expect(page.getByRole('form', { name: 'Attach demo suggestion' })).not.toBeVisible();
   });
+
+  test('a suggestion fetch failure shows a distinct error state, not a stuck spinner', async ({
+    page,
+  }) => {
+    await page.addInitScript(() => {
+      window.__CLOUDPULSE_CONFIG__ = { e2eMockRole: 'viewer' };
+    });
+    await mockBackend(page);
+    await page.route(/\/findings\/[^/?]+\/suggestion(\?.*)?$/, async (route) => {
+      if (route.request().method() === 'GET') {
+        await route.fulfill({ status: 500, json: { error: { code: 'INTERNAL_ERROR' } } });
+        return;
+      }
+      await route.continue();
+    });
+    await page.goto('/findings');
+
+    await page.getByRole('button', { name: 'Show suggestion' }).click();
+
+    await expect(page.getByRole('alert')).toBeVisible();
+    await expect(page.getByText('Loading suggestion…')).not.toBeVisible();
+  });
 });

@@ -583,18 +583,42 @@ extends the same dev deployment T032/T033 already covered, redeployed if it was 
 
 ## Phase 9: Hardening (S33) [P2]
 
-- [ ] T039 [P2] Write `frontend/e2e/dashboard-smoke.spec.ts` — end-to-end smoke suite covering each
+- [X] T039 [P2] Write `frontend/e2e/dashboard-smoke.spec.ts` — end-to-end smoke suite covering each
       P1 user story's primary journey in one pass (sign in as each role; view compliance overview;
       filter and drill into inventory; filter, view a suggestion on, and acknowledge a finding) —
       S33, FR-024
-- [ ] T040 [P2] Audit pass: confirm every P1 screen (T012, T019/T020, T029) has a defined loading,
+      **Done**: 3 tests (one per role), each a full overview → inventory drill-down → findings
+      + suggestion (+ acknowledge for admin/operator) pass. "Sign in as each role" reuses the
+      established `e2eMockRole` mechanism every other e2e spec in this suite already uses for role
+      identity — the real PKCE flow itself stays `auth.spec.ts`'s (T004) job, not duplicated here.
+- [X] T040 [P2] Audit pass: confirm every P1 screen (T012, T019/T020, T029) has a defined loading,
       empty, and error state, each visually and behaviorally distinct from the other two (FR-025,
       fixed by this spec's own checklist review to actually require a loading state, not merely
       contrast against one) — fill any gap found, cite the fix against the specific screen and
       state — S33, FR-025
-- [ ] T041 [P2] Extend `.github/workflows/deploy-dev.yml` — run T039's smoke suite against the real
+      **Done, two real gaps found and fixed, not by inspection alone but by tracing each screen's
+      service layer**: (1) `resource-detail.component.ts` (T020) had a loading state and an
+      (implicit, via nested content) empty state, but no error state at all — `InventoryService
+      .loadDetail` had no `catch`, so a fetch failure left the loading spinner replaced by nothing,
+      a blank panel indistinguishable from "still loading" once the spinner's own condition went
+      false. Fixed: added `detailError` signal + `catch`, rendered as `role="alert"`. (2) The
+      findings workbench's (T029) inline suggestion panel had the same shape of gap —
+      `FindingsService.loadSuggestion` had no `catch`, so a failed suggestion fetch left "Loading
+      suggestion…" showing forever, never resolving to a distinct error. Fixed the same way, scoped
+      per-finding-id. Both gaps proven fixed with new e2e tests (`inventory-explorer.spec.ts`,
+      `findings-workbench.spec.ts`) asserting the alert appears and the stuck spinner does not.
+      Overview, inventory list, and findings list already had all three states correctly.
+- [X] T041 [P2] Extend `.github/workflows/deploy-dev.yml` — run T039's smoke suite against the real
       dev environment after each successful deploy (FR-026), gated the same way every other
       dev-only step already is — S33, FR-026
+      **Done**: new step after the existing backend `/health` smoke test, pointing
+      `playwright.config.ts`'s `E2E_BASE_URL` at `terraform output frontend_url` — proves the
+      deployed JS bundle and static assets actually boot, route, and render (T003a's own bug was
+      exactly this class, caught only by loading a page in a browser), not that a real connected
+      AWS account round-trips end-to-end (that stays T032's job, deliberately not duplicated).
+      `playwright.config.ts` updated to skip its local `webServer` when `E2E_BASE_URL` is set —
+      verified locally by running the suite against a real running origin with no local server
+      management, not just read as correct.
 
 **Checkpoint**: P2 hardening complete; the P1 demo path has automated regression coverage running
 against real infrastructure after every dev deploy, not only in CI's mocked suite.
@@ -603,12 +627,24 @@ against real infrastructure after every dev deploy, not only in CI's mocked suit
 
 ## Final Phase: Polish & Cross-Cutting Concerns
 
-- [ ] T042 [P] Update `backend/README.md`, `frontend/src/app/features/README.md`, and
+- [X] T042 [P] Update `backend/README.md`, `frontend/src/app/features/README.md`, and
       `infra/README.md` to describe this spec's new `app/api/routers/resources.py`,
       `app/governance/suggestions.py`, the four new frontend feature areas, and the deploy-time
       runtime-config injection (research.md R-401) — Principle I
-- [ ] T043 Re-run `/speckit-analyze` on spec 004 (playbook §8's second-run note) and resolve any
+      **Done**. Also documented `scan_deltas.py` (T034) alongside `suggestions.py` in
+      `backend/README.md`'s `app/governance/` row — both are spec 004 additions to that package,
+      and T042's own text only named one of the two.
+- [X] T043 Re-run `/speckit-analyze` on spec 004 (playbook §8's second-run note) and resolve any
       finding before spec 005 begins — Governance
+      **Done**. One finding (MEDIUM): SC-003 (2-second compliance-overview load at up to 5,000
+      resources) had zero test coverage at any level — its only planned verification was T032's
+      live-verification, now indefinitely deferred, so it stood entirely unproven. Flagged to the
+      user; resolved by adding a synthetic timing test to `compliance-overview.spec.ts` (a
+      3,000-open-finding mocked payload, asserting the overview renders within the 2-second budget
+      from navigation start) — passes at ~300-500ms. This proves client-side processing isn't the
+      bottleneck; it does not and cannot prove real-network/real-AWS latency, which stays T032's
+      job. No other finding (0 duplication, 0 ambiguity, 0 constitution violations, 100% FR
+      coverage, 7/8 → 8/8 SC coverage after this fix).
 
 ---
 
