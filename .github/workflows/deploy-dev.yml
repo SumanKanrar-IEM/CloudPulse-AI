@@ -181,7 +181,14 @@ jobs:
           path = "frontend/dist/cloudpulse/browser/index.html"
           with open(path, encoding="utf-8") as f:
               html = f.read()
-          script = f"<script>window.__CLOUDPULSE_CONFIG__ = {config_json};</script></head>"
+          # Merge, not replace: a Playwright `addInitScript` (T041's dashboard-smoke
+          # test, e2eMockRole) runs before this script on every navigation and sets
+          # its own `window.__CLOUDPULSE_CONFIG__` first -- a bare assignment here
+          # wiped it out entirely, silently redirecting every mocked-role e2e run
+          # back to sign-in. Found live: this exact failure on this exact step,
+          # 2026-09-01. `Object.assign` keeps e2eMockRole (a key the real config
+          # never sets) while real values still win on every key they do set.
+          script = f"<script>window.__CLOUDPULSE_CONFIG__ = Object.assign({{}}, window.__CLOUDPULSE_CONFIG__, {config_json});</script></head>"
           if "</head>" not in html:
               raise SystemExit(f"{path}: no </head> found to inject into")
           html = html.replace("</head>", script, 1)

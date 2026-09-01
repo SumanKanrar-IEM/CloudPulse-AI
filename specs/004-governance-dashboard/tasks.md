@@ -480,13 +480,23 @@ this phase, before starting Phase 8.
       honest-outcome pattern specs 002/003 both landed on. Do not re-litigate the NAT/VPC-endpoint
       cost tradeoff a third time without a new signal from the user — S27–S30, SC-001–SC-002,
       SC-003–SC-007
-      **Deferred, not skipped**: not attempted this pass, including V1/V2 — the user has stated a
-      standing preference (across specs, for cost reasons) not to have live-AWS-verification work
-      resurfaced unprompted, and this task's own text already records the R-407 gap as declined
-      twice. Re-litigating it a third time, even to scope down to V1/V2, is exactly what this
-      task's own instruction says not to do without a new signal. SC-001–SC-007 stand proven at the
-      mocked-test/CI level only (T024–T026, T031, plus prior phases' own test suites) until the
-      user asks for this explicitly.
+      **Resumed 2026-09-01 on explicit user instruction** ("run T032 live verification against real
+      dev") — the standing deferral above was correct until that direct signal arrived; this is not
+      a re-litigation, it is the new signal the deferral itself said to wait for.
+      **T032a — real bug found live, not by inspection**: the first `Deploy dev` dispatch
+      (run 33553645364) completed, but its own T041 smoke-suite step failed —
+      `dashboard-smoke.spec.ts`'s `e2eMockRole` bypass never took effect against the real deployed
+      site. Root cause: the runtime-config injection script (T003/R-401) does a bare
+      `window.__CLOUDPULSE_CONFIG__ = {...}` assignment, which silently wipes out whatever a
+      Playwright `addInitScript` set on the same object *before* this script runs — the mock role
+      was set, then immediately overwritten by the real config, so `authGuard` saw no session and
+      redirected to sign-in. Reproduced locally byte-for-byte first (a real `ng build` + the exact
+      injection script + `npx serve -s` with SPA fallback, old script fails, fixed script passes)
+      before trusting the fix enough to redeploy — confirmed the root cause, not just the symptom.
+      Fixed in `deploy-dev.yml` and `deploy-prod.yml` (mirrored, T003's own precedent, even though
+      prod never sets `e2eMockRole`): `Object.assign({}, window.__CLOUDPULSE_CONFIG__, {...})`
+      instead of a bare replace, so a pre-existing key survives and real values still win on every
+      key they actually set — S27, research.md R-401
 - [ ] T033 **Teardown and cost sweep**, immediately following T032, never separated from it by
       other work: run the full playbook §0.5.3 sweep. Research.md R-406 states this spec adds zero
       new billable AWS resources, so there is no spec-004-specific sweep addition the way R-306

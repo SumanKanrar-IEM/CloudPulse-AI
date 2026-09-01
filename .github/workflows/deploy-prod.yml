@@ -228,7 +228,12 @@ jobs:
           path = "frontend/dist/cloudpulse/browser/index.html"
           with open(path, encoding="utf-8") as f:
               html = f.read()
-          script = f"<script>window.__CLOUDPULSE_CONFIG__ = {config_json};</script></head>"
+          # Merge, not replace -- mirrors deploy-dev.yml's fix (found live 2026-09-01
+          # via T041's dashboard-smoke step failing on real dev): a bare assignment
+          # would wipe out anything a pre-navigation init script set first. Prod never
+          # runs e2eMockRole, but keeping this file's script byte-for-byte the same
+          # shape as dev's is deploy-prod.yml's own established precedent (T003).
+          script = f"<script>window.__CLOUDPULSE_CONFIG__ = Object.assign({{}}, window.__CLOUDPULSE_CONFIG__, {config_json});</script></head>"
           if "</head>" not in html:
               raise SystemExit(f"{path}: no </head> found to inject into")
           html = html.replace("</head>", script, 1)
