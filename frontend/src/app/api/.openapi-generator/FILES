@@ -12,6 +12,8 @@ api/identity.service.ts
 api/identity.serviceInterface.ts
 api/ownership.service.ts
 api/ownership.serviceInterface.ts
+api/resources.service.ts
+api/resources.serviceInterface.ts
 api/rules.service.ts
 api/rules.serviceInterface.ts
 api/sdas.service.ts
@@ -38,14 +40,17 @@ model/finding.ts
 model/findings-list.ts
 model/health-response.ts
 model/http-validation-error.ts
+model/inventory-resource-summary.ts
 model/location-inner.ts
 model/models.ts
 model/owner-identity-override-body.ts
 model/owner-identity-overrides-list.ts
 model/owner-identity-pattern-body.ts
 model/ownership-evidence.ts
+model/resource-detail.ts
 model/resource-ownership.ts
 model/resource-summary.ts
+model/resources-page.ts
 model/rule-create.ts
 model/rule-definition.ts
 model/rule-update.ts
