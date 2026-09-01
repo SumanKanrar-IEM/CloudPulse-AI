@@ -12,9 +12,12 @@ import { HttpHeaders }                                       from '@angular/comm
 import { Observable }                                        from 'rxjs';
 
 import { ErrorEnvelope } from '../model/models';
+import { FindingAcknowledgment } from '../model/models';
 import { FindingStatus } from '../model/models';
 import { FindingsList } from '../model/models';
 import { HTTPValidationError } from '../model/models';
+import { RemediationSuggestion } from '../model/models';
+import { RemediationSuggestionSeed } from '../model/models';
 
 
 import { Configuration }                                     from '../configuration';
@@ -26,6 +29,22 @@ export interface FindingsServiceInterface {
     configuration: Configuration;
 
     /**
+     * Acknowledge an open finding
+     * FR-015-FR-017, FR-020, FR-028. Admin or operator only. Never touches &#x60;status&#x60; or any compliance score (FR-017). Idempotent: the &#x60;WHERE acknowledged_at IS NULL&#x60; guard means a near-simultaneous second attempt updates nothing rather than racing or duplicating (data-model.md).
+     * @endpoint post /findings/{finding_id}/acknowledge
+     * @param findingId 
+     */
+    acknowledgeFinding(findingId: string, extraHttpRequestParams?: any): Observable<FindingAcknowledgment>;
+
+    /**
+     * A finding\&#39;s remediation suggestion, if one exists
+     * FR-018, FR-019. Any role may view. No suggestion yet is a normal 200 with empty fields, not a 404 -- only a missing finding is a 404.
+     * @endpoint get /findings/{finding_id}/suggestion
+     * @param findingId 
+     */
+    getFindingSuggestion(findingId: string, extraHttpRequestParams?: any): Observable<RemediationSuggestion>;
+
+    /**
      * List findings
      * FR-014. Any role may view (FR-030). Most recently opened first.
      * @endpoint get /findings
@@ -34,5 +53,14 @@ export interface FindingsServiceInterface {
      * @param status 
      */
     listFindings(accountId?: string, resourceId?: string, status?: FindingStatus, extraHttpRequestParams?: any): Observable<FindingsList>;
+
+    /**
+     * Attach a demo/QA test suggestion to a finding
+     * FR-020a, FR-028a. Admin only. Always writes &#x60;source&#x3D;admin_seeded&#x60; -- there is no parameter here that can produce &#x60;ai_generated&#x60;.
+     * @endpoint put /findings/{finding_id}/suggestion
+     * @param findingId 
+     * @param remediationSuggestionSeed 
+     */
+    setFindingSuggestionSeed(findingId: string, remediationSuggestionSeed: RemediationSuggestionSeed, extraHttpRequestParams?: any): Observable<RemediationSuggestion>;
 
 }

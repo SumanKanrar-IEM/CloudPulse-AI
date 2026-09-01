@@ -316,6 +316,14 @@ class Finding(UUIDPrimaryKey, Timestamps, TenantScoped, Base):
         DateTime(timezone=True), nullable=False, server_default=text("now()")
     )
     resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # migration 0011 (spec 004). Orthogonal metadata, parallel in shape to
+    # resolved_at -- never changes `status` or affects any compliance score
+    # (FR-017, research.md R-404). A human triage signal, not a resolution, and
+    # never a stand-in for the reserved `suppressed` status.
+    acknowledged_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    acknowledged_by: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("app_user.id", ondelete="SET NULL")
+    )
 
     __table_args__ = (
         # One OPEN finding per (resource, rule). Re-running a scan must not create a
@@ -331,6 +339,32 @@ class Finding(UUIDPrimaryKey, Timestamps, TenantScoped, Base):
         Index("ix_finding_tenant_status_severity", "tenant_id", "status", "severity"),
         CheckConstraint(
             "status <> 'resolved' OR resolved_at IS NOT NULL", name="resolved_requires_timestamp"
+        ),
+    )
+
+
+class FindingRemediationSuggestion(UUIDPrimaryKey, Timestamps, TenantScoped, Base):
+    """A finding's remediation suggestion and blast-radius note (spec 004).
+
+    Unique on `finding_id`: one suggestion per finding, matching FR-018's
+    singular "a platform-generated remediation suggestion" -- an upsert
+    target, not an append-only log (data-model.md).
+    """
+
+    __tablename__ = "finding_remediation_suggestion"
+
+    finding_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("finding.id", ondelete="CASCADE"), nullable=False
+    )
+    suggestion_text: Mapped[str] = mapped_column(Text, nullable=False)
+    blast_radius_note: Mapped[str] = mapped_column(Text, nullable=False)
+    source: Mapped[enums.SuggestionSource] = mapped_column(
+        _pg_enum(enums.SuggestionSource, "suggestion_source"), nullable=False
+    )
+
+    __table_args__ = (
+        UniqueConstraint(
+            "tenant_id", "finding_id", name="uq_finding_remediation_suggestion_tenant_finding"
         ),
     )
 
@@ -431,6 +465,7 @@ __all__ = [
     "Resource",
     "Rule",
     "Finding",
+    "FindingRemediationSuggestion",
     "Sda",
     "ResourceOwner",
     "OwnerIdentityOverride",

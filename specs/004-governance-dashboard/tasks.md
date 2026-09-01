@@ -366,33 +366,42 @@ subset is shown; acknowledge one finding and confirm its acknowledged state is r
 immediately without a manual refresh; confirm a finding with a suggestion (real or seeded) shows it
 inline, and a finding with none shows the explicit "no suggestion available" state.
 
-- [ ] T022 [US4] Write `backend/migrations/versions/0011_finding_acknowledgment_and_suggestion.py`
+- [X] T022 [US4] Write `backend/migrations/versions/0011_finding_acknowledgment_and_suggestion.py`
       — additive migration adding `finding.acknowledged_at`/`finding.acknowledged_by` (nullable,
       the latter FK → `app_user.id` `ON DELETE SET NULL`) and the `finding_remediation_suggestion`
       table (`finding_id` FK → `finding.id` `ON DELETE CASCADE`, **UNIQUE**; `suggestion_text`,
       `blast_radius_note`; `source` ENUM `suggestion_source` — `ai_generated`, `admin_seeded`) per
       data-model.md — S30, FR-016, FR-018, FR-020a
-- [ ] T023 [P] [US4] Update `ops/erd/schema.mmd` to reflect T022's additions — same PR as T022 per
+      **Done**: full reversible up/down. Verified end-to-end by rerunning `test_resources_api.py`
+      (its `alembic_config` fixture does a real `alembic upgrade head` through 0011).
+- [X] T023 [P] [US4] Update `ops/erd/schema.mmd` to reflect T022's additions — same PR as T022 per
       the `erd-current` CI gate (spec 002/003's precedent: a schema-migration PR must touch
       `ops/erd/` in the same PR) — Principle I
+      **Done**: added `acknowledged_at`/`acknowledged_by` to `FINDING`, new
+      `FINDING_REMEDIATION_SUGGESTION` entity, and the three new relationships.
 
 ### Tests for User Story 4
 
-- [ ] T024 [P] [US4] Write `backend/tests/integration/test_finding_acknowledgment.py` —
+- [X] T024 [P] [US4] Write `backend/tests/integration/test_finding_acknowledgment.py` —
       Testcontainers PostgreSQL: acknowledging an open finding sets `acknowledged_at`/
       `acknowledged_by` (FR-016) without changing `status` or affecting the account's compliance
       score (FR-017); acknowledging the same finding a second time, including a near-simultaneous
       second attempt, is a no-op — the guarded `UPDATE ... WHERE acknowledged_at IS NULL` matches
       zero rows on the second attempt rather than erroring or duplicating (FR-020, data-model.md);
       a viewer's attempt is refused — S30, FR-015–FR-017, FR-020, FR-028
-- [ ] T025 [P] [US4] Write `backend/tests/integration/test_remediation_suggestion.py` —
+      **Done**: 7 tests, all pass against real PostgreSQL. Includes an audit-event-count assertion
+      (2 POSTs → 2 `finding.acknowledge` audit rows, even though the second is a DB no-op).
+- [X] T025 [P] [US4] Write `backend/tests/integration/test_remediation_suggestion.py` —
       Testcontainers PostgreSQL: `GET .../suggestion` returns an explicit empty body (not 404) when
       none exists (FR-019); an admin's `PUT .../suggestion` always writes `source: admin_seeded`
       (the endpoint has no path to writing `ai_generated`, per data-model.md) and the result
       displays identically in shape to how a real suggestion would (FR-020a); an operator's or
       viewer's `PUT` attempt is refused (FR-028a) while their `GET` succeeds (FR-027) — S30,
       FR-018–FR-020a, FR-027, FR-028a
-- [ ] T026 [P] [US4] Write `frontend/e2e/findings-workbench.spec.ts` — mocked findings/
+      **Done**: 7 tests, all pass. Includes a direct proof that a request body claiming
+      `"source": "ai_generated"` is ignored (schema has no such field) and the row still lands as
+      `admin_seeded`, and an upsert-not-duplicate check (seed twice, assert exactly 1 row).
+- [X] T026 [P] [US4] Write `frontend/e2e/findings-workbench.spec.ts` — mocked findings/
       acknowledge/suggestion API responses: filtering narrows the list (Acceptance Scenario US4.1,
       FR-014); acknowledging updates the row immediately with no manual refresh (Acceptance
       Scenario US4.2, FR-015, SC-006); a finding with a suggestion shows it inline with its
@@ -402,23 +411,37 @@ inline, and a finding with none shows the explicit "no suggestion available" sta
       attaching a seed suggestion sees it display identically to a real one, visibly marked as test
       data, and a non-admin has no control to attach or edit one (Acceptance Scenario US4.6,
       FR-020a, FR-028a) — S30, FR-014–FR-020a
+      **Done**: 6 tests, all pass in a real Chromium instance. Full suite (34 tests) re-run clean,
+      no regressions.
 
 ### Implementation for User Story 4
 
-- [ ] T027 [US4] Write `backend/app/governance/suggestions.py` — thin read/write around
+- [X] T027 [US4] Write `backend/app/governance/suggestions.py` — thin read/write around
       `finding_remediation_suggestion`: fetch-or-empty (FR-019), admin-seed write that always sets
       `source=admin_seeded` (FR-020a) — S30, FR-018–FR-020a
-- [ ] T028 [US4] Extend `backend/app/api/routers/findings.py` — `POST
+      **Done**: `get_suggestion`/`seed_suggestion`, mirroring `scoring.py`'s pure/DB-touching split.
+      `seed_suggestion` upserts via `INSERT ... ON CONFLICT (tenant_id, finding_id) DO UPDATE`.
+- [X] T028 [US4] Extend `backend/app/api/routers/findings.py` — `POST
       /findings/{findingId}/acknowledge` (admin/operator, FR-015–FR-017, FR-020, FR-028) via the
       guarded `UPDATE ... WHERE acknowledged_at IS NULL`; `GET /findings/{findingId}/suggestion`
       (all-role, FR-018, FR-019, FR-027) and `PUT /findings/{findingId}/suggestion` (admin-only,
       FR-020a, FR-028a) calling T027; regenerate `backend/openapi.generated.yaml` and the
       OpenAPI-generated frontend `findings.service.ts`/`findings.serviceInterface.ts` — T029
       depends on the regenerated client existing — S30, FR-015–FR-020a, FR-027, FR-028a
-- [ ] T029 [US4] Write `frontend/src/app/features/findings/findings-workbench.component.ts` —
+      **Done**. Also added `acknowledgedAt`/`acknowledgedBy` to the existing `Finding` response
+      model (`GET /findings`) — a gap the contract's "referenced not redefined" note didn't settle:
+      FR-015 requires the list to reflect acknowledgment "immediately, without requiring a manual
+      refresh," which needs the field on the list row itself for the frontend to patch in place.
+      Found by the frontend build failing on `{ ...f, acknowledgedAt: ... }` against the
+      generated `Finding` interface, not by inspection. Regenerated both the backend contract and
+      frontend client twice (once per schema change); `ng build`/`ng lint` clean both times.
+- [X] T029 [US4] Write `frontend/src/app/features/findings/findings-workbench.component.ts` —
       list/filter, acknowledge control, suggestion display inline with an admin-only seed control
       — S30, FR-014–FR-020a
-- [ ] T030 [US4] Wire the `/findings` route into `app.config.ts` — S30, FR-014
+      **Done**. Suggestion fetched lazily on expand, not for every row up front.
+- [X] T030 [US4] Wire the `/findings` route into `app.config.ts` — S30, FR-014
+      **Done**. Nav link already existed from Phase 3's shell (pointed at `/findings` before the
+      route did).
 
 **Checkpoint**: 🏁 **P1 functionally complete.** Every P1 user story is implemented end-to-end
 against real backend data. What remains before declaring P1 done is proving it against real AWS,

@@ -18,14 +18,17 @@ erDiagram
     TENANT ||--o{ RESOURCE_OWNER : "owns"
     TENANT ||--o{ SCAN : "owns"
     TENANT ||--o{ OWNER_IDENTITY_OVERRIDE : "owns"
+    TENANT ||--o{ FINDING_REMEDIATION_SUGGESTION : "owns"
 
     APP_USER ||--o{ AUDIT_EVENT : "acted as"
+    APP_USER ||--o{ FINDING : "acknowledged"
     CLOUD_ACCOUNT ||--o{ RESOURCE : "contains"
     CLOUD_ACCOUNT ||--o{ SCAN : "scanned by"
     RESOURCE ||--o{ RESOURCE : "parent of"
     RESOURCE ||--o{ FINDING : "fails"
     RULE ||--o{ FINDING : "produces"
     RESOURCE ||--|| RESOURCE_OWNER : "attributed to"
+    FINDING ||--|| FINDING_REMEDIATION_SUGGESTION : "has"
     SDA ||--o{ RESOURCE : "groups"
 
     TENANT {
@@ -112,6 +115,16 @@ erDiagram
         enum status "open|resolved|suppressed"
         timestamptz opened_at
         timestamptz resolved_at
+        timestamptz acknowledged_at "spec 004, orthogonal to status"
+        uuid acknowledged_by FK "spec 004, app_user"
+    }
+    FINDING_REMEDIATION_SUGGESTION {
+        uuid id PK
+        uuid tenant_id FK
+        uuid finding_id FK UK
+        text suggestion_text
+        text blast_radius_note
+        enum source "ai_generated|admin_seeded"
     }
     SDA {
         uuid id PK
