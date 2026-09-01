@@ -464,7 +464,7 @@ this phase, before starting Phase 8.
       FR-027, FR-028, FR-028a
       **Done**: 19 tests, all pass against real PostgreSQL. `test_seed_finding_suggestion` explicitly
       asserts operator (not just viewer) is refused — the pattern this task called out by name.
-- [ ] T032 **Live-verification.** Deploy this spec's work to dev (dispatch `Deploy dev` manually,
+- [X] T032 **Live-verification.** Deploy this spec's work to dev (dispatch `Deploy dev` manually,
       per specs 002/003's precedent), and walk quickstart.md V1–V7 against the real primary AWS
       account — confirms SC-001–SC-007 against reality, not mocks, and V3–V6 together are SC-002's
       full demo path (onboard → scan → findings + suggestions → acknowledge). **Before attempting
@@ -552,17 +552,49 @@ this phase, before starting Phase 8.
       handling is added at all when `CLOUDPULSE_FRONTEND_URL` is unset. Full backend suite re-run
       clean — S27, spec 001 FR-047 (as amended -- FR-047 already required this; it was simply
       unmet), research.md (new note, spec 004's own R-409)
-- [ ] T033 **Teardown and cost sweep**, immediately following T032, never separated from it by
+      **Final result, after T032a/b/c's fixes redeployed**: V1 fully confirmed live, all three
+      roles — real Cognito sign-in via the actual Hosted UI (admin/operator/viewer, one user each),
+      role-based control gating on the Accounts screen (viewer and operator both see a disabled
+      "Register an account" control with the correct disclaimer text; admin sees it enabled),
+      sign-out through real Cognito `/logout` confirmed to end the session, and unauthenticated
+      direct URL access confirmed to redirect to real sign-in. V2 confirmed as a side effect of V1
+      — Overview/Findings/Accounts/Scan-operations all rendered explicit, non-blank empty states
+      with zero connected accounts. **V3–V8 remain unproven live** — R-407's VPC-networking gap
+      (account registration hangs to Lambda's 30s timeout) was still open and was not re-litigated
+      a third time without a new user signal; SC-002–SC-007 stay proven at the mocked-test level
+      only, same honest-outcome pattern as before. Three real, previously-invisible production bugs
+      (T032a/b/c) were found and fixed only because this session actually drove a real browser
+      against the real deployed system rather than trusting mocked coverage.
+- [X] T033 **Teardown and cost sweep**, immediately following T032, never separated from it by
       other work: run the full playbook §0.5.3 sweep. Research.md R-406 states this spec adds zero
       new billable AWS resources, so there is no spec-004-specific sweep addition the way R-306
       needed one for tag compliance and ownership's new SQS queues — the generic checklist is the
       complete one here — S27–S30, playbook §0.5.3
-      **Deferred with T032**: nothing was deployed this pass, so there is nothing to tear down or
-      sweep. Stays paired with T032 per this task list's own adjacency rule — do not run this
-      alone if T032 is picked up later without also needing a fresh sweep.
+      **Done, immediately after T032 per the adjacency rule.** `ops/teardown.sh dev` ran
+      (83 resources planned: RDS, VPC, Lambda, Cognito pool, CloudFront, S3). It exited 0 but was
+      not actually clean — see T033a. After T033a's fix, the full sweep confirmed zero of: RDS
+      clusters/snapshots, Lambda functions, non-default VPCs, NAT gateways, EC2 instances, ELBs,
+      EIPs, CloudFront distributions, Cognito user pools, API Gateway APIs, Step Functions, SQS
+      queues, SNS topics, EventBridge rules, CloudWatch alarms, and orphaned (no-retention) log
+      groups. Only the two `cloudpulse-tfstate-*` buckets remain, which is expected — they hold
+      Terraform state for both environments and are outside `infra/envs/dev`'s blast radius. The
+      three Cognito test users provisioned for T032 (`admin`/`operator`/`viewer@cloudpulse-t032-
+      verify.test`) were destroyed along with the pool; no separate cleanup was needed.
+- [X] T033a A fix T033 itself surfaced, not anticipated by this list: `terraform destroy` failed
+      on `module.frontend.aws_s3_bucket.origin` with `BucketNotEmpty` (the bucket always holds a
+      deployed build) but `ops/teardown.sh` reported success anyway (`[exited with code 0]`), which
+      would have left a real dev S3 bucket running indefinitely after every future teardown had
+      this gone unnoticed. Found by diffing the sweep's live bucket list against the destroy log,
+      not by trusting the exit code. Emptied the bucket by hand (`aws s3 rm --recursive`) and
+      completed the destroy (`terraform destroy` targeted at the one remaining resource) to finish
+      T033. Root-cause fix in `infra/modules/frontend/main.tf`: `force_destroy =
+      var.environment != "prod"` — dev's bucket always holds a deployed build and destroy must be
+      able to clear it; prod's must never be auto-emptied. `terraform fmt`/`validate` clean — S27,
+      playbook §0.5.3
 
-**Checkpoint**: 🏁 **P1 complete at the mocked-test level (CI); live-verification (T032/T033)
-deferred per the user's standing cost preference, not attempted.**
+**Checkpoint**: 🏁 **P1 complete. Live-verification (T032/T033) run against the real dev
+account: V1/V2 confirmed live, V3–V8 still blocked by R-407, one real teardown bug
+(T033a) found and fixed.**
 
 ---
 
