@@ -1,11 +1,13 @@
 """Scan scheduling: daily trigger construction, on-demand trigger role gating
-(FR-026, FR-026a, research.md R-205).
+(FR-026, FR-026a as amended by spec 004's FR-022).
 
-Role-gating tests stay unit-level the same way test_account_registration.py's do:
-`require_role(Role.OPERATOR)` refuses before any handler code runs, so no database
-is needed to prove non-operator roles are refused. The daily-trigger query itself
-(`start_due_daily_scans`) needs a real database and is covered by
-test_concurrent_scans_isolated.py and the integration scan-diffing tests instead.
+The viewer-refused cell stays unit-level the same way test_account_registration.py's
+do: `require_operator` refuses before any handler code runs, so no database is
+needed to prove it. Admin's own cell needs a real database (a nonexistent account
+now reaches `_get_or_404`, since admin no longer stops at the role gate) and is
+covered by `test_role_matrix_accounts.py` instead. The daily-trigger query itself
+(`start_due_daily_scans`) needs a real database too and is covered by
+test_concurrent_scans_isolated.py and the integration scan-diffing tests.
 """
 
 from __future__ import annotations
@@ -57,19 +59,8 @@ def _stage(stager: _ClaimStager, groups: list[str]) -> None:
     }
 
 
-# --- FR-026a: on-demand trigger is operator-only, non-hierarchically (R-205) -------
-
-
-def test_admin_cannot_trigger_an_on_demand_scan(
-    accounts_app: tuple[TestClient, _ClaimStager],
-) -> None:
-    """The cell a naive 'admin can do everything' implementation gets wrong
-    (quickstart.md V9) -- admin's account-management grant does not carry
-    operator's scan-trigger grant."""
-    client, stager = accounts_app
-    _stage(stager, ["cloudpulse-admins"])
-    response = client.post(f"/accounts/{SOME_ACCOUNT_ID}/scans")
-    assert response.status_code == 403
+# --- FR-026a (amended by spec 004 FR-022): on-demand trigger is admin/operator,
+# viewer refused -----------------------------------------------------------------
 
 
 def test_viewer_cannot_trigger_an_on_demand_scan(
@@ -81,21 +72,19 @@ def test_viewer_cannot_trigger_an_on_demand_scan(
     assert response.status_code == 403
 
 
-def test_the_route_does_not_reuse_the_hierarchical_operator_alias() -> None:
-    """Structural guard against regression: accounts.py must build its own
-    `require_role(Role.OPERATOR)` dependency for this route, not
-    `app.core.security.require_operator`, which also admits admin."""
+def test_the_route_reuses_the_shared_admin_and_operator_alias() -> None:
+    """Structural guard, updated for the FR-022 amendment: accounts.py must
+    depend on the shared `require_operator` alias (admin+operator) for this
+    route now, not its own operator-only `require_role(Role.OPERATOR)` -- the
+    inverse of what this guard checked before the amendment."""
     import inspect
 
     from app.api.routers import accounts as accounts_module
 
     source = inspect.getsource(accounts_module)
-    assert "OperatorPrincipal" in source
-    # The trigger_scan route must depend on OperatorPrincipal, not AdminPrincipal
-    # or require_operator directly.
+    assert "OperatorPrincipal = Annotated[Principal, Depends(require_operator)]" in source
     trigger_fn_source = inspect.getsource(accounts_module.trigger_scan)
     assert "OperatorPrincipal" in trigger_fn_source
-    assert "require_operator" not in trigger_fn_source
 
 
 # --- FR-026: daily trigger construction --------------------------------------------

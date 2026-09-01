@@ -357,9 +357,10 @@ paths:
       tags:
       - accounts
       summary: Trigger an on-demand scan
-      description: 'FR-026/FR-026a. Operator only -- research.md R-205''s non-hierarchical-roles
+      description: 'FR-026/FR-026a (as amended by spec 004 FR-022). Admin or operator;
+        viewer
 
-        point, made concrete: admin''s account-management grant does not include this.'
+        refused.'
       operationId: triggerScan
       parameters:
       - name: account_id
@@ -2307,6 +2308,26 @@ components:
           - type: integer
           - type: 'null'
           title: Resourcecount
+        added:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Added
+          description: Resources first seen during this scan's window (spec 004, R-405).
+        removed:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Removed
+          description: Resources marked deleted during this scan's window (spec 004,
+            R-405).
+        changed:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Changed
+          description: Pre-existing resources re-confirmed during this scan's window
+            (R-405).
       type: object
       required:
       - id

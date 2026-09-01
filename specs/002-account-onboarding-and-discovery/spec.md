@@ -301,9 +301,11 @@ and confirm the resource is marked gone in inventory without any manual interven
   existing one, from this view without leaving it.
 - **FR-011a**: Registering, deactivating, and reactivating an account MUST be restricted to the
   admin role. The operator and viewer roles MUST be refused these actions (Clarifications session
-  2026-08-23; spec 1 FR-033, FR-033a). This spec's roles are non-hierarchical: admin's
+  2026-08-23; spec 1 FR-033, FR-033a). ~~This spec's roles are non-hierarchical: admin's
   account-management grant does not include operator's scan-triggering grant (FR-026a) or vice
-  versa.
+  versa.~~ **Superseded 2026-09-02 by spec 004's FR-022** (see FR-026a's own amendment note):
+  triggering a scan is no longer operator-exclusive, so this sentence's example no longer holds.
+  Registration/deactivation/reactivation remain admin-only regardless.
 - **FR-012**: When an account's verification has failed, this view MUST show the reason in terms
   an admin can act on (Acceptance Scenario US2.3) — not only a generic failure indicator.
 
@@ -367,10 +369,13 @@ and confirm the resource is marked gone in inventory without any manual interven
 - **FR-026**: Every connected, verified account MUST be scanned automatically on a recurring daily
   schedule with no manual intervention, and MUST also be scannable on demand at an operator's request
   (Acceptance Scenarios US4.1, US4.2).
-- **FR-026a**: Triggering an on-demand scan MUST be permitted for the operator role. The admin
-  role's account-management grant (FR-011a) does not itself include this — spec 1's FR-033 grants
-  scan-triggering to operator specifically, and CloudPulse's roles are non-hierarchical. The
-  viewer role MUST be refused (Clarifications session 2026-08-23).
+- **FR-026a**: Triggering an on-demand scan MUST be permitted for the admin and operator roles.
+  The viewer role MUST be refused (Clarifications session 2026-08-23). **Amended by spec 004's
+  FR-022** (2026-09-02): originally operator-only, admin deliberately excluded, on the reasoning
+  that admin's account-management grant (FR-011a) does not itself include this and CloudPulse's
+  roles are non-hierarchical (spec 1's FR-033 granted scan-triggering to operator specifically).
+  Spec 004's governance dashboard requires admin to also trigger a scan from its scan-operations
+  screen; widened here rather than left inconsistent between the two specs' requirements.
 - **FR-027**: Two scans of the same account MUST NOT run concurrently; two scans of different
   accounts MUST be able to run concurrently without interfering with each other (Edge Cases).
 

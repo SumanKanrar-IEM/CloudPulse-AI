@@ -103,11 +103,17 @@ than a stored one.
 
 ## R-205 — Role authorization: reuse `require_role`, no new mechanism
 
-**Decision**: Every new route in `backend/app/api/routers/accounts.py` declares its role
-requirement via spec 1's existing `require_role(*roles)` dependency — `require_role(Role.ADMIN)`
-for register/deactivate/reactivate, `require_role(Role.ADMIN, Role.OPERATOR, Role.VIEWER)` for
-viewing, `require_role(Role.OPERATOR)` for triggering an on-demand scan (spec 2 Clarifications
-session 2026-08-23, FR-010a/FR-011a/FR-026a).
+**Amended 2026-09-02 by spec 004's FR-022**: triggering an on-demand scan is no longer
+operator-exclusive — see FR-026a's own amendment note in spec.md. `trigger_scan` now depends on
+the shared `require_operator` alias (admin+operator) instead of building its own
+`require_role(Role.OPERATOR)`. The decision/rationale below describes the original, now-superseded
+design; kept for the historical record rather than rewritten to read as if it were always this way.
+
+**Decision** (as originally shipped): Every new route in `backend/app/api/routers/accounts.py`
+declares its role requirement via spec 1's existing `require_role(*roles)` dependency —
+`require_role(Role.ADMIN)` for register/deactivate/reactivate, `require_role(Role.ADMIN,
+Role.OPERATOR, Role.VIEWER)` for viewing, `require_role(Role.OPERATOR)` for triggering an on-demand
+scan (spec 2 Clarifications session 2026-08-23, FR-010a/FR-011a/FR-026a).
 
 **Rationale**: Spec 1 built this specifically so specs 2–6 would not need to reinvent
 authorization — `require_role` already re-derives the caller's role from Cognito claims

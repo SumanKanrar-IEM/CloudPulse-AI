@@ -7,12 +7,13 @@ silently ignored field.
 
 Registering, deactivating, and reactivating are admin-only (FR-011a); viewing is open
 to all three roles (FR-010a) -- both reuse `app.core.security`'s existing
-`require_admin`/`require_viewer` aliases unchanged. Triggering an on-demand scan
-(FR-026a) is operator-only and deliberately does NOT reuse
-`app.core.security.require_operator`, which also admits admin -- research.md R-205
-makes this spec's roles non-hierarchical: admin's account-management grant does not
-carry operator's scan-trigger grant, so this route builds its own
-`require_role(Role.OPERATOR)` dependency instead of the shared alias.
+`require_admin`/`require_viewer` aliases unchanged. Triggering an on-demand scan was
+originally operator-only, admin deliberately excluded (FR-026a, research.md R-205's
+non-hierarchical-roles point) -- spec 004's FR-022 supersedes that: an admin or
+operator MUST be able to trigger a scan from the governance dashboard's scan-operations
+screen. `trigger_scan` now reuses the shared `require_operator` alias (admin+operator)
+rather than its own operator-only dependency; FR-026a and R-205 are amended accordingly,
+not silently left to read wrong.
 """
 
 from __future__ import annotations
@@ -28,10 +29,10 @@ from sqlalchemy import select
 
 from app.api.errors import ERROR_RESPONSES, AppError, ErrorCode, ErrorEnvelope, correlation_id_of
 from app.core.audit import write_audit_event
-from app.core.config import Role
 from app.core.db import TenantSession, tenant_session
 from app.core.logging import logger
-from app.core.security import Principal, require_admin, require_role, require_viewer
+from app.core.security import Principal, require_admin, require_operator, require_viewer
+from app.governance.scan_deltas import scan_deltas
 from app.models.core import CloudAccount
 from app.models.core import Scan as ScanRow
 from app.models.enums import AccountStatus, ConnectionMode, ScanTrigger
@@ -47,9 +48,9 @@ DEFAULT_SCAN_REGION = "us-east-1"
 
 AdminPrincipal = Annotated[Principal, Depends(require_admin)]
 ViewerPrincipal = Annotated[Principal, Depends(require_viewer)]
-# Deliberately its own dependency, not app.core.security.require_operator (see
-# module docstring) -- that alias also admits admin, which FR-026a forbids here.
-OperatorPrincipal = Annotated[Principal, Depends(require_role(Role.OPERATOR))]
+# Admin+operator (spec 004 FR-022) -- see module docstring for why this is no
+# longer the operator-only require_role(Role.OPERATOR) it started as.
+OperatorPrincipal = Annotated[Principal, Depends(require_operator)]
 
 _CONFLICT_RESPONSE = {
     "model": ErrorEnvelope,
@@ -121,6 +122,18 @@ class Scan(BaseModel):
     started_at: datetime = Field(alias="startedAt")
     finished_at: datetime | None = Field(default=None, alias="finishedAt")
     resource_count: int | None = Field(default=None, alias="resourceCount")
+    added: int | None = Field(
+        default=None,
+        description="Resources first seen during this scan's window (spec 004, R-405).",
+    )
+    removed: int | None = Field(
+        default=None,
+        description="Resources marked deleted during this scan's window (spec 004, R-405).",
+    )
+    changed: int | None = Field(
+        default=None,
+        description="Pre-existing resources re-confirmed during this scan's window (R-405).",
+    )
 
     model_config = {"populate_by_name": True}
 
@@ -154,7 +167,15 @@ def _to_account_model(row: CloudAccount) -> Account:
     )
 
 
-def _to_scan_model(row: ScanRow) -> Scan:
+def _to_scan_model(session: TenantSession, row: ScanRow) -> Scan:
+    """Deltas are computed only once a scan has finished (R-405 defines the
+    window as `[started_at, finished_at]`; a still-running scan has no
+    `finished_at` yet, so its deltas are unknown rather than guessed)."""
+    deltas = (
+        scan_deltas(session, row.cloud_account_id, row.started_at, row.finished_at)
+        if row.finished_at is not None
+        else None
+    )
     return Scan(
         id=str(row.id),
         account_id=str(row.cloud_account_id),
@@ -163,6 +184,9 @@ def _to_scan_model(row: ScanRow) -> Scan:
         started_at=row.started_at,
         finished_at=row.finished_at,
         resource_count=row.resource_count,
+        added=deltas.added if deltas else None,
+        removed=deltas.removed if deltas else None,
+        changed=deltas.changed if deltas else None,
     )
 
 
@@ -497,8 +521,8 @@ async def trigger_scan(
     request: Request,
     principal: OperatorPrincipal,
 ) -> Scan:
-    """FR-026/FR-026a. Operator only -- research.md R-205's non-hierarchical-roles
-    point, made concrete: admin's account-management grant does not include this."""
+    """FR-026/FR-026a (as amended by spec 004 FR-022). Admin or operator; viewer
+    refused."""
     correlation_id = correlation_id_of(request)
     with tenant_session(principal.tenant_id) as session:
         account = _get_or_404(session, account_id)
@@ -546,7 +570,7 @@ async def list_scan_history(account_id: uuid.UUID, principal: ViewerPrincipal) -
             .order_by(ScanRow.started_at.desc())
         )
         rows = session.raw.execute(stmt).scalars().all()
-        return ScansList(scans=[_to_scan_model(r) for r in rows])
+        return ScansList(scans=[_to_scan_model(session, r) for r in rows])
 
 
 __all__ = ["router"]

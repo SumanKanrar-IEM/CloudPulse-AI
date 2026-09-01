@@ -192,8 +192,12 @@ demonstrable. It is P2 because it closes the loop — "onboard → scan → find
 fully console-free — but the demo path already has a scan to work from either way.
 
 **Why this priority (continued)**: Reuses account onboarding and discovery's own existing
-on-demand-scan and scan-history capabilities entirely — this story adds no new backend
-capability, only the screen that surfaces what already exists (see Dependencies).
+on-demand-scan and scan-history capabilities entirely — this story adds no new scanning
+mechanism, only the screen that surfaces what already exists (see Dependencies). It did require
+widening *who* may call the existing trigger endpoint: FR-022 below is admin-or-operator, while
+spec 002 originally shipped it operator-only (a deliberate, Clarifications-session decision).
+Implementation amended spec 002's FR-026a in place rather than leaving the two specs
+disagreeing — see this spec's own tasks.md T036a for the full account.
 
 **Independent Test**: Open an account's scan history, confirm it shows its most recent
 scan's timing and resulting deltas; trigger a new scan, and confirm its status is visible

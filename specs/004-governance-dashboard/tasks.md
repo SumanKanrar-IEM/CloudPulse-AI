@@ -506,36 +506,74 @@ deferred per the user's standing cost preference, not attempted.**
 **⚠️ P2 — STRETCH ONLY**: Per Principle VIII, nothing here may block or destabilise a P1 path. If
 this phase is dropped entirely, Phases 1–7 still satisfy every P1 success criterion (SC-008
 excepted, per the Tier Summary above). Reuses account onboarding and discovery's existing
-on-demand-scan and scan-history APIs entirely — this story adds no new scanning or
-scan-triggering capability, only the screen that surfaces what already exists, plus one small,
-additive response-shape extension (research.md R-405).
+on-demand-scan and scan-history APIs entirely — this story adds no new scanning mechanism, only
+the screen that surfaces what already exists, plus one small, additive response-shape extension
+(research.md R-405). **Amended by T036a**: this spec's own FR-022 turned out to require widening
+*who* can call the existing trigger endpoint (admin+operator, not operator-only) — a real,
+user-approved change to spec 002's shipped role gating, not merely a new screen over unchanged
+capability. See T036a for the full account.
 
 ### Tests for User Story 5
 
-- [ ] T034 [P] [US5] **[P2]** Write `backend/tests/unit/test_scan_deltas.py` — the `added`/
+- [X] T034 [P] [US5] **[P2]** Write `backend/tests/unit/test_scan_deltas.py` — the `added`/
       `removed`/`changed` fields (research.md R-405) are computed correctly from
       `resource.first_seen_at`/`last_seen_at`/`deleted_at` against a scan's
       `[started_at, finished_at]` window, with no new persisted state — S31, FR-021, research.md
       R-405
-- [ ] T035 [P] [US5] **[P2]** Write `frontend/e2e/scan-operations.spec.ts` — mocked scan-history/
+      **Done**: `app/governance/scan_deltas.py`'s `compute_scan_deltas` extracted as a pure function
+      (mirrors `scoring.py`'s pure/DB-touching split); 8 tests. One real bug caught by running the
+      first draft, not by inspection: a fixture modeled a resource with `last_seen_at` inside the
+      scan window AND `deleted_at` set by that same scan -- an impossible combination, since
+      `orchestrator.py`'s `sweep_deleted_resources` only ever marks `deleted_at` for a resource
+      whose `last_seen_at` predates the scan (not re-confirmed by it). Fixed the fixture, not the
+      function.
+- [X] T035 [P] [US5] **[P2]** Write `frontend/e2e/scan-operations.spec.ts` — mocked scan-history/
       trigger-scan responses: history shows start time, duration, and deltas (Acceptance Scenario
       US5.1, FR-021); triggering a scan shows a status that updates through to a final state via
       polling (research.md Assumptions), without a manual reload (Acceptance Scenario US5.2,
       FR-022, SC-008); a viewer sees history but has no trigger control (Acceptance Scenario US5.3,
       FR-023) — S31, FR-021–FR-023
+      **Done**: 3 tests, all pass in a real Chromium instance. Full e2e suite (37 tests) re-run
+      clean.
 
 ### Implementation for User Story 5
 
-- [ ] T036 [US5] **[P2]** Extend `backend/app/api/routers/accounts.py`'s `list_scan_history` /
+- [X] T036 [US5] **[P2]** Extend `backend/app/api/routers/accounts.py`'s `list_scan_history` /
       `ScansList` response model — three new, additive, non-required integer fields computed at
       query time per T034/research.md R-405; no new column, no new table. Regenerate
       `backend/openapi.generated.yaml` and the frontend `accounts.service.ts`/
       `accounts.serviceInterface.ts` — T037 depends on the regenerated client exposing the new
       fields — S31, FR-021
-- [ ] T037 [US5] **[P2]** Write `frontend/src/app/features/scans/scan-operations.component.ts` —
+      **Done**: deltas computed only once `finished_at` is set (a still-running scan's deltas are
+      `null`, not guessed); extended `test_scan_history.py` with a real resource inside the older
+      scan's window to prove the wiring end-to-end, not just the pure function in isolation.
+- [X] T036a [US5] **[P2]** **Not anticipated by this task list.** Widened `trigger_scan`
+      (`backend/app/api/routers/accounts.py`) from operator-only to admin+operator, discovered
+      while starting T037: this spec's own FR-022 ("An admin or operator MUST be able to trigger an
+      on-demand scan") directly contradicts spec 002's existing FR-026a/research.md R-205
+      (operator-only, admin deliberately excluded, a Clarifications-session decision with its own
+      dedicated role-matrix test proving admin refused). Flagged to the user rather than silently
+      picking a side; resolved as "widen the backend to match spec 004's FR-022" (the alternative
+      was leaving FR-022 unmet). `trigger_scan` now depends on the shared `require_operator` alias
+      (admin+operator) instead of its own operator-only dependency. Amended in place, not silently:
+      spec 002's spec.md (FR-026a, FR-011a's cross-reference), research.md (R-205), and
+      quickstart.md (V9's table) all carry a dated amendment note pointing back to this task and
+      spec 004's FR-022, rather than being silently rewritten as if the exclusion never existed.
+      `test_role_matrix_accounts.py`'s decisive "admin refused" cell flipped to admin=202 with its
+      docstring updated to explain why; `test_scan_scheduling.py`'s
+      `test_admin_cannot_trigger_an_on_demand_scan` (no-DB unit test, now testing something false)
+      removed -- the real-DB role matrix is the correct place for this cell now that admin's request
+      reaches `_get_or_404`, not the role gate; its structural guard test inverted to assert the
+      route *does* now reuse the shared alias. Full backend suite re-run clean after the fix — S31,
+      FR-022 (spec 004); FR-011a, FR-026a (spec 002, as amended)
+- [X] T037 [US5] **[P2]** Write `frontend/src/app/features/scans/scan-operations.component.ts` —
       history table with deltas, "Scan now" trigger control (admin/operator only, FR-023), polled
       status until a final state — S31, FR-021–FR-023
-- [ ] T038 [US5] **[P2]** Wire the `/scans` route into `app.config.ts` — S31, FR-021
+      **Done**: lists every connected account (reusing the existing `AccountsService`), expandable
+      per-account history, 2s-interval poll (capped at 30 attempts) after triggering until the new
+      scan reaches a final status.
+- [X] T038 [US5] **[P2]** Wire the `/scans` route into `app.config.ts` — S31, FR-021
+      **Done**. Nav link already existed from Phase 3's shell.
 
 **Checkpoint**: P2 stretch scope complete; SC-008 now provable; quickstart.md V8 can be run live as
 a follow-up to Phase 7's T032 if desired (not itself re-numbered as a new live-verify task — it

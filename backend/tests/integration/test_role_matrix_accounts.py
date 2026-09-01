@@ -1,10 +1,12 @@
 """The full SC-009 three-role matrix for the accounts surface (quickstart.md V9).
 
 Runs against a real PostgreSQL container -- register/deactivate/reactivate are real
-row mutations. The cell this test exists for is "admin refused triggering an
-on-demand scan": a naive "admin can do everything" implementation passes every other
-cell in this matrix while silently getting that one wrong (research.md R-205's
-non-hierarchical-roles point, made concrete, exactly as quickstart.md V9 warns).
+row mutations. "Trigger on-demand scan" was originally admin=403, operator=202 --
+research.md R-205's non-hierarchical-roles point, made concrete. **Amended
+2026-09-02 by spec 004's FR-022**: admin must also be able to trigger a scan from
+the governance dashboard's scan-operations screen, so admin's cell widened to 202.
+Viewer stays refused either way -- that is the cell this file still exists to
+prove explicitly rather than infer from the others passing.
 """
 
 from __future__ import annotations
@@ -211,7 +213,7 @@ def _create_scan_state_machine() -> None:
 @mock_aws
 @pytest.mark.parametrize(
     ("groups", "expected_status"),
-    [(ADMIN, 403), (OPERATOR, 202), (VIEWER, 403)],
+    [(ADMIN, 202), (OPERATOR, 202), (VIEWER, 403)],
     ids=["admin", "operator", "viewer"],
 )
 def test_trigger_on_demand_scan(
@@ -219,9 +221,9 @@ def test_trigger_on_demand_scan(
     groups: list[str],
     expected_status: int,
 ) -> None:
-    """SC-009's decisive cell (quickstart.md V9): admin is REFUSED here, the one a
-    naive 'admin can do everything' implementation gets wrong. Only operator may
-    trigger -- admin's account-management grant does not carry it (R-205)."""
+    """SC-009 (quickstart.md V9), as amended by spec 004's FR-022: admin and
+    operator may both trigger; viewer is refused -- asserted explicitly for
+    every role, not inferred from the others passing."""
     _create_scan_state_machine()
     client, stager, tenant_id, account_id = registered_account
     _stage(stager, tenant_id, groups)

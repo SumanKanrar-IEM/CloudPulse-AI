@@ -99,12 +99,14 @@ Exercise the full cell matrix and confirm each gives the expected allow/refuse �
 | View accounts list | 200 | 200 | 200 |
 | Register account | 201 | 403 | 403 |
 | Deactivate / reactivate | 200 | 403 | 403 |
-| Trigger on-demand scan | 403 | 202 | 403 |
+| Trigger on-demand scan | 202 | 202 | 403 |
 
-The two 403 cells for admin and viewer on "trigger on-demand scan" are the ones most likely to be
-implemented wrong — a naive "admin can do everything" shortcut would pass every other cell in this
-table while silently failing this one. Verify it explicitly, not by inference from the others
-passing (research.md R-205's non-hierarchical-roles point, made concrete).
+**Amended 2026-09-02 by spec 004's FR-022**: "Trigger on-demand scan" was originally admin=403 —
+the cell most likely to be implemented wrong, since a naive "admin can do everything" shortcut
+would pass every other cell in this table while silently failing this one (research.md R-205's
+now-superseded non-hierarchical-roles point). Spec 004's governance dashboard requires admin to
+also trigger a scan from its scan-operations screen, so this was widened; verify admin=202
+explicitly rather than assuming the widen landed correctly everywhere it needed to.
 
 ## Teardown
 
