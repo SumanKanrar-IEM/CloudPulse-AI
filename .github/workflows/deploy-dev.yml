@@ -209,6 +209,22 @@ jobs:
           echo "::error::/health did not report healthy after deployment"
           exit 1
 
+      # spec 004 T041/FR-026: the dashboard's own smoke suite (T039), pointed at the
+      # real deployed frontend origin instead of a local server (playwright.config.ts's
+      # E2E_BASE_URL). Its API calls stay route-intercepted, same as every other e2e
+      # spec in this suite (research.md's established pattern) -- this proves the
+      # deployed JS bundle and static assets actually boot, route, and render
+      # correctly (T003a's own bug was exactly this class, caught only by loading a
+      # page in a browser), not that a real connected AWS account round-trips
+      # end-to-end -- that stays T032's job, deliberately not duplicated here.
+      - name: Dashboard smoke test (real dev origin)
+        working-directory: frontend
+        env:
+          E2E_BASE_URL: ${{ steps.apply.outputs.frontend_url }}
+        run: |
+          npx playwright install --with-deps chromium
+          npx playwright test e2e/dashboard-smoke.spec.ts
+
       # --- Close the record, on success AND on failure (FR-021) --------
       # `if: always()` is load-bearing: leaving a row in `running` fails FR-021's third
       # condition, and a stuck record is indistinguishable from one still in progress.

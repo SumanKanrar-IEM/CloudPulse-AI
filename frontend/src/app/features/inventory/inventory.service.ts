@@ -29,6 +29,7 @@ export class InventoryService {
   private readonly errorState = signal<string | null>(null);
   private readonly detailState = signal<ResourceDetail | null>(null);
   private readonly detailLoadingState = signal(false);
+  private readonly detailErrorState = signal<string | null>(null);
 
   readonly resources = this.resourcesState.asReadonly();
   readonly page = this.pageState.asReadonly();
@@ -37,6 +38,7 @@ export class InventoryService {
   readonly error = this.errorState.asReadonly();
   readonly detail = this.detailState.asReadonly();
   readonly detailLoading = this.detailLoadingState.asReadonly();
+  readonly detailError = this.detailErrorState.asReadonly();
 
   readonly pageSize = PAGE_SIZE;
 
@@ -69,8 +71,11 @@ export class InventoryService {
   async loadDetail(resourceId: string): Promise<void> {
     this.detailLoadingState.set(true);
     this.detailState.set(null);
+    this.detailErrorState.set(null);
     try {
       this.detailState.set(await firstValueFrom(this.api.getResourceDetail(resourceId)));
+    } catch {
+      this.detailErrorState.set('Could not load this resource. Try again.');
     } finally {
       this.detailLoadingState.set(false);
     }
@@ -78,5 +83,6 @@ export class InventoryService {
 
   clearDetail(): void {
     this.detailState.set(null);
+    this.detailErrorState.set(null);
   }
 }

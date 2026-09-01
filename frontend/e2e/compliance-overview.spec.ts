@@ -98,4 +98,53 @@ test.describe('compliance overview', () => {
 
     await expect(page.getByText('No connected accounts yet.')).toBeVisible();
   });
+
+  test('renders within SC-003 2-second budget for a 5,000-resource account', async ({ page }) => {
+    // Synthetic: mocked responses carry zero real network latency, so this
+    // measures client-side processing time only (chart grouping over the full
+    // open-findings array, table rendering) -- it cannot prove real-AWS
+    // latency, but a slow result here would be a genuine red flag regardless,
+    // since production can only add to this, never subtract from it.
+    const RESOURCE_COUNT = 5000;
+    const account = {
+      id: 'acct-big',
+      alias: 'Big account',
+      connectionMode: 'local',
+      awsAccountId: '999999999999',
+      scanRegions: ['us-east-1'],
+      status: 'verified',
+      lastScan: { status: 'succeeded', startedAt: '2026-01-01T00:00:00Z' },
+    };
+    const ruleKeys = ['owner', 'project_id', 'environment', 'cost_center', 'data_classification'];
+    const severities = ['low', 'medium', 'high', 'critical'];
+    const findings = Array.from({ length: 3000 }, (_, i) => ({
+      id: `f-${i}`,
+      ruleKey: ruleKeys[i % ruleKeys.length],
+      severity: severities[i % severities.length],
+      status: 'open',
+    }));
+
+    await page.route('**/accounts', async (route) => {
+      if (route.request().method() !== 'GET') {
+        await route.continue();
+        return;
+      }
+      await route.fulfill({ json: { accounts: [account] } });
+    });
+    await page.route('**/accounts/*/compliance-score', async (route) => {
+      await route.fulfill({
+        json: { compliantCount: 4200, totalCount: RESOURCE_COUNT, score: 0.84 },
+      });
+    });
+    await page.route('**/findings*', async (route) => {
+      await route.fulfill({ json: { findings } });
+    });
+
+    const start = Date.now();
+    await page.goto('/overview');
+    await expect(page.locator('.score-card .score')).toHaveText('84%');
+    const elapsedMs = Date.now() - start;
+
+    expect(elapsedMs).toBeLessThan(2000);
+  });
 });

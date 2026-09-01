@@ -60,18 +60,23 @@ import { FindingsFilters, FindingsService } from './findings.service';
 
               @if (expandedFindingId() === finding.id) {
                 <div class="suggestion-panel">
-                  @if (findings.suggestions()[finding.id]; as suggestion) {
-                    @if (suggestion.suggestionText) {
-                      <p>
-                        <strong>Suggestion{{ suggestion.source === 'admin_seeded' ? ' (test data)' : '' }}:</strong>
-                        {{ suggestion.suggestionText }}
-                      </p>
-                      <p><strong>Blast radius:</strong> {{ suggestion.blastRadiusNote }}</p>
+                  @if (findings.suggestionErrors()[finding.id]; as suggestionError) {
+                    <p role="alert">{{ suggestionError }}</p>
+                  }
+                  @if (!findings.suggestionErrors()[finding.id]) {
+                    @if (findings.suggestions()[finding.id]; as suggestion) {
+                      @if (suggestion.suggestionText) {
+                        <p>
+                          <strong>Suggestion{{ suggestion.source === 'admin_seeded' ? ' (test data)' : '' }}:</strong>
+                          {{ suggestion.suggestionText }}
+                        </p>
+                        <p><strong>Blast radius:</strong> {{ suggestion.blastRadiusNote }}</p>
+                      } @else {
+                        <p>No suggestion available.</p>
+                      }
                     } @else {
-                      <p>No suggestion available.</p>
+                      <p role="status">Loading suggestion…</p>
                     }
-                  } @else {
-                    <p role="status">Loading suggestion…</p>
                   }
 
                   @if (isAdmin()) {

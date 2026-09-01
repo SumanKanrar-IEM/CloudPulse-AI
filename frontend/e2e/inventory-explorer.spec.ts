@@ -119,4 +119,19 @@ test.describe('inventory explorer', () => {
 
     await expect(page.getByText('No matching resources.')).toBeVisible();
   });
+
+  test('a resource detail fetch failure shows a distinct error state, not a stuck spinner', async ({
+    page,
+  }) => {
+    await mockBackend(page);
+    await page.route(/\/resources\/[^/?]+(\?.*)?$/, async (route) => {
+      await route.fulfill({ status: 500, json: { error: { code: 'INTERNAL_ERROR' } } });
+    });
+    await page.goto('/inventory');
+
+    await page.getByRole('button', { name: 'arn:aws:ec2:us-east-1:111:instance/i-1' }).click();
+
+    await expect(page.getByRole('alert')).toBeVisible();
+    await expect(page.getByText('Loading resource detail…')).not.toBeVisible();
+  });
 });

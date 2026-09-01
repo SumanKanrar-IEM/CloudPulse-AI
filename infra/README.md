@@ -49,6 +49,16 @@ Layer 2 is the important one. The "teardown aimed at prod" edge case requires re
 The audit row is deliberate: FR-029a makes the *absence* of an expiry the correct
 implementation. Treat any lifecycle rule appearing on that table as a defect.
 
+## Frontend runtime config (spec 004, research.md R-401)
+
+`modules/identity/`'s `client_id`/`hosted_ui_domain` outputs are re-exported at the
+env level (`cognito_client_id`/`cognito_hosted_ui_domain` in `envs/{dev,prod}/outputs.tf`)
+so the deploy workflows (`.github/workflows/deploy-{dev,prod}.yml`, not this directory)
+can inject them, alongside `api_endpoint`/`frontend_url`, into the already-built
+`index.html` as `window.__CLOUDPULSE_CONFIG__` — the API Gateway URL isn't known until
+after `terraform apply`, which runs after the frontend build, so this can't be baked in
+at build time the way the rest of the Angular bundle is.
+
 ## Local use
 
 ```bash
