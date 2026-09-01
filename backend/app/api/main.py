@@ -17,9 +17,11 @@ may be added to this app:
 
 from __future__ import annotations
 
+import os
 from typing import Any
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.errors import register_exception_handlers
 from app.api.middleware import CorrelationIdMiddleware
@@ -61,6 +63,26 @@ def create_app() -> FastAPI:
         docs_url="/docs",
         redoc_url=None,
     )
+
+    # Found live (spec 004 T032c): API Gateway's own `cors_configuration` decorates
+    # every response with CORS headers, but the `$default` route's custom authorizer
+    # sends the OPTIONS preflight itself through to this Lambda -- and with no CORS
+    # handling here, Starlette 405'd it (no route registers OPTIONS), which fails
+    # the browser's preflight check regardless of the headers API Gateway attached.
+    # CORSMiddleware answers the preflight directly, before anything else runs.
+    # Read directly, not through `get_settings()`: this app factory is also used by
+    # tests with no database/Cognito environment configured at all, and Settings'
+    # other fields are required -- constructing it here would force every such test
+    # to fully configure the environment just to build an app that doesn't need it.
+    frontend_url = os.environ.get("CLOUDPULSE_FRONTEND_URL")
+    if frontend_url:
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=[frontend_url],
+            allow_methods=["*"],
+            allow_headers=["*"],
+            allow_credentials=False,
+        )
 
     # Order matters. Correlation runs outermost so the id exists before any handler
     # can need it -- including the exception handlers, which put it in the envelope.

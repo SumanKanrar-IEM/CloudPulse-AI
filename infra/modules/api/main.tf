@@ -140,6 +140,12 @@ resource "aws_lambda_function" "api" {
       CLOUDPULSE_COGNITO_CLIENT_ID      = var.cognito_client_id
       CLOUDPULSE_GIT_SHA                = var.git_sha
       CLOUDPULSE_SCAN_STATE_MACHINE_ARN = var.scan_state_machine_arn
+      # Found live (spec 004 T032c): the `$default` route's custom authorizer sends
+      # every OPTIONS preflight through to this Lambda rather than API Gateway
+      # short-circuiting it, and with no CORS handling in the app itself, Starlette
+      # 405'd every preflight. `app/api/main.py` adds `CORSMiddleware` when this is
+      # set -- the same origin `cors_configuration` above already restricts to.
+      CLOUDPULSE_FRONTEND_URL = var.allowed_origins[0]
       # No credential here, by construction. Only references.
       POWERTOOLS_SERVICE_NAME = "cloudpulse-api"
       POWERTOOLS_LOG_LEVEL    = "INFO"
