@@ -33,6 +33,14 @@ export const routes: Routes = [
       import('./core/auth.callback.component').then((m) => m.AuthCallbackComponent),
   },
   {
+    path: 'inventory',
+    canActivate: [authGuard, roleGuard('admin', 'operator', 'viewer')],
+    loadComponent: () =>
+      import('./features/inventory/inventory-explorer.component').then(
+        (m) => m.InventoryExplorerComponent,
+      ),
+  },
+  {
     path: 'accounts',
     canActivate: [authGuard, roleGuard('admin', 'operator', 'viewer')],
     loadComponent: () =>

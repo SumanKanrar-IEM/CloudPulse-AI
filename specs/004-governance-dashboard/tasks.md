@@ -274,11 +274,13 @@ owner/evidence, findings, and enrichment detail all match what the underlying AP
 
 ### Tests for User Story 3
 
-- [ ] T014 [P] [US3] Write `backend/tests/unit/test_resource_filters.py` — the `tagStatus` and
+- [X] T014 [P] [US3] Write `backend/tests/unit/test_resource_filters.py` — the `tagStatus` and
       `ownerStatus` query-building logic are independent filter dimensions (research.md R-403): a
       resource with a valid `owner` tag but no attribution matches `ownerStatus=unattributed` but
       not `tagStatus=missing:owner`, and vice versa — S29, FR-010, FR-013, research.md R-403
-- [ ] T015 [P] [US3] Write `backend/tests/integration/test_resources_api.py` — Testcontainers
+      **Done**: 4/4 passing, exercises `_parse_tag_status` directly (the pure-logic half of the
+      filter; the DB-backed distinction is T015's job).
+- [X] T015 [P] [US3] Write `backend/tests/integration/test_resources_api.py` — Testcontainers
       PostgreSQL: `GET /resources` filters by account/service/region/sdaId/tagStatus/ownerStatus in
       any combination, returning only resources matching every applied filter (Acceptance Scenario
       US3.1, FR-010); pagination never requires the full inventory to be queried at once (FR-011);
@@ -291,28 +293,61 @@ owner/evidence, findings, and enrichment detail all match what the underlying AP
       resource that reverts to "No SDA" (tag compliance and ownership's immediate-revert
       semantics) no longer matches the now-removed `sdaId`, with no error from the filter
       continuing to reference it (spec.md Edge Cases) — S29, FR-010–FR-013, SC-005
-- [ ] T016 [P] [US3] Write `frontend/e2e/inventory-explorer.spec.ts` — mocked `GET /resources`
+      **Done**: 9/9 passing. Real bug caught, not by inspection: the seed fixture's first version
+      inserted a duplicate `owner` rule row — migration 0010 already seeds one per tenant, hitting
+      `uq_rule_tenant_key_version` — fixed to reuse the seeded row (same precedent spec 003's own
+      tests already established). Real backend bug caught the same way: `_open_finding_rule_keys`
+      selected `RuleRow.key` without `select_from(FindingRow)`, and SQLAlchemy couldn't determine
+      which table the join was driven from ("don't know how to join to Rule") — fixed in T017.
+- [X] T016 [P] [US3] Write `frontend/e2e/inventory-explorer.spec.ts` — mocked `GET /resources`
       responses: applying filters narrows the visible table (FR-010); paging fetches from the
       platform rather than loading everything up front (FR-011); opening a resource's detail panel
       shows its tags/owner/findings/enrichment (FR-012); a zero-result filter shows the explicit
       "no matching resources" state, not a blank or broken table (Edge Cases) — S29, FR-010–FR-013
+      **Done**: 3/3 passing. One real route-mock bug found by running it, not by inspection: a glob
+      like `**/resources*` does not cross the `/` before a resource id, so the detail-panel test's
+      `GET /resources/{id}` fell through unmocked — fixed with a regex covering both the list and
+      detail paths, the same fix `sdas.spec.ts` already established for this exact class of glob
+      limitation.
 
 ### Implementation for User Story 3
 
-- [ ] T017 [US3] Write `backend/app/api/routers/resources.py` — `GET /resources` (paged, filtered
+- [X] T017 [US3] Write `backend/app/api/routers/resources.py` — `GET /resources` (paged, filtered
       per T014/T015), `GET /resources/{resourceId}` (detail: tags, owner + evidence via
       `ResourceOwner`, findings via the same query shape `GET /findings?resourceId=...` already
       proves, enrichment via `Resource.detail`) — S29, FR-010–FR-013
-- [ ] T018 [US3] Wire the `resources` router into `backend/app/api/main.py`; regenerate
+      **Done**: response model named `InventoryResourceSummary`, not the more obvious
+      `ResourceSummary` — `findings.py` and `sdas.py` already both define a `ResourceSummary` with
+      an identical shape (no collision), but this endpoint's shape is genuinely different (extra
+      `service`/`sdaId`/`tagStatus`/`ownerStatus` fields); naming it the same would have forced
+      FastAPI's OpenAPI generator to disambiguate all three into ugly, unstable module-qualified
+      names (confirmed by trying it first, not guessed) — caught before merge, not left for a
+      later cleanup.
+- [X] T018 [US3] Wire the `resources` router into `backend/app/api/main.py`; regenerate
       `backend/openapi.generated.yaml` and the OpenAPI-generated frontend API client (a new
       `resources.service.ts`/`resources.serviceInterface.ts` pair, matching every existing
       per-tag service file) — T019/T020 depend on the generated client existing, and
       `client-drift` (CI) fails on any mismatch — S29, FR-048 (spec 001 contract discipline)
-- [ ] T019 [US3] Write `frontend/src/app/features/inventory/inventory-explorer.component.ts` —
+      **Done**: generation initially failed with "Unable to locate a Java Runtime" — Homebrew's
+      `openjdk` was installed but never linked to the system `java`; worked around locally with
+      `JAVA_HOME=$(brew --prefix openjdk)`, not a code change (CI's own runner already has a
+      working JDK via `setup-java`-equivalent tooling, confirmed by every prior spec's green
+      `client-drift` check).
+- [X] T019 [US3] Write `frontend/src/app/features/inventory/inventory-explorer.component.ts` —
       server-side paged/filtered table — S29, FR-010, FR-011
-- [ ] T020 [US3] Write `frontend/src/app/features/inventory/resource-detail.component.ts` — detail
+      **Done**: new `inventory.service.ts` wraps the generated `ResourcesService` (Principle V
+      pattern). Filter inputs are plain text fields (account/service/region/sdaId/tagStatus) plus
+      a checkbox for `ownerStatus=unattributed` — no dropdown enumeration of rule keys or SDAs,
+      since neither the spec nor plan.md called for one and the raw string filters already prove
+      FR-010/FR-011 end-to-end.
+- [X] T020 [US3] Write `frontend/src/app/features/inventory/resource-detail.component.ts` — detail
       panel — S29, FR-012
-- [ ] T021 [US3] Wire the `/inventory` route into `app.config.ts` — S29, FR-010
+      **Done, with one real template bug found by the build, not by inspection**: `@else if (expr;
+      as alias)` did not bind the alias (Angular 18's control-flow syntax) — the compiler reported
+      `alias` as an unresolved component property instead. Fixed by splitting into two separate
+      `@if` blocks rather than an `@if`/`@else if` chain.
+- [X] T021 [US3] Wire the `/inventory` route into `app.config.ts` — S29, FR-010
+      **Done**: no deviations.
 
 **Checkpoint**: The inventory is browsable and filterable end-to-end against real data. Findings and
 scan operations remain unreachable placeholders.

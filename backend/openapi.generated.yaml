@@ -907,6 +907,164 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /resources:
+    get:
+      tags:
+      - resources
+      summary: List the resource inventory, paged and filtered
+      description: 'FR-010, FR-011. Any role may view (FR-030). Excludes soft-deleted
+
+        resources by default (FR-030''s own "never a row deletion" note -- a
+
+        deleted resource has no governance action to take, but its detail view
+
+        stays reachable directly by ID, data-model.md).'
+      operationId: listResources
+      parameters:
+      - name: accountId
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Accountid
+      - name: service
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Service
+      - name: region
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Region
+      - name: sdaId
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Sdaid
+      - name: tagStatus
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Tagstatus
+      - name: ownerStatus
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Ownerstatus
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+          title: Page
+      - name: pageSize
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 200
+          minimum: 1
+          default: 50
+          title: Pagesize
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResourcesPage'
+        '401':
+          description: No valid identity presented.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Valid identity, but the caller's role does not permit the action
+            -- or the caller maps to zero or multiple directory groups and therefore
+            has no resolvable role (FR-032a, FR-034).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '422':
+          description: Request body or parameters failed validation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /resources/{resource_id}:
+    get:
+      tags:
+      - resources
+      summary: One resource's tags, owner + evidence, findings, and enrichment detail
+      description: 'FR-012. Any role may view (FR-030). Reachable even for a soft-deleted
+
+        resource (data-model.md) -- only the default listing excludes those.'
+      operationId: getResourceDetail
+      parameters:
+      - name: resource_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Resource Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResourceDetail'
+        '401':
+          description: No valid identity presented.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Valid identity, but the caller's role does not permit the action
+            -- or the caller maps to zero or multiple directory groups and therefore
+            has no resolvable role (FR-032a, FR-034).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '404':
+          description: Target record does not exist, or the caller is not entitled
+            to know that it does.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /accounts/{account_id}/compliance-score:
     get:
       tags:
@@ -1561,6 +1719,48 @@ components:
       - checks
       - correlationId
       title: HealthResponse
+    InventoryResourceSummary:
+      properties:
+        id:
+          type: string
+          title: Id
+        accountId:
+          type: string
+          title: Accountid
+        arn:
+          type: string
+          title: Arn
+        resourceType:
+          type: string
+          title: Resourcetype
+        service:
+          type: string
+          title: Service
+        region:
+          type: string
+          title: Region
+        sdaId:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Sdaid
+        tagStatus:
+          type: string
+          title: Tagstatus
+        ownerStatus:
+          type: string
+          title: Ownerstatus
+      type: object
+      required:
+      - id
+      - accountId
+      - arn
+      - resourceType
+      - service
+      - region
+      - tagStatus
+      - ownerStatus
+      title: InventoryResourceSummary
     OwnerIdentityOverrideBody:
       properties:
         principalId:
@@ -1618,6 +1818,55 @@ components:
       required:
       - kind
       title: OwnershipEvidence
+    ResourceDetail:
+      properties:
+        id:
+          type: string
+          title: Id
+        arn:
+          type: string
+          title: Arn
+        resourceType:
+          type: string
+          title: Resourcetype
+        service:
+          type: string
+          title: Service
+        region:
+          type: string
+          title: Region
+        tags:
+          additionalProperties:
+            type: string
+          type: object
+          title: Tags
+        detail:
+          additionalProperties: true
+          type: object
+          title: Detail
+        owner:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Owner
+        findings:
+          items:
+            additionalProperties: true
+            type: object
+          type: array
+          title: Findings
+      type: object
+      required:
+      - id
+      - arn
+      - resourceType
+      - service
+      - region
+      - tags
+      - detail
+      - findings
+      title: ResourceDetail
     ResourceOwnership:
       properties:
         resourceId:
@@ -1672,6 +1921,29 @@ components:
       - region
       - accountId
       title: ResourceSummary
+    ResourcesPage:
+      properties:
+        resources:
+          items:
+            $ref: '#/components/schemas/InventoryResourceSummary'
+          type: array
+          title: Resources
+        page:
+          type: integer
+          title: Page
+        pageSize:
+          type: integer
+          title: Pagesize
+        totalCount:
+          type: integer
+          title: Totalcount
+      type: object
+      required:
+      - resources
+      - page
+      - pageSize
+      - totalCount
+      title: ResourcesPage
     Rule:
       properties:
         id:
@@ -1976,3 +2248,4 @@ components:
         then re-validated for role cardinality by the application (research.md R-004).
 security:
 - cognitoJwt: []
+
