@@ -19,11 +19,17 @@ import { OpenApiHttpParams, QueryParamStyle } from '../query.params';
 // @ts-ignore
 import { ErrorEnvelope } from '../model/error-envelope';
 // @ts-ignore
+import { FindingAcknowledgment } from '../model/finding-acknowledgment';
+// @ts-ignore
 import { FindingStatus } from '../model/finding-status';
 // @ts-ignore
 import { FindingsList } from '../model/findings-list';
 // @ts-ignore
 import { HTTPValidationError } from '../model/http-validation-error';
+// @ts-ignore
+import { RemediationSuggestion } from '../model/remediation-suggestion';
+// @ts-ignore
+import { RemediationSuggestionSeed } from '../model/remediation-suggestion-seed';
 
 // @ts-ignore
 import { BASE_PATH, COLLECTION_FORMATS }                     from '../variables';
@@ -42,6 +48,126 @@ export class FindingsService extends BaseService implements FindingsServiceInter
 
     constructor(protected httpClient: HttpClient, @Optional() @Inject(BASE_PATH) basePath: string|string[], @Optional() configuration?: Configuration) {
         super(basePath, configuration);
+    }
+
+    /**
+     * Acknowledge an open finding
+     * FR-015-FR-017, FR-020, FR-028. Admin or operator only. Never touches &#x60;status&#x60; or any compliance score (FR-017). Idempotent: the &#x60;WHERE acknowledged_at IS NULL&#x60; guard means a near-simultaneous second attempt updates nothing rather than racing or duplicating (data-model.md).
+     * @endpoint post /findings/{finding_id}/acknowledge
+     * @param findingId 
+     * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
+     * @param reportProgress flag to report request and response progress.
+     * @param options additional options
+     */
+    public acknowledgeFinding(findingId: string, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<FindingAcknowledgment>;
+    public acknowledgeFinding(findingId: string, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<FindingAcknowledgment>>;
+    public acknowledgeFinding(findingId: string, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<FindingAcknowledgment>>;
+    public acknowledgeFinding(findingId: string, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
+        if (findingId === null || findingId === undefined) {
+            throw new Error('Required parameter findingId was null or undefined when calling acknowledgeFinding.');
+        }
+
+        let localVarHeaders = this.defaultHeaders;
+
+        // authentication (cognitoJwt) required
+        localVarHeaders = this.configuration.addCredentialToHeaders('cognitoJwt', 'Authorization', localVarHeaders, 'Bearer ');
+
+        const localVarHttpHeaderAcceptSelected: string | undefined = options?.httpHeaderAccept ?? this.configuration.selectHeaderAccept([
+            'application/json'
+        ]);
+        if (localVarHttpHeaderAcceptSelected !== undefined) {
+            localVarHeaders = localVarHeaders.set('Accept', localVarHttpHeaderAcceptSelected);
+        }
+
+        const localVarHttpContext: HttpContext = options?.context ?? new HttpContext();
+
+        const localVarTransferCache: boolean = options?.transferCache ?? true;
+
+
+        let responseType_: 'text' | 'json' | 'blob' = 'json';
+        if (localVarHttpHeaderAcceptSelected) {
+            if (localVarHttpHeaderAcceptSelected.startsWith('text')) {
+                responseType_ = 'text';
+            } else if (this.configuration.isJsonMime(localVarHttpHeaderAcceptSelected)) {
+                responseType_ = 'json';
+            } else {
+                responseType_ = 'blob';
+            }
+        }
+
+        let localVarPath = `/findings/${this.configuration.encodeParam({name: "findingId", value: findingId, in: "path", style: "simple", explode: false, dataType: "string", dataFormat: "uuid"})}/acknowledge`;
+        const { basePath, withCredentials } = this.configuration;
+        return this.httpClient.request<FindingAcknowledgment>('post', `${basePath}${localVarPath}`,
+            {
+                context: localVarHttpContext,
+                responseType: <any>responseType_,
+                ...(withCredentials ? { withCredentials } : {}),
+                headers: localVarHeaders,
+                observe: observe,
+                ...(localVarTransferCache !== undefined ? { transferCache: localVarTransferCache } : {}),
+                reportProgress: reportProgress
+            }
+        );
+    }
+
+    /**
+     * A finding\&#39;s remediation suggestion, if one exists
+     * FR-018, FR-019. Any role may view. No suggestion yet is a normal 200 with empty fields, not a 404 -- only a missing finding is a 404.
+     * @endpoint get /findings/{finding_id}/suggestion
+     * @param findingId 
+     * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
+     * @param reportProgress flag to report request and response progress.
+     * @param options additional options
+     */
+    public getFindingSuggestion(findingId: string, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<RemediationSuggestion>;
+    public getFindingSuggestion(findingId: string, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<RemediationSuggestion>>;
+    public getFindingSuggestion(findingId: string, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<RemediationSuggestion>>;
+    public getFindingSuggestion(findingId: string, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
+        if (findingId === null || findingId === undefined) {
+            throw new Error('Required parameter findingId was null or undefined when calling getFindingSuggestion.');
+        }
+
+        let localVarHeaders = this.defaultHeaders;
+
+        // authentication (cognitoJwt) required
+        localVarHeaders = this.configuration.addCredentialToHeaders('cognitoJwt', 'Authorization', localVarHeaders, 'Bearer ');
+
+        const localVarHttpHeaderAcceptSelected: string | undefined = options?.httpHeaderAccept ?? this.configuration.selectHeaderAccept([
+            'application/json'
+        ]);
+        if (localVarHttpHeaderAcceptSelected !== undefined) {
+            localVarHeaders = localVarHeaders.set('Accept', localVarHttpHeaderAcceptSelected);
+        }
+
+        const localVarHttpContext: HttpContext = options?.context ?? new HttpContext();
+
+        const localVarTransferCache: boolean = options?.transferCache ?? true;
+
+
+        let responseType_: 'text' | 'json' | 'blob' = 'json';
+        if (localVarHttpHeaderAcceptSelected) {
+            if (localVarHttpHeaderAcceptSelected.startsWith('text')) {
+                responseType_ = 'text';
+            } else if (this.configuration.isJsonMime(localVarHttpHeaderAcceptSelected)) {
+                responseType_ = 'json';
+            } else {
+                responseType_ = 'blob';
+            }
+        }
+
+        let localVarPath = `/findings/${this.configuration.encodeParam({name: "findingId", value: findingId, in: "path", style: "simple", explode: false, dataType: "string", dataFormat: "uuid"})}/suggestion`;
+        const { basePath, withCredentials } = this.configuration;
+        return this.httpClient.request<RemediationSuggestion>('get', `${basePath}${localVarPath}`,
+            {
+                context: localVarHttpContext,
+                responseType: <any>responseType_,
+                ...(withCredentials ? { withCredentials } : {}),
+                headers: localVarHeaders,
+                observe: observe,
+                ...(localVarTransferCache !== undefined ? { transferCache: localVarTransferCache } : {}),
+                reportProgress: reportProgress
+            }
+        );
     }
 
     /**
@@ -123,6 +249,80 @@ export class FindingsService extends BaseService implements FindingsServiceInter
             {
                 context: localVarHttpContext,
                 params: localVarQueryParameters.toHttpParams(),
+                responseType: <any>responseType_,
+                ...(withCredentials ? { withCredentials } : {}),
+                headers: localVarHeaders,
+                observe: observe,
+                ...(localVarTransferCache !== undefined ? { transferCache: localVarTransferCache } : {}),
+                reportProgress: reportProgress
+            }
+        );
+    }
+
+    /**
+     * Attach a demo/QA test suggestion to a finding
+     * FR-020a, FR-028a. Admin only. Always writes &#x60;source&#x3D;admin_seeded&#x60; -- there is no parameter here that can produce &#x60;ai_generated&#x60;.
+     * @endpoint put /findings/{finding_id}/suggestion
+     * @param findingId 
+     * @param remediationSuggestionSeed 
+     * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
+     * @param reportProgress flag to report request and response progress.
+     * @param options additional options
+     */
+    public setFindingSuggestionSeed(findingId: string, remediationSuggestionSeed: RemediationSuggestionSeed, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<RemediationSuggestion>;
+    public setFindingSuggestionSeed(findingId: string, remediationSuggestionSeed: RemediationSuggestionSeed, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<RemediationSuggestion>>;
+    public setFindingSuggestionSeed(findingId: string, remediationSuggestionSeed: RemediationSuggestionSeed, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<RemediationSuggestion>>;
+    public setFindingSuggestionSeed(findingId: string, remediationSuggestionSeed: RemediationSuggestionSeed, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
+        if (findingId === null || findingId === undefined) {
+            throw new Error('Required parameter findingId was null or undefined when calling setFindingSuggestionSeed.');
+        }
+        if (remediationSuggestionSeed === null || remediationSuggestionSeed === undefined) {
+            throw new Error('Required parameter remediationSuggestionSeed was null or undefined when calling setFindingSuggestionSeed.');
+        }
+
+        let localVarHeaders = this.defaultHeaders;
+
+        // authentication (cognitoJwt) required
+        localVarHeaders = this.configuration.addCredentialToHeaders('cognitoJwt', 'Authorization', localVarHeaders, 'Bearer ');
+
+        const localVarHttpHeaderAcceptSelected: string | undefined = options?.httpHeaderAccept ?? this.configuration.selectHeaderAccept([
+            'application/json'
+        ]);
+        if (localVarHttpHeaderAcceptSelected !== undefined) {
+            localVarHeaders = localVarHeaders.set('Accept', localVarHttpHeaderAcceptSelected);
+        }
+
+        const localVarHttpContext: HttpContext = options?.context ?? new HttpContext();
+
+        const localVarTransferCache: boolean = options?.transferCache ?? true;
+
+
+        // to determine the Content-Type header
+        const consumes: string[] = [
+            'application/json'
+        ];
+        const httpContentTypeSelected: string | undefined = this.configuration.selectHeaderContentType(consumes);
+        if (httpContentTypeSelected !== undefined) {
+            localVarHeaders = localVarHeaders.set('Content-Type', httpContentTypeSelected);
+        }
+
+        let responseType_: 'text' | 'json' | 'blob' = 'json';
+        if (localVarHttpHeaderAcceptSelected) {
+            if (localVarHttpHeaderAcceptSelected.startsWith('text')) {
+                responseType_ = 'text';
+            } else if (this.configuration.isJsonMime(localVarHttpHeaderAcceptSelected)) {
+                responseType_ = 'json';
+            } else {
+                responseType_ = 'blob';
+            }
+        }
+
+        let localVarPath = `/findings/${this.configuration.encodeParam({name: "findingId", value: findingId, in: "path", style: "simple", explode: false, dataType: "string", dataFormat: "uuid"})}/suggestion`;
+        const { basePath, withCredentials } = this.configuration;
+        return this.httpClient.request<RemediationSuggestion>('put', `${basePath}${localVarPath}`,
+            {
+                context: localVarHttpContext,
+                body: remediationSuggestionSeed,
                 responseType: <any>responseType_,
                 ...(withCredentials ? { withCredentials } : {}),
                 headers: localVarHeaders,

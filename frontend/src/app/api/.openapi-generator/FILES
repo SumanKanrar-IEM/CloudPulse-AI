@@ -35,6 +35,7 @@ model/error-body.ts
 model/error-detail.ts
 model/error-envelope.ts
 model/external-id-response.ts
+model/finding-acknowledgment.ts
 model/finding-status.ts
 model/finding.ts
 model/findings-list.ts
@@ -47,6 +48,8 @@ model/owner-identity-override-body.ts
 model/owner-identity-overrides-list.ts
 model/owner-identity-pattern-body.ts
 model/ownership-evidence.ts
+model/remediation-suggestion-seed.ts
+model/remediation-suggestion.ts
 model/resource-detail.ts
 model/resource-ownership.ts
 model/resource-summary.ts

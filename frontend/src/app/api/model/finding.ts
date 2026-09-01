@@ -19,5 +19,7 @@ export interface Finding {
     status: string;
     openedAt: string;
     resolvedAt?: string | null;
+    acknowledgedAt?: string | null;
+    acknowledgedBy?: string | null;
 }
 

@@ -41,6 +41,14 @@ export const routes: Routes = [
       ),
   },
   {
+    path: 'findings',
+    canActivate: [authGuard, roleGuard('admin', 'operator', 'viewer')],
+    loadComponent: () =>
+      import('./features/findings/findings-workbench.component').then(
+        (m) => m.FindingsWorkbenchComponent,
+      ),
+  },
+  {
     path: 'accounts',
     canActivate: [authGuard, roleGuard('admin', 'operator', 'viewer')],
     loadComponent: () =>

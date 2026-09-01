@@ -86,6 +86,21 @@ class OwnerConfidence(StrEnum):
     LOW = "low"
 
 
+class SuggestionSource(StrEnum):
+    """A remediation suggestion's provenance (spec 004, FR-018/FR-020a).
+
+    `ADMIN_SEEDED` is deliberately the only value `PUT
+    /findings/{id}/suggestion` (admin-only) can ever write -- the endpoint has
+    no path to writing `AI_GENERATED`, so a seeded suggestion can never be
+    mistaken for a genuine platform recommendation at the write layer, not
+    merely trusted to stay accurate at display time. `AI_GENERATED` is
+    reserved for the AI-insights capability (a later spec) to write.
+    """
+
+    AI_GENERATED = "ai_generated"
+    ADMIN_SEEDED = "admin_seeded"
+
+
 # name -> members, consumed by migration 0001 so the two cannot drift.
 ENUM_TYPES: dict[str, type[StrEnum]] = {
     "tenant_status": TenantStatus,

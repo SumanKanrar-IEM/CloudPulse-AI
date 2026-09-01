@@ -907,6 +907,170 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /findings/{finding_id}/acknowledge:
+    post:
+      tags:
+      - findings
+      summary: Acknowledge an open finding
+      description: 'FR-015-FR-017, FR-020, FR-028. Admin or operator only. Never touches
+
+        `status` or any compliance score (FR-017). Idempotent: the `WHERE
+
+        acknowledged_at IS NULL` guard means a near-simultaneous second attempt
+
+        updates nothing rather than racing or duplicating (data-model.md).'
+      operationId: acknowledgeFinding
+      parameters:
+      - name: finding_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Finding Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FindingAcknowledgment'
+        '401':
+          description: No valid identity presented.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Valid identity, but the caller's role does not permit the action
+            -- or the caller maps to zero or multiple directory groups and therefore
+            has no resolvable role (FR-032a, FR-034).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '404':
+          description: Target record does not exist, or the caller is not entitled
+            to know that it does.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /findings/{finding_id}/suggestion:
+    get:
+      tags:
+      - findings
+      summary: A finding's remediation suggestion, if one exists
+      description: 'FR-018, FR-019. Any role may view. No suggestion yet is a normal
+        200
+
+        with empty fields, not a 404 -- only a missing finding is a 404.'
+      operationId: getFindingSuggestion
+      parameters:
+      - name: finding_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Finding Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RemediationSuggestion'
+        '401':
+          description: No valid identity presented.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Valid identity, but the caller's role does not permit the action
+            -- or the caller maps to zero or multiple directory groups and therefore
+            has no resolvable role (FR-032a, FR-034).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '404':
+          description: Target record does not exist, or the caller is not entitled
+            to know that it does.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    put:
+      tags:
+      - findings
+      summary: Attach a demo/QA test suggestion to a finding
+      description: 'FR-020a, FR-028a. Admin only. Always writes `source=admin_seeded`
+        --
+
+        there is no parameter here that can produce `ai_generated`.'
+      operationId: setFindingSuggestionSeed
+      parameters:
+      - name: finding_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Finding Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RemediationSuggestionSeed'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RemediationSuggestion'
+        '401':
+          description: No valid identity presented.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Valid identity, but the caller's role does not permit the action
+            -- or the caller maps to zero or multiple directory groups and therefore
+            has no resolvable role (FR-032a, FR-034).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '404':
+          description: Target record does not exist, or the caller is not entitled
+            to know that it does.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /resources:
     get:
       tags:
@@ -1647,6 +1811,17 @@ components:
             format: date-time
           - type: 'null'
           title: Resolvedat
+        acknowledgedAt:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Acknowledgedat
+        acknowledgedBy:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Acknowledgedby
       type: object
       required:
       - id
@@ -1657,6 +1832,24 @@ components:
       - status
       - openedAt
       title: Finding
+    FindingAcknowledgment:
+      properties:
+        findingId:
+          type: string
+          title: Findingid
+        acknowledgedAt:
+          type: string
+          format: date-time
+          title: Acknowledgedat
+        acknowledgedBy:
+          type: string
+          title: Acknowledgedby
+      type: object
+      required:
+      - findingId
+      - acknowledgedAt
+      - acknowledgedBy
+      title: FindingAcknowledgment
     FindingStatus:
       type: string
       enum:
@@ -1818,6 +2011,43 @@ components:
       required:
       - kind
       title: OwnershipEvidence
+    RemediationSuggestion:
+      properties:
+        findingId:
+          type: string
+          title: Findingid
+        suggestionText:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Suggestiontext
+        blastRadiusNote:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Blastradiusnote
+        source:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Source
+      type: object
+      required:
+      - findingId
+      title: RemediationSuggestion
+    RemediationSuggestionSeed:
+      properties:
+        suggestionText:
+          type: string
+          title: Suggestiontext
+        blastRadiusNote:
+          type: string
+          title: Blastradiusnote
+      type: object
+      required:
+      - suggestionText
+      - blastRadiusNote
+      title: RemediationSuggestionSeed
     ResourceDetail:
       properties:
         id:
