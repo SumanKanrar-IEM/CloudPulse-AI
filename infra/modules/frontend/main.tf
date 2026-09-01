@@ -20,6 +20,11 @@ locals {
 
 resource "aws_s3_bucket" "origin" {
   bucket = "${local.name}-frontend-${var.account_id}"
+
+  # dev: teardown must clear a bucket that always holds a deployed build, or
+  # `terraform destroy` fails with BucketNotEmpty on this resource every time.
+  # prod: never auto-empty a bucket serving live traffic.
+  force_destroy = var.environment != "prod"
 }
 
 resource "aws_s3_bucket_public_access_block" "origin" {
