@@ -226,22 +226,35 @@ corresponding API response exactly.
 
 ### Tests for User Story 2
 
-- [ ] T011 [P] [US2] Write `frontend/e2e/compliance-overview.spec.ts` — mocked `compliance-score`
+- [X] T011 [P] [US2] Write `frontend/e2e/compliance-overview.spec.ts` — mocked `compliance-score`
       and `findings` API responses (route interception, matching `sdas.spec.ts`'s established
       pattern): overall and per-account scores match the mocked response exactly (Acceptance
       Scenario US2.1, FR-006); findings-by-type/severity counts sum to the mocked total (Acceptance
       Scenario US2.2, FR-007); an account with no completed scan shows the "not yet scanned" state,
       not a zero score or an error (Acceptance Scenario US2.3, FR-009) — S28, FR-006–FR-009,
       SC-004
+      **Done**: 4/4 passing. One test-locator bug fixed (`getByText('70%')` matched both the score
+      card and a table cell -- scoped to `.score-card .score`). One real service bug found by the
+      zero-accounts test, not by inspection: `OverviewService.refresh()` unconditionally called
+      `listFindings` even with zero accounts, so an unmocked/failing call in that scenario masked
+      the empty state behind an error -- fixed by skipping the findings fetch when there are no
+      accounts.
 
 ### Implementation for User Story 2
 
-- [ ] T012 [US2] Write `frontend/src/app/features/overview/compliance-overview.component.ts` —
+- [X] T012 [US2] Write `frontend/src/app/features/overview/compliance-overview.component.ts` —
       score cards, `ng2-charts` findings-by-type/severity charts, per-account summary table
       (account identity, score, resource count, open-finding count, FR-008); loading, empty
       ("not yet scanned"), and error states — S28, FR-006–FR-009
-- [ ] T013 [US2] Wire the `/overview` route into `app.config.ts` as the default landing route after
+      **Done**: new `overview.service.ts` wraps the generated Accounts/Compliance/Findings clients
+      (Principle V pattern, matching `accounts.service.ts`). "Overall" score is a sum of the
+      per-account `compliantCount`/`totalCount` values the API already returned, never an
+      independently invented formula (FR-006, SC-004). `provideCharts(withDefaultRegisterables())`
+      added to `app.config.ts` (ng2-charts was already an installed dependency, per plan.md — this
+      is the first component to actually use it).
+- [X] T013 [US2] Wire the `/overview` route into `app.config.ts` as the default landing route after
       sign-in — S28, FR-006
+      **Done**: `{ path: '', pathMatch: 'full', redirectTo: 'overview' }`.
 
 **Checkpoint**: A signed-in person lands on a real compliance overview. Inventory, findings, and
 scan operations remain unreachable placeholders.
