@@ -219,3 +219,39 @@ output against the value the frontend was actually constructing a URL from surfa
 `data "aws_region" "current"` lookup matching the exact pattern `scan`/`governance`/`network`/`api`
 modules already use for the same need. Every consumer of the output needed no change; they already
 expected a directly-usable host, which is what the contract should have been from the start.
+
+## R-409 — Found live, T032 (continued): every authenticated API call was one CORS preflight away from failing, platform-wide
+
+**What was wrong**: after R-408's fix, the Hosted UI redirect and real login worked, but the
+callback screen showed "Sign-in failed." A raw browser console error named the cause directly: a
+CORS preflight failure on `GET /me`. `infra/modules/api/main.tf`'s `aws_apigatewayv2_route.default`
+covers every path (`route_key = "$default"`, its own comment: "Everything else... falls through to
+this route") and has the Cognito custom authorizer attached. API Gateway's `cors_configuration`
+block decorates every response — including this one — with the right CORS headers, but does not
+short-circuit the OPTIONS preflight itself when the matching route requires custom authorization;
+the request is proxied through to the Lambda regardless, where Starlette has no `OPTIONS` handler
+registered on any route and returns 405. A browser rejects any preflight whose response status
+isn't 2xx, independent of which headers are attached to it — so every authenticated request this
+platform's frontend (or any future spec's) ever makes was one browser-enforced CORS check away
+from failing, not only `/me`. This predates spec 004 (`app/api/main.py` and the API Gateway module
+are both spec 001's), invisible for the same reason R-408 was: no prior session completed a real
+browser sign-in, which is the first (and, for a viewer role, only) authenticated call the frontend
+makes.
+
+**How it was found**: not by inspection. The browser's own console error named the failing request
+and the reason (`read_console_messages`, not read_network_requests's status codes alone, which
+don't surface the browser's CORS verdict). A direct `curl -X OPTIONS` against the real deployed
+`/me` endpoint reproduced it outside the browser and showed the actual response: HTTP 405, with
+correct `access-control-allow-*` headers already present — proving the fault was the status code
+API Gateway's CORS decoration doesn't fix, not a missing-header problem a header tweak would
+resolve.
+
+**Fix**: `fastapi.middleware.cors.CORSMiddleware`, added in `app/api/main.py`'s `create_app()` when
+a new `CLOUDPULSE_FRONTEND_URL` Lambda environment variable is set (`infra/modules/api/main.tf`,
+sourced from the same `var.allowed_origins[0]` value `cors_configuration` already restricts to —
+one source of truth, not two). Answers the preflight directly, before the request would otherwise
+reach a route or the authorizer. Read via `os.environ` rather than the app's `get_settings()`:
+several existing unit tests construct `create_app()` with no database/Cognito environment
+configured, and the first draft routed the check through the full `Settings` model, which forced
+every one of those tests to fail validation on unrelated required fields — caught by running the
+full suite, not assumed safe.

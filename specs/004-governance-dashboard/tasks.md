@@ -526,6 +526,32 @@ this phase, before starting Phase 8.
       already expected to consume a directly-usable host. This is spec 001's bug, not spec 004's,
       but T032 is where it was found and where the honest record belongs — S27, spec 001 FR-001,
       research.md (new note, spec 004's own R-408)
+      **T032c — a third real bug, found continuing V1 after T032b's redeploy**: the Hosted UI
+      redirect and real sign-in itself now worked (a genuine login form, real credentials
+      accepted), but the callback showed "Sign-in failed." The browser console showed the actual
+      cause directly, not guessed: a CORS preflight failure on `GET /me` -- "Response to preflight
+      request doesn't pass access control check: It does not have HTTP ok status." A direct `curl
+      -X OPTIONS` against `/me` confirmed it: API Gateway's `cors_configuration` decorates *every*
+      response, including this one, with correct CORS headers -- but the response itself was a 405
+      from the FastAPI app, because the `$default` route (every path, per its own comment) has a
+      custom authorizer attached, so the preflight is proxied through to the Lambda rather than
+      short-circuited by API Gateway, and Starlette has no `OPTIONS` handler registered on any
+      route. A 405 preflight fails browser CORS regardless of which headers are attached to it --
+      this is the same class of platform-wide bug as T032b, affecting every authenticated request
+      the dashboard (or any future spec's frontend) will ever make, not just `/me`. Fixed with
+      `fastapi.middleware.cors.CORSMiddleware`, added in `app/api/main.py` when
+      `CLOUDPULSE_FRONTEND_URL` is set (new Lambda env var, `infra/modules/api/main.tf`, reusing
+      `var.allowed_origins[0]` -- the exact value `cors_configuration` already restricts to, not a
+      second source of truth). Read directly via `os.environ`, not `get_settings()`: several unit
+      tests construct `create_app()` with no database/Cognito environment configured at all, and
+      routing the CORS check through the full `Settings` model would have forced every one of them
+      to fully configure an environment they don't otherwise need -- caught by running the full
+      suite after the first draft, which failed six tests on `Settings` validation errors it hadn't
+      before. 3 new tests (`test_cors_preflight.py`): preflight succeeds from the configured
+      origin, is refused from an unconfigured one, and (documenting the pre-fix baseline) no CORS
+      handling is added at all when `CLOUDPULSE_FRONTEND_URL` is unset. Full backend suite re-run
+      clean — S27, spec 001 FR-047 (as amended -- FR-047 already required this; it was simply
+      unmet), research.md (new note, spec 004's own R-409)
 - [ ] T033 **Teardown and cost sweep**, immediately following T032, never separated from it by
       other work: run the full playbook §0.5.3 sweep. Research.md R-406 states this spec adds zero
       new billable AWS resources, so there is no spec-004-specific sweep addition the way R-306
