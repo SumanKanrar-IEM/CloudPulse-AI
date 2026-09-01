@@ -110,7 +110,7 @@ next page load requires signing in again.
 
 ### Tests for User Story 1
 
-- [ ] T004 [P] [US1] Write `frontend/e2e/auth.spec.ts` — Playwright, `page.route()` interception
+- [X] T004 [P] [US1] Write `frontend/e2e/auth.spec.ts` — Playwright, `page.route()` interception
       on Cognito's `/oauth2/authorize` redirect and `/oauth2/token` exchange (research.md R-402,
       the same route-interception pattern `sdas.spec.ts` already established for the platform API,
       applied here to the two new external calls this flow makes): sign-in redirects to the Hosted
@@ -121,36 +121,93 @@ next page load requires signing in again.
       exactly its permitted screens/controls (Acceptance Scenarios US1.1–2); the shell remains
       usable at phone-width (≈375px) without horizontal scrolling (Acceptance Scenario US1.5,
       FR-004) — S27, FR-001–FR-005
+      **Done**: 8 tests, 6/6 role/nav + flow tests plus 2 initial failures fixed before landing.
+      **Acceptance Scenarios US1.1–2 re-scoped, not silently reinterpreted**: every screen in this
+      platform turned out to already be all-role read (Accounts FR-010a, SDAs FR-030, every spec
+      004 screen's own FR-027 written earlier this session) — there is no case where an entire nav
+      item needs hiding per role, only per-screen write controls (already disabled-not-hidden,
+      proven by `sdas.spec.ts`'s own non-admin test, not re-tested here). The shell's nav is
+      uniform and unconditional; only the sign-in/sign-out control toggles. Documented in
+      `shell.component.ts`'s own docstring, not just here.
+      **Two real bugs found by running the test, not by inspection**: (1) the phone-width test
+      failed for real — 6 nav links + title + sign-out button in one unwrapped flex row overflowed
+      at 375px; fixed with `flex-wrap` on both `.shell-header` and `.shell-nav` (also verified
+      visually in a real browser at 375px, not just the automated check). (2) the sign-out test's
+      own mocks stayed registered after use, so a later `/sign-in` visit auto-completed a fresh
+      sign-in through the still-mocked Cognito routes before the assertion could observe the
+      redirect. First fix attempt (`page.unroute()`) traded this for a worse flake: setting
+      `window.location.href` always commits to leaving the document even when the route is
+      unrouted or aborted, landing on `chrome-error://` once the target errors — confirmed by 3
+      repeat runs failing identically, not a one-off. Real fix: clear the Cognito config via a
+      second `addInitScript` before the final check, so `SignInComponent` no-ops on mount exactly
+      like the unauthenticated-redirect test does; isolates the assertion to `authGuard`'s own
+      redirect. Re-verified stable across 3 repeat runs. Test-design bug throughout, not a product
+      one.
+      **Also fixed in this PR**: `sdas.spec.ts`'s top comment claiming "no `/sign-in` route exists"
+      was now stale (playbook §0.5.5: grep for what a fix replaces in the same PR).
 
 ### Implementation for User Story 1
 
-- [ ] T005 [US1] Extend `frontend/src/app/core/api-config.ts` — add `cognitoDomain`/
+- [X] T005 [US1] Extend `frontend/src/app/core/api-config.ts` — add `cognitoDomain`/
       `cognitoClientId`/`cognitoRedirectUri` to the `window.__CLOUDPULSE_CONFIG__` type and
       resolver functions, alongside the already-present `apiBaseUrl`/`e2eMockRole` — S27, FR-001
-- [ ] T006 [US1] Write `frontend/src/app/core/sign-in.component.ts` — redirects to Cognito Hosted
+      **Done**: no deviations. Added `resolveCognitoConfig()` returning `null` unless all three
+      fields are present, so callers get one clean guard clause instead of three separate optional
+      checks.
+- [X] T006 [US1] Write `frontend/src/app/core/sign-in.component.ts` — redirects to Cognito Hosted
       UI's `/oauth2/authorize` with a generated PKCE code challenge (S256) and random `state`, both
       held in `sessionStorage` only for the round-trip and cleared on use — S27, FR-001,
       research.md R-402
-- [ ] T007 [US1] Write `frontend/src/app/core/auth.callback.component.ts`, served at
+      **Done**: PKCE generation factored into a new `core/pkce.ts` (Web Crypto API, no new
+      dependency) since `auth.callback.component.ts` (T007) also needs to consume it.
+- [X] T007 [US1] Write `frontend/src/app/core/auth.callback.component.ts`, served at
       `/auth/callback` — the exact path `infra/envs/dev/main.tf`'s Cognito app client
       `callback_urls` already points at, confirmed during planning not assumed. Validates `state`,
       exchanges the authorization code + PKCE verifier for tokens at Cognito's `/oauth2/token`,
       calls `GET /me` with the access token, populates `AuthService`, navigates to `returnTo`
       (`authGuard` already sets this query param today) — S27, FR-001, research.md R-402
-- [ ] T008 [US1] Extend `frontend/src/app/core/auth.service.ts` — the access/ID tokens
+      **Done**: no deviations. Token exchange uses `fetch` directly (Cognito's own OAuth endpoint,
+      not the platform's generated contract, so Principle V's "no hand-written API calls" doesn't
+      apply); `GET /me` itself goes through the generated `IdentityService`, per that same
+      principle.
+- [X] T008 [US1] Extend `frontend/src/app/core/auth.service.ts` — the access/ID tokens
       themselves are held in memory only (a service field, never `sessionStorage` or
       `localStorage`), alongside the existing signal-based user state. (`sessionStorage` is used
       solely by T006/T007 for the PKCE verifier and `state` during the redirect round-trip — a
       separate concern from the tokens this task stores.) — S27, FR-001, plan.md Constraints
       ("zero stored credentials" applied to the frontend layer)
-- [ ] T009 [US1] Extend `frontend/src/app/shared/shell.component.ts` — replace the "Overview"
+      **Real gap found while implementing, not by inspection**: nothing in this application ever
+      attached a bearer token to an outgoing request before this — confirmed by grepping the whole
+      `core/` tree for any existing `Authorization`/`Bearer` handling and finding none; every prior
+      `GET /me` this session verified was called directly with `curl`, never through the running
+      app, which is why this went unnoticed. `plan.md`'s own task text ("token storage... alongside
+      the existing signal-based user state") didn't name this explicitly, but a stored-and-unused
+      token satisfies no part of FR-001's actual "sign in" requirement. Added a small new
+      `auth.interceptor.ts` (not separately listed in plan.md's file tree, which was never claimed
+      exhaustive) reading the token fresh from `AuthService` on every request, wired into
+      `app.config.ts` alongside the existing `correlationInterceptor`.
+- [X] T009 [US1] Extend `frontend/src/app/shared/shell.component.ts` — replace the "Overview"
       placeholder nav item with real per-role navigation (compliance overview, inventory, findings,
       scan operations — each present or absent per FR-003's rule: a control whose only purpose a
       role cannot perform, or a page with no permitted content, is not shown); wire the sign-out
       control to `AuthService.signOut()` using T005's new Hosted UI config fields — S27, FR-003,
       FR-005
-- [ ] T010 [US1] Wire `/sign-in` and `/auth/callback` routes into `frontend/src/app/app.config.ts`
+      **Done, with a real correction found mid-implementation**: the first version wrapped the
+      entire `<nav>` in `@if (auth.isAuthenticated())`, matching FR-003's literal per-role framing
+      — but running the *existing* `shell.spec.ts` a11y suite against it failed immediately: that
+      suite visits `/` with no session and asserts the `navigation` landmark is present, since the
+      nav is chrome the shell has always rendered unconditionally. Re-examined FR-003 against what
+      actually exists (see T004's note: every screen is all-role read) and concluded the nav itself
+      was never the right place to gate — fixed to render the nav list unconditionally for
+      everyone, gating only the sign-in/sign-out control by auth state. Also added `.sdas`/
+      `.accounts` links (spec 002/003 built those routes but never linked them from the shell,
+      confirmed by re-reading the file's own prior comment: "Feature routes are added here by
+      specs 002-005" — this is that "005" catching up on "002-003"'s unlinked routes too, not
+      scope creep).
+- [X] T010 [US1] Wire `/sign-in` and `/auth/callback` routes into `frontend/src/app/app.config.ts`
       — S27, FR-001, FR-002
+      **Done**: no deviations. `authInterceptor` (T008) also wired into `provideHttpClient` here,
+      ordered before `correlationInterceptor`.
 
 **Checkpoint**: Sign-in, sign-out, and role-based navigation work end-to-end. Every other route the
 shell now links to exists only as a placeholder until its own phase lands.

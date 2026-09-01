@@ -3,13 +3,24 @@ import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { provideRouter, Routes } from '@angular/router';
 import { provideApi } from './api/provide-api';
 import { correlationInterceptor } from './core/correlation.interceptor';
+import { authInterceptor } from './core/auth.interceptor';
 import { resolveApiBaseUrl, resolveE2eMockRole } from './core/api-config';
 import { authGuard, roleGuard } from './core/auth.guard';
 import { AuthService } from './core/auth.service';
 
-// Feature routes: accounts (spec 002), sdas (spec 003). Later specs (004-005) add
-// their own below.
+// Feature routes: accounts (spec 002), sdas (spec 003), overview/inventory/findings/
+// scans (spec 004). sign-in/auth/callback (spec 004) are the two unauthenticated
+// routes everything else depends on reaching.
 export const routes: Routes = [
+  {
+    path: 'sign-in',
+    loadComponent: () => import('./core/sign-in.component').then((m) => m.SignInComponent),
+  },
+  {
+    path: 'auth/callback',
+    loadComponent: () =>
+      import('./core/auth.callback.component').then((m) => m.AuthCallbackComponent),
+  },
   {
     path: 'accounts',
     canActivate: [authGuard, roleGuard('admin', 'operator', 'viewer')],
@@ -28,7 +39,7 @@ export const appConfig: ApplicationConfig = {
   providers: [
     provideZoneChangeDetection({ eventCoalescing: true }),
     provideRouter(routes),
-    provideHttpClient(withInterceptors([correlationInterceptor])),
+    provideHttpClient(withInterceptors([authInterceptor, correlationInterceptor])),
     provideApi(resolveApiBaseUrl()),
     {
       // Test-only (spec 003, T034): seeds a fake session before routing

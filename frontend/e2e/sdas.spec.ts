@@ -3,11 +3,13 @@ import { test, expect, Page } from '@playwright/test';
 /**
  * SDA admin screen, functional (spec 003, T034, S18b, FR-007-FR-010b).
  *
- * There is no way to reach an authenticated route in this repo yet -- no
- * `/sign-in` route exists (spec 001/002 never implemented one) and there is
- * no mock-auth mechanism until this task added one. `window.__CLOUDPULSE_
- * CONFIG__.e2eMockRole` (api-config.ts) seeds a fake session at app boot,
- * test-only, so this suite can exercise the guarded `/sdas` route at all.
+ * A real `/sign-in` route now exists (spec 004), but this suite still uses
+ * `window.__CLOUDPULSE_CONFIG__.e2eMockRole` (api-config.ts) to seed a fake
+ * session at app boot rather than exercising it -- the real flow redirects
+ * to an external Cognito Hosted UI page this suite has no reason to depend
+ * on for a test that is really about the SDA screen, not sign-in itself
+ * (`auth.spec.ts` is where the real flow is exercised, via route
+ * interception rather than a live Cognito dependency, research.md R-402).
  *
  * The backend is not running in this suite (`playwright.config.ts`'s
  * `webServer` starts only the Angular dev server) -- every request is
