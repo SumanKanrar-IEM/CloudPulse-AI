@@ -1,28 +1,31 @@
 /**
- * Resolves the API's base URL at runtime (spec 002).
+ * Resolves the API's base URL and Cognito Hosted UI parameters at runtime (spec 002,
+ * extended spec 004 -- research.md R-401).
  *
  * There is deliberately no build-time environment file here. The frontend
  * (CloudFront/S3) and the API (API Gateway) are separate origins with no proxy
  * between them (infra/modules/frontend has no API behavior), and the deploy
- * pipeline currently builds the frontend *before* `terraform apply` runs -- the API
- * Gateway URL is not yet known at `npm run build` time (see deploy-dev.yml/
- * deploy-prod.yml). A build-time Angular environment file cannot be correctly
- * populated under that ordering without reordering the pipeline.
+ * pipeline builds the frontend *before* `terraform apply` runs -- the API Gateway
+ * URL and the Cognito app client's own id/domain are not yet known at `npm run
+ * build` time. A build-time Angular environment file cannot be correctly populated
+ * under that ordering without reordering the pipeline.
  *
- * This reads a small runtime config object instead, so the seam a future deploy-time
- * fix plugs into already exists: `window.__CLOUDPULSE_CONFIG__`, populated by a
- * script tag a deploy step could inject into `index.html` (or upload as a sibling
- * JSON file) *after* the API URL is known. Until that deploy-side piece exists, this
- * resolves to `''` (relative/same-origin) -- correct for local development against a
- * dev-server proxy, not yet correct for a real CloudFront deployment. Flagged to the
- * user rather than guessed at, since it needs a CI/CD pipeline decision this session
- * did not make unilaterally.
+ * This reads a small runtime config object instead: `window.__CLOUDPULSE_CONFIG__`,
+ * injected into `index.html` by `deploy-dev.yml`/`deploy-prod.yml` after the real
+ * values are known (spec 004, T003). Resolves to `''`/`undefined` outside a real
+ * deployment -- correct for local development against a dev-server proxy.
  */
 
 declare global {
   interface Window {
     __CLOUDPULSE_CONFIG__?: {
       apiBaseUrl?: string;
+      /** Cognito Hosted UI domain the sign-in flow redirects to (research.md R-402). */
+      cognitoDomain?: string;
+      /** The SPA's Cognito app client id (public, no secret -- PKCE covers this). */
+      cognitoClientId?: string;
+      /** Must exactly match the app client's configured `callback_urls` entry. */
+      cognitoRedirectUri?: string;
       /**
        * Test-only. Seeds `AuthService` with a fake session of this role,
        * bypassing the real `GET /me` call and the `authGuard` redirect to
@@ -45,6 +48,22 @@ declare global {
 
 export function resolveApiBaseUrl(): string {
   return (typeof window !== 'undefined' && window.__CLOUDPULSE_CONFIG__?.apiBaseUrl) || '';
+}
+
+export function resolveCognitoConfig(): {
+  domain: string;
+  clientId: string;
+  redirectUri: string;
+} | null {
+  const config = typeof window !== 'undefined' ? window.__CLOUDPULSE_CONFIG__ : undefined;
+  if (!config?.cognitoDomain || !config.cognitoClientId || !config.cognitoRedirectUri) {
+    return null;
+  }
+  return {
+    domain: config.cognitoDomain,
+    clientId: config.cognitoClientId,
+    redirectUri: config.cognitoRedirectUri,
+  };
 }
 
 export function resolveE2eMockRole(): 'admin' | 'operator' | 'viewer' | undefined {

@@ -18,10 +18,25 @@ export interface CurrentUser {
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   private readonly currentUser = signal<CurrentUser | null>(null);
+  // Governance dashboard (spec 004, plan.md Constraints): held in memory only, a
+  // plain field never a Web Storage API — `sessionStorage` is used elsewhere
+  // (pkce.ts) solely for the PKCE verifier/state during the redirect round-trip,
+  // a separate concern from the access token this field holds.
+  private accessTokenValue: string | null = null;
 
   readonly user = this.currentUser.asReadonly();
   readonly isAuthenticated = computed(() => this.currentUser() !== null);
   readonly role = computed(() => this.currentUser()?.role ?? null);
+
+  /** Read by `auth.interceptor.ts` to attach `Authorization: Bearer <token>`. */
+  accessToken(): string | null {
+    return this.accessTokenValue;
+  }
+
+  /** Set by `auth.callback.component.ts` once the Cognito token exchange completes. */
+  setAccessToken(token: string | null): void {
+    this.accessTokenValue = token;
+  }
 
   /**
    * Record the caller returned by `GET /me`.
@@ -43,6 +58,7 @@ export class AuthService {
    */
   signOut(hostedUiDomain: string, clientId: string, returnTo: string): void {
     this.currentUser.set(null);
+    this.accessTokenValue = null;
     window.location.href =
       `https://${hostedUiDomain}/logout` +
       `?client_id=${encodeURIComponent(clientId)}` +
