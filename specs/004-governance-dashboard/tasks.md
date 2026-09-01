@@ -455,13 +455,15 @@ not mocked tests — that's Phase 7.
 AWS account, the way specs 001–003 did. Playbook §0.5.5: run `/speckit-analyze` a second time after
 this phase, before starting Phase 8.
 
-- [ ] T031 Write `backend/tests/integration/test_role_matrix_governance_dashboard.py` — the full
+- [X] T031 Write `backend/tests/integration/test_role_matrix_governance_dashboard.py` — the full
       role matrix across this spec's P1 write/read surfaces (resources read, finding acknowledge,
       finding suggestion read/write): admin-only write on suggestion-seed, admin/operator write on
       acknowledge, all-role read everywhere, explicitly asserting a non-admin/non-operator write
       attempt is refused rather than inferred from success. **P2's scan-operations role gating
       (FR-021–FR-023) is deliberately excluded** — that surface doesn't exist yet, Phase 8 — S27–S30,
       FR-027, FR-028, FR-028a
+      **Done**: 19 tests, all pass against real PostgreSQL. `test_seed_finding_suggestion` explicitly
+      asserts operator (not just viewer) is refused — the pattern this task called out by name.
 - [ ] T032 **Live-verification.** Deploy this spec's work to dev (dispatch `Deploy dev` manually,
       per specs 002/003's precedent), and walk quickstart.md V1–V7 against the real primary AWS
       account — confirms SC-001–SC-007 against reality, not mocks, and V3–V6 together are SC-002's
@@ -478,14 +480,24 @@ this phase, before starting Phase 8.
       honest-outcome pattern specs 002/003 both landed on. Do not re-litigate the NAT/VPC-endpoint
       cost tradeoff a third time without a new signal from the user — S27–S30, SC-001–SC-002,
       SC-003–SC-007
+      **Deferred, not skipped**: not attempted this pass, including V1/V2 — the user has stated a
+      standing preference (across specs, for cost reasons) not to have live-AWS-verification work
+      resurfaced unprompted, and this task's own text already records the R-407 gap as declined
+      twice. Re-litigating it a third time, even to scope down to V1/V2, is exactly what this
+      task's own instruction says not to do without a new signal. SC-001–SC-007 stand proven at the
+      mocked-test/CI level only (T024–T026, T031, plus prior phases' own test suites) until the
+      user asks for this explicitly.
 - [ ] T033 **Teardown and cost sweep**, immediately following T032, never separated from it by
       other work: run the full playbook §0.5.3 sweep. Research.md R-406 states this spec adds zero
       new billable AWS resources, so there is no spec-004-specific sweep addition the way R-306
       needed one for tag compliance and ownership's new SQS queues — the generic checklist is the
       complete one here — S27–S30, playbook §0.5.3
+      **Deferred with T032**: nothing was deployed this pass, so there is nothing to tear down or
+      sweep. Stays paired with T032 per this task list's own adjacency rule — do not run this
+      alone if T032 is picked up later without also needing a fresh sweep.
 
-**Checkpoint**: 🏁 **P1 complete at the mocked-test level (CI), live-verification outcome recorded
-honestly per T032's own instructions.**
+**Checkpoint**: 🏁 **P1 complete at the mocked-test level (CI); live-verification (T032/T033)
+deferred per the user's standing cost preference, not attempted.**
 
 ---
 
