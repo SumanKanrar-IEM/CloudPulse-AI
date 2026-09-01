@@ -1,6 +1,7 @@
 import { APP_INITIALIZER, ApplicationConfig, provideZoneChangeDetection } from '@angular/core';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { provideRouter, Routes } from '@angular/router';
+import { provideCharts, withDefaultRegisterables } from 'ng2-charts';
 import { provideApi } from './api/provide-api';
 import { correlationInterceptor } from './core/correlation.interceptor';
 import { authInterceptor } from './core/auth.interceptor';
@@ -12,6 +13,16 @@ import { AuthService } from './core/auth.service';
 // scans (spec 004). sign-in/auth/callback (spec 004) are the two unauthenticated
 // routes everything else depends on reaching.
 export const routes: Routes = [
+  // FR-006 default landing route after sign-in.
+  { path: '', pathMatch: 'full', redirectTo: 'overview' },
+  {
+    path: 'overview',
+    canActivate: [authGuard, roleGuard('admin', 'operator', 'viewer')],
+    loadComponent: () =>
+      import('./features/overview/compliance-overview.component').then(
+        (m) => m.ComplianceOverviewComponent,
+      ),
+  },
   {
     path: 'sign-in',
     loadComponent: () => import('./core/sign-in.component').then((m) => m.SignInComponent),
@@ -41,6 +52,7 @@ export const appConfig: ApplicationConfig = {
     provideRouter(routes),
     provideHttpClient(withInterceptors([authInterceptor, correlationInterceptor])),
     provideApi(resolveApiBaseUrl()),
+    provideCharts(withDefaultRegisterables()),
     {
       // Test-only (spec 003, T034): seeds a fake session before routing
       // starts, when a Playwright test has set `window.__CLOUDPULSE_CONFIG__
