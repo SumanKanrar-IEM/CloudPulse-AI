@@ -54,18 +54,38 @@
 | Discovery | S11–S17, S47, **AI-planned whole-account coverage (new)** |
 | Compliance + SDA + ownership | S18, S18a, S18b, S19, S20, S21, S22, S23a |
 | Dashboard | S27–S31, S33 (S44 suggestions render on the findings page) |
-| Cost + utilization | S39–S42, S54–S56 |
+| Cost + utilization + notifications | S39–S42, S54–S56, S24, S25 |
 | AI insights (Amazon Bedrock Agents) | S43, S44, S50–S53, coverage advisor |
 
-**Out (do not let any spec re-import these):** S32, E6 Notification Engine (S24–S26) —
-intentional cut, findings visibility is dashboard-only; E8 remediation execution (S34–S38);
-S45, S46, S48, S49; S57–S63.
+**Corrected 2026-09-02**: E6 Notification Engine's email/cadence stories (S24, S25) were
+originally cut from MVP scope (see the superseded note below) but were specified, implemented
+against, and merged as a standalone `005-notification-engine` spec before this correction caught
+the scope mismatch against spec 5's actual backlog slot. Rather than reverting that work, S24/S25
+are folded into spec 5 — cost-and-utilization was always the actual spec 5 per §0.4 step 18, and
+findings-owner notification is a reasonable extension of "financial control + governance signal
+reaches a human," not an unrelated feature. `specs/005-notification-engine/` is removed by this
+same correction so spec numbering re-aligns: the next `/speckit-specify` run lands on
+`005-cost-and-utilization` as originally planned. The merged PR (#94) and its content remain in
+git history as the honest record of how this was actually built, per §0.1's judged-evidence rule.
+
+**Out (do not let any spec re-import these):** S26/S32 (notification bell/feed — still cut,
+in-app notifications are a distinct, later feature from the email/cadence now in spec 5); E8
+remediation execution (S34–S38); S45, S46, S48, S49; S57–S63.
+
+<details>
+<summary>Superseded (pre-2026-09-02): E6 Notification Engine was fully out</summary>
+
+> **Out (do not let any spec re-import these):** S32, E6 Notification Engine (S24–S26) —
+> intentional cut, findings visibility is dashboard-only; E8 remediation execution (S34–S38);
+> S45, S46, S48, S49; S57–S63.
+
+</details>
 
 **Priority tiers (baked into every spec):**
 - **P1 (demo-critical path):** onboard account → whole-account scan → findings + compliance
   score + ownership → dashboard (overview, inventory, findings) → Bedrock Agent digest +
-  remediation suggestions → basic cost view. Roughly: S1–S6, S8–S16, S18, S18a, S19–S21,
-  S27–S30, S39, S42, S43, S44.
+  remediation suggestions → basic cost view → owner notified by email. Roughly: S1–S6, S8–S16,
+  S18, S18a, S19–S21, S27–S30, S39, S42, S43, S44, S24, S25.
 - **P2 (stretch, never blocks P1):** S7, S17, S18b, S22, S23a, S31, S33, S40, S41, S47,
   S50–S56, coverage advisor.
 
@@ -133,7 +153,8 @@ read when authoring the next.
 16. Spec 3 P1 (S18, S18a, S19, S20, S21): rules, SDA registry, findings, score, ownership.
 17. Spec 4 P1 (S27–S30): dashboard shell, overview, inventory, findings workbench.
     → **Demo checkpoint 1:** onboard → scan → findings visible in the UI.
-18. Spec 5 P1 (S39, S42): spend ingestion + cost dashboard.
+18. Spec 5 P1 (S39, S42, S24, S25): spend ingestion + cost dashboard + owner email
+    notification with day-0/2/4 cadence.
 19. Spec 6 P1 (S43, S44): Bedrock Agent digest + remediation suggester on findings page.
     → **Demo checkpoint 2:** full P1 demo path walkable end-to-end.
     Each task slice: branch `pods/pod73-<task-id>-<slug>` → `/speckit-implement` (§9 input)
@@ -576,8 +597,9 @@ Functional scope (backlog S18, S18a, S18b, S19, S20, S21, S22, S23a):
 Success criteria: a rule edit changes findings on the next scan without redeploy; a fixed
 tag auto-closes its finding; compliance score matches a manual count; creator attribution
 succeeds for console-created test resources and the fallback chain is exercised by an
-IaC-created resource. Out of scope: notifying owners (cut from MVP — findings are visible
-on the dashboard only), remediation execution, AI suggestions (spec 6).
+IaC-created resource. Out of scope: notifying owners (spec 5 — findings are dashboard-visible
+here; email notification is a separate, later spec built on this one's owner-resolution chain),
+remediation execution, AI suggestions (spec 6).
 ```
 
 ### Spec 4 — governance-dashboard
@@ -615,19 +637,29 @@ agent chat interfaces.
 
 ```
 Add the financial-control dimension: what is each SDA/project spending, are budgets being
-respected, how well utilized are sandbox accounts, and where is IAM hygiene rotting.
+respected, how well utilized are sandbox accounts, where is IAM hygiene rotting — and make sure
+a human actually hears about it when a finding needs their attention, not just when they happen
+to look at the dashboard.
 
-Functional scope (backlog S39–S42, S54–S56):
+Functional scope (backlog S39–S42, S54–S56, S24, S25):
 - Spend ingestion (S39) [P1]: daily spend by project tag, account, and service (24h
   granularity) ingested into the governance store; totals match the cloud provider's cost
   console within ±1%.
 - Cost dashboard (S42) [P1]: spend by project/SDA/environment with trend charts, budget vs
   actual, and drill-down from org total to a single resource's spend.
+- Owner email notification (S24) [P1]: the owner of a resource with a newly-opened finding
+  (spec 3's finding lifecycle, spec 3's owner-email resolution chain) receives an email the
+  same day naming the resource, the violation, and a deep link into that finding's dashboard
+  detail (spec 4).
+- Notification cadence (S25) [P1]: a still-open finding gets reminder emails at day 2 and day
+  4, stopping the moment it's acknowledged, resolved, or suppressed; a finding still open after
+  its day-4 reminder is flagged escalated (visibility only — no automated escalation delivery,
+  that's a later release, S38) and visible as such on the dashboard.
 - Auto-budgets (S40) [P2]: a budget is auto-created per registered project (80%/100%
   actual + forecast alerts); a newly registered project has its budget within a day.
 - Overrun findings (S41) [P2]: budget overruns become findings in the standard findings
   pipeline with the same lifecycle (open/acknowledge/close), visible on the findings
-  workbench (no email — notifications are cut from MVP).
+  workbench and notified by the same S24/S25 email/cadence mechanism as any other finding.
 - Sandbox utilization (S54, S55) [P2]: utilization % (used vs provisioned) per account and
   project, with a documented formula matching manual calculation, and drill-down pages
   (account → project → resource) reachable in ≤3 clicks.
@@ -636,9 +668,12 @@ Functional scope (backlog S39–S42, S54–S56):
   false "unused" flags on active roles in the test account.
 
 Success criteria: spend reconciles within ±1%; an overrun surfaces as a finding within a
-day; utilization matches a hand calculation. Depends on: inventory (spec 2), findings
-pipeline + SDA registry (spec 3), dashboard shell (spec 4). Out of scope: rightsizing and
-forecasting (spec 6), cost-saving execution of any kind.
+day; utilization matches a hand calculation; an owner with a resolvable email is notified the
+same day a finding opens, and reminded at day 2/4 until it's acknowledged, resolved, or
+escalated. Depends on: inventory (spec 2), findings pipeline + SDA registry + owner-email
+resolution (spec 3), dashboard shell + findings detail deep-linking (spec 4). Out of scope:
+rightsizing and forecasting (spec 6), cost-saving execution of any kind, in-app notification
+bell/feed (S26/S32 — a distinct, later feature), automated escalation delivery (S38).
 ```
 
 ### Spec 6 — ai-insights-agent
@@ -691,7 +726,7 @@ from this decision log (already settled — don't re-open):
 
 | Likely question | Settled answer |
 |---|---|
-| Notification/email behavior? | Cut from MVP. Findings are dashboard-visible only. |
+| Notification/email behavior? | In scope via spec 5 (S24/S25): day-0 email + day-2/4 cadence per finding, stops on acknowledge/resolve/suppress. In-app bell/feed (S26) is still cut from MVP. |
 | Remediation execution? | Never in MVP. Suggestions only, rendered on findings page. |
 | Multi-cloud? | AWS only at runtime; connector interface must stay provider-agnostic. |
 | Tenancy? | Single internal tenant, but every entity carries tenant scoping for SaaS later. |
@@ -778,8 +813,9 @@ resource sweep in playbook §0.5.3, not just "terraform destroy exited 0."
 ```
 Generate a requirements-quality checklist for this spec focusing on: P1/P2 tier
 completeness, testability of every acceptance criterion, absence of out-of-scope leakage
-(notifications, remediation execution, non-AWS AI runtimes), and cross-spec contract
-consistency (connector interface, findings lifecycle, SDA grouping, agent tool surface).
+(email/cadence notifications outside spec 5, notification bell/feed in any spec, remediation
+execution, non-AWS AI runtimes), and cross-spec contract consistency (connector interface,
+findings lifecycle, SDA grouping, agent tool surface).
 ```
 
 ## 6. `/speckit-tasks` — paste this (per spec)
