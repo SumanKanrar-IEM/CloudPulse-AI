@@ -19,17 +19,27 @@ erDiagram
     TENANT ||--o{ SCAN : "owns"
     TENANT ||--o{ OWNER_IDENTITY_OVERRIDE : "owns"
     TENANT ||--o{ FINDING_REMEDIATION_SUGGESTION : "owns"
+    TENANT ||--o{ SPEND_RECORD : "owns"
+    TENANT ||--o{ BUDGET : "owns"
+    TENANT ||--o{ NOTIFICATION : "owns"
+    TENANT ||--o{ IAM_HYGIENE_FLAG : "owns"
 
     APP_USER ||--o{ AUDIT_EVENT : "acted as"
     APP_USER ||--o{ FINDING : "acknowledged"
     CLOUD_ACCOUNT ||--o{ RESOURCE : "contains"
     CLOUD_ACCOUNT ||--o{ SCAN : "scanned by"
+    CLOUD_ACCOUNT ||--o{ SPEND_RECORD : "spends"
+    CLOUD_ACCOUNT ||--o{ IAM_HYGIENE_FLAG : "flagged in"
     RESOURCE ||--o{ RESOURCE : "parent of"
-    RESOURCE ||--o{ FINDING : "fails"
-    RULE ||--o{ FINDING : "produces"
+    RESOURCE ||--o{ FINDING : "fails (tag_violation kind)"
+    RULE ||--o{ FINDING : "produces (tag_violation kind)"
     RESOURCE ||--|| RESOURCE_OWNER : "attributed to"
     FINDING ||--|| FINDING_REMEDIATION_SUGGESTION : "has"
+    FINDING ||--o{ NOTIFICATION : "notifies (spec 005)"
     SDA ||--o{ RESOURCE : "groups"
+    SDA ||--o{ SPEND_RECORD : "attributes (spec 005, null = No SDA)"
+    SDA ||--|| BUDGET : "has (spec 005)"
+    SDA ||--o{ FINDING : "overruns (budget_overrun kind, spec 005)"
 
     TENANT {
         uuid id PK
@@ -108,15 +118,18 @@ erDiagram
     FINDING {
         uuid id PK
         uuid tenant_id FK
-        uuid resource_id FK
-        uuid rule_id FK
-        int rule_version "pinned"
+        uuid resource_id FK "nullable since migration 0012; NULL for budget_overrun kind"
+        uuid rule_id FK "nullable since migration 0012; NULL for budget_overrun kind"
+        int rule_version "pinned; nullable since migration 0012, NULL for budget_overrun kind"
+        uuid sda_id FK "spec 005, migration 0012; set only for budget_overrun kind"
+        enum kind "tag_violation|budget_overrun, spec 005 migration 0012, default tag_violation"
         enum severity
         enum status "open|resolved|suppressed"
         timestamptz opened_at
         timestamptz resolved_at
         timestamptz acknowledged_at "spec 004, orthogonal to status"
         uuid acknowledged_by FK "spec 004, app_user"
+        timestamptz escalated_at "spec 005, migration 0012, orthogonal to status"
     }
     FINDING_REMEDIATION_SUGGESTION {
         uuid id PK
@@ -133,6 +146,46 @@ erDiagram
         text owner_email
         text team
         jsonb tag_values
+    }
+    SPEND_RECORD {
+        uuid id PK
+        uuid tenant_id FK
+        uuid cloud_account_id FK
+        uuid sda_id FK "spec 005, null = No SDA bucket"
+        text service
+        date spend_date
+        numeric amount_usd "null exactly when is_gap"
+        bool is_gap "spec 005 FR-002a, no guessed/zeroed value"
+        timestamptz ingested_at
+    }
+    BUDGET {
+        uuid id PK
+        uuid tenant_id FK
+        uuid sda_id FK UK "spec 005, one budget per project"
+        numeric amount_usd
+        timestamptz actual_80_crossed_at
+        timestamptz actual_100_crossed_at
+        timestamptz forecast_80_crossed_at
+        timestamptz forecast_100_crossed_at
+    }
+    NOTIFICATION {
+        uuid id PK
+        uuid tenant_id FK
+        uuid finding_id FK
+        enum cadence_point "day_0|day_2|day_4, spec 005"
+        enum outcome "sent|withheld_no_owner_email|withheld_bounced|suppressed_finding_closed"
+        text recipient_email "set only when outcome=sent"
+        timestamptz attempted_at
+    }
+    IAM_HYGIENE_FLAG {
+        uuid id PK
+        uuid tenant_id FK
+        uuid cloud_account_id FK
+        enum principal_type "role|user|access_key, spec 005"
+        text principal_identifier "ARN or access key id"
+        jsonb evidence
+        timestamptz flagged_at
+        timestamptz cleared_at "null = still active"
     }
     RESOURCE_OWNER {
         uuid id PK
