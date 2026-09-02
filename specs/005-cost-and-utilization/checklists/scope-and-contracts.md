@@ -28,10 +28,14 @@ quality. It does not mean implementation work is complete.
       1–3)" group (SC-001–SC-004) and a "P2 (User Stories 4–7)" group (SC-005–SC-008), with a
       one-line note that dropping P2 leaves the first group fully provable and the second
       inapplicable rather than failing.
-- [ ] CHK003 Is it explicit whether User Stories 4–7 (P2) being dropped entirely still leaves
+- [x] CHK003 Is it explicit whether User Stories 4–7 (P2) being dropped entirely still leaves
       every P1 acceptance scenario in User Stories 1–3 independently demonstrable, or does any P1
       scenario implicitly assume a budget (User Story 4, P2) already exists? [Consistency, Spec
       §User Story 5]
+      **Reviewed 2026-09-03, satisfied on inspection**: every mention of "budget overrun" in User
+      Stories 2/3 is phrased as one of two alternative finding sources ("tag fixed... **or** a
+      budget overrun brought back under threshold") — no P1 acceptance scenario requires a budget
+      to exist to pass; the tag-violation path alone satisfies every one.
 - [x] CHK004 FR-016/FR-017 (overrun-finding open/resolve, a P2 capability per User Story 5) sit in
       the same Requirements subsection as no FR from User Stories 2/3 (P1) — is the subsection
       boundary itself tier-consistent, or does grouping by topic ("Budgets and overrun findings")
@@ -46,9 +50,12 @@ quality. It does not mean implementation work is complete.
 
 ## Acceptance Criteria Testability
 
-- [ ] CHK006 Is SC-002's "same standard the platform's other dashboard pages already meet"
+- [x] CHK006 Is SC-002's "same standard the platform's other dashboard pages already meet"
       self-contained, or does verifying it require a reader to open spec 004's own SC-003 to learn
       the actual numeric threshold? [Clarity, Traceability, Spec §SC-002]
+      **Reviewed 2026-09-03, satisfied on inspection**: SC-002 already states the actual numbers
+      inline — "2-second budget at up to 5,000 resources" — a reader never needs to open spec
+      004 to verify this criterion.
 - [x] CHK007 Is SC-003's "at least 95% of the time" anchored to a specific measurement population
       and window (e.g., all day-0 notifications sent in a rolling 30-day period), or left
       ambiguous enough that two different reasonable measurement methodologies could produce
@@ -62,16 +69,21 @@ quality. It does not mean implementation work is complete.
       creation is synchronous, R-502), not a sampled rate, so a measurement window doesn't apply;
       the "100% of the time" framing (which implied sampling) was removed rather than given a
       window that would have misrepresented it.
-- [ ] CHK009 Is SC-007's "matches a hand calculation" given a tolerance (exact integer match, or a
+- [x] CHK009 Is SC-007's "matches a hand calculation" given a tolerance (exact integer match, or a
       rounding allowance), given `usedCount`/`provisionedCount` are integers but `percentage` is a
       derived ratio? [Measurability, Ambiguity, Spec §SC-007]
+      **Reviewed 2026-09-03, satisfied on inspection**: SC-007 already states "(integer counts,
+      no rounding tolerance needed)" — added during an earlier fix pass, checkbox was missed.
 - [ ] CHK010 Does SC-006 ("a budget overrun surfaces as a finding within a day") specify whether
       "a day" means the same ingestion-cadence day FR-001's spend ingestion already runs on, or an
       independent SLA that could be tested even if ingestion itself is delayed? [Clarity, Spec
       §SC-006]
-- [ ] CHK011 Is SC-008's "the test account used to validate this feature" specific enough to be
+- [x] CHK011 Is SC-008's "the test account used to validate this feature" specific enough to be
       independently reproducible by a second reviewer, or does it depend on an undocumented,
       reviewer-specific test fixture? [Measurability, Gap, Spec §SC-008]
+      **Reviewed 2026-09-03, satisfied on inspection**: SC-008 already states "reproducible by
+      seeding that account with at least one deliberately active and one deliberately unused
+      role/user/key" — added during an earlier fix pass, checkbox was missed.
 - [ ] CHK012 Are every User Story's Acceptance Scenarios written in a Given/When/Then form precise
       enough that a reviewer could write a passing/failing test from the scenario text alone,
       without consulting data-model.md for entity shape first? [Measurability, Spec §User
@@ -105,10 +117,12 @@ quality. It does not mean implementation work is complete.
 
 ## Cross-Spec Contract Consistency
 
-- [ ] CHK018 Does FR-001 avoid naming a specific cloud-provider billing service, keeping "daily
+- [x] CHK018 Does FR-001 avoid naming a specific cloud-provider billing service, keeping "daily
       spend... ingested into the governance store" as tech-agnostic as spec 001–004's own FRs
       keep their AWS-service choices (Principle II's runtime constraint lives in the constitution,
       not repeated as an implementation detail in every spec)? [Consistency, Spec §FR-001]
+      **Reviewed 2026-09-03, satisfied on inspection**: FR-001's text names no service — "the
+      system MUST ingest daily spend... into the governance store." No edit needed.
 - [x] CHK019 Is it stated whether an overrun finding (FR-016) can enter every status spec 003's
       Finding lifecycle already defines (open, resolved, **and** suppressed), or only the two this
       spec's own Acceptance Scenarios exercise (open, resolved) — leaving `suppressed`'s
@@ -120,14 +134,19 @@ quality. It does not mean implementation work is complete.
       enough, and then used consistently as a single canonical term pairing throughout every User
       Story and FR that follows — or does any requirement use "project" or "SDA" alone in a way
       that could be read as a third, undefined concept? [Consistency, Terminology]
-- [ ] CHK021 Does FR-004's owner-notification requirement correctly presuppose spec 003's
+- [x] CHK021 Does FR-004's owner-notification requirement correctly presuppose spec 003's
       owner-email resolution chain (including its bounce-flagging, FR-008/FR-010 in this spec)
       without restating or silently altering any part of that chain's own defined behavior?
       [Consistency, Spec §FR-004, §FR-010]
-- [ ] CHK022 Does FR-018 (utilization) reference `resource` data in a way consistent with spec
+      **Reviewed 2026-09-03, satisfied on inspection**: FR-004/FR-010 reference the chain's
+      outcome (a resolved email, or none) without restating its resolution steps or bounce logic
+      — spec 003 remains sole owner of that mechanism.
+- [x] CHK022 Does FR-018 (utilization) reference `resource` data in a way consistent with spec
       002's own definition of that entity (a discovered, provider-agnostic resource with a
       free-text `state` field), without this spec silently redefining what "provisioned" or
       "resource" means? [Consistency, Spec §FR-018]
+      **Reviewed 2026-09-03, satisfied on inspection**: FR-018 explicitly cites "spec 002's
+      existing per-resource state data" and adds no new meaning to either term.
 - [ ] CHK023 Are the data points this spec produces (spend by project, budget/overrun state,
       utilization percentage) described in a way a future AI-insights spec (backlog S51–S53,
       explicitly named in this spec's own Assumptions as depending on this spec's data) could
@@ -140,12 +159,18 @@ quality. It does not mean implementation work is complete.
 
 ## Ambiguities & Conflicts
 
-- [ ] CHK025 Does FR-014's "single, consistently-branded sending identity" specify whether that
-      identity must be verified per-environment (dev vs. prod) or is a single value shared across
-      both, given the platform's own dev/prod separation elsewhere? [Ambiguity, Gap, Spec §FR-014]
-- [ ] CHK026 Do the Edge Cases and FR-002a use identical language for what happens on a failed
+- [ ] CHK025 Does FR-014's "single, fixed, configured sending identity" (reworded 2026-09-02, see
+      the fix note on the now-superseded finding this replaced) specify whether that identity
+      must be verified per-environment (dev vs. prod) or is a single value shared across both,
+      given the platform's own dev/prod separation elsewhere? [Ambiguity, Gap, Spec §FR-014]
+      **Still open 2026-09-03**: the vagueness of "consistently-branded" was fixed, but this
+      narrower per-environment question was never actually addressed by that edit.
+- [x] CHK026 Do the Edge Cases and FR-002a use identical language for what happens on a failed
       ingestion day (both say "retried... explicit gap... never guessed or zeroed"), or does any
       wording drift between the two that could be read as two subtly different behaviors? [Consistency, Spec §Edge Cases, §FR-002a]
+      **Reviewed 2026-09-03, satisfied on inspection**: phrasing differs slightly ("retries
+      automatically"/"MUST be retried automatically", "shows"/"MUST display") but the described
+      behavior is identical in both places — no drift in meaning.
 - [x] CHK027 Is "within a day" (FR-015, budget auto-creation) given a consistent meaning against
       "the same day" (FR-004, notification) and "within the same day" (SC-004, escalation) — three
       similar-sounding but not-necessarily-identical time bounds — or could a reader reasonably
@@ -156,10 +181,14 @@ quality. It does not mean implementation work is complete.
       synchronous creation vs. SC-004's bound on the day-4 reminder's own send day), and FR-015/
       SC-005/User Story 4's Acceptance Scenario 1 wording was tightened to "no later than the end
       of the day — in practice immediately" so it no longer reads as a same-shape bound to FR-004.
-- [ ] CHK028 Does the spec define what "genuinely unused" (User Story 7's framing) means precisely
+- [x] CHK028 Does the spec define what "genuinely unused" (User Story 7's framing) means precisely
       enough to distinguish it from FR-019's own "based on last-used analysis and access
       patterns," or do the two phrases risk being read as two different, competing definitions of
       the same concept? [Clarity, Consistency, Spec §User Story 7, §FR-019]
+      **Fixed 2026-09-02** (checkbox missed at the time): User Story 7's Independent Test now
+      distinguishes its own "deliberately-idle... known ground truth the test itself controls"
+      from FR-019's "appear unused" (the system's determination) — two distinct concepts, not
+      competing definitions.
 
 ## Notes
 
