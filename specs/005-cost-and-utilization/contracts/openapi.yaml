@@ -1,0 +1,280 @@
+openapi: 3.1.0
+
+# CloudPulse AI — cost, utilization, and notifications contract additions (spec 005).
+#
+# THIS FILE IS THE DESIGN-TIME REFERENCE for what this spec adds. The binding artifact at
+# runtime remains the single document generated from the FastAPI application (spec 1's FR-048) —
+# there is still only one platform contract, no version prefix, additive-only. This file does not
+# restate specs 1–4's existing paths; it shows only the new paths and schema additions spec 5
+# contributes, to be merged into the one generated document, never a second document.
+#
+# One existing spec-003-owned schema also changes, additively (data-model.md R-508): `Finding`'s
+# `resource`/`ruleKey`/`ruleVersion` become optional, and it gains `kind` and an optional `sda`
+# field — not restated here in full; see the note at the bottom of this file. `GET /findings` and
+# `GET /findings/{findingId}` (spec 003/004's existing paths) are otherwise unchanged.
+#
+# Every schema and response shape not defined here (Role, ErrorEnvelope, the standard error
+# responses, Account, Scan, Rule, Sda, Resource, Finding's existing shape) is specs 1–4's,
+# unchanged, reused by reference.
+
+info:
+  title: CloudPulse AI API — cost, utilization, and notifications additions
+  version: 0.1.0
+
+tags:
+  - name: spend
+    description: Daily spend ingestion and the cost dashboard's read surface (FR-001–FR-003).
+  - name: budgets
+    description: Auto-created per-project budgets and their threshold state (FR-015).
+  - name: notifications
+    description: Per-finding notification audit trail (FR-013).
+  - name: utilization
+    description: Sandbox account/project utilization (FR-018).
+  - name: iam-hygiene
+    description: Flag-only unused-IAM-principal recommendations (FR-019, FR-020).
+
+security:
+  - cognitoJwt: []
+
+paths:
+  /spend:
+    get:
+      tags: [spend]
+      operationId: listSpend
+      summary: Daily spend records, optionally filtered (FR-001, FR-003)
+      parameters:
+        - name: accountId
+          in: query
+          schema: { type: string, format: uuid }
+        - name: sdaId
+          in: query
+          description: Filter to one project, or the literal `none` for the "No SDA" bucket.
+          schema: { type: string }
+        - name: from
+          in: query
+          required: true
+          schema: { type: string, format: date }
+        - name: to
+          in: query
+          required: true
+          schema: { type: string, format: date }
+      responses:
+        200:
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  spend:
+                    type: array
+                    items: { $ref: "#/components/schemas/SpendRecord" }
+        401: { $ref: "#/components/responses/Unauthorized" }
+        403: { $ref: "#/components/responses/Forbidden" }
+
+  /spend/summary:
+    get:
+      tags: [spend]
+      operationId: getSpendSummary
+      summary: Org-wide spend totals with trend, for the cost dashboard (FR-003, SC-002)
+      parameters:
+        - name: from
+          in: query
+          required: true
+          schema: { type: string, format: date }
+        - name: to
+          in: query
+          required: true
+          schema: { type: string, format: date }
+      responses:
+        200:
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SpendSummary" }
+        401: { $ref: "#/components/responses/Unauthorized" }
+        403: { $ref: "#/components/responses/Forbidden" }
+
+  /budgets:
+    get:
+      tags: [budgets]
+      operationId: listBudgets
+      summary: Every project's budget and threshold-crossing state (FR-015)
+      responses:
+        200:
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  budgets:
+                    type: array
+                    items: { $ref: "#/components/schemas/Budget" }
+        401: { $ref: "#/components/responses/Unauthorized" }
+        403: { $ref: "#/components/responses/Forbidden" }
+
+  /findings/{findingId}/notifications:
+    get:
+      tags: [notifications]
+      operationId: listFindingNotifications
+      summary: What was sent (or withheld/suppressed, and why) for one finding (FR-013)
+      parameters:
+        - name: findingId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        200:
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  notifications:
+                    type: array
+                    items: { $ref: "#/components/schemas/Notification" }
+        401: { $ref: "#/components/responses/Unauthorized" }
+        403: { $ref: "#/components/responses/Forbidden" }
+        404: { $ref: "#/components/responses/NotFound" }
+
+  /utilization:
+    get:
+      tags: [utilization]
+      operationId: getUtilization
+      summary: Active-vs-provisioned resource ratio for an account or project (FR-018)
+      parameters:
+        - name: accountId
+          in: query
+          required: true
+          schema: { type: string, format: uuid }
+        - name: sdaId
+          in: query
+          description: Narrow to one project within the account (drill-down).
+          schema: { type: string, format: uuid }
+      responses:
+        200:
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Utilization" }
+        401: { $ref: "#/components/responses/Unauthorized" }
+        403: { $ref: "#/components/responses/Forbidden" }
+
+  /iam-hygiene:
+    get:
+      tags: [iam-hygiene]
+      operationId: listIamHygieneFlags
+      summary: Currently-active unused-IAM-principal flags (FR-019, FR-020)
+      parameters:
+        - name: accountId
+          in: query
+          schema: { type: string, format: uuid }
+      responses:
+        200:
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  flags:
+                    type: array
+                    items: { $ref: "#/components/schemas/IamHygieneFlag" }
+        401: { $ref: "#/components/responses/Unauthorized" }
+        403: { $ref: "#/components/responses/Forbidden" }
+
+components:
+  schemas:
+    SpendRecord:
+      type: object
+      properties:
+        accountId: { type: string, format: uuid }
+        sdaId: { type: string, format: uuid, nullable: true }
+        service: { type: string }
+        spendDate: { type: string, format: date }
+        amountUsd: { type: number, nullable: true, description: "null when isGap is true" }
+        isGap: { type: boolean }
+      required: [accountId, service, spendDate, isGap]
+
+    SpendSummary:
+      type: object
+      properties:
+        totalUsd: { type: number }
+        byProject:
+          type: array
+          items:
+            type: object
+            properties:
+              sdaId: { type: string, format: uuid, nullable: true }
+              sdaName: { type: string, nullable: true, description: "null for the No SDA bucket" }
+              totalUsd: { type: number }
+        trend:
+          type: array
+          description: One point per day in the requested range, in order.
+          items:
+            type: object
+            properties:
+              date: { type: string, format: date }
+              totalUsd: { type: number, nullable: true, description: "null on a gap day" }
+
+    Budget:
+      type: object
+      properties:
+        sdaId: { type: string, format: uuid }
+        sdaName: { type: string }
+        amountUsd: { type: number }
+        actual80CrossedAt: { type: string, format: date-time, nullable: true }
+        actual100CrossedAt: { type: string, format: date-time, nullable: true }
+        forecast80CrossedAt: { type: string, format: date-time, nullable: true }
+        forecast100CrossedAt: { type: string, format: date-time, nullable: true }
+      required: [sdaId, sdaName, amountUsd]
+
+    Notification:
+      type: object
+      properties:
+        cadencePoint: { type: string, enum: [day_0, day_2, day_4] }
+        outcome:
+          type: string
+          enum: [sent, withheld_no_owner_email, withheld_bounced, suppressed_finding_closed]
+        recipientEmail: { type: string, nullable: true }
+        attemptedAt: { type: string, format: date-time }
+      required: [cadencePoint, outcome, attemptedAt]
+
+    Utilization:
+      type: object
+      properties:
+        accountId: { type: string, format: uuid }
+        sdaId: { type: string, format: uuid, nullable: true }
+        usedCount: { type: integer }
+        provisionedCount: { type: integer }
+        percentage:
+          type: number
+          nullable: true
+          description: "null when provisionedCount is 0 (R-509's explicit not-enough-data state)"
+      required: [accountId, usedCount, provisionedCount]
+
+    IamHygieneFlag:
+      type: object
+      properties:
+        accountId: { type: string, format: uuid }
+        principalType: { type: string, enum: [role, user, access_key] }
+        principalIdentifier: { type: string }
+        evidence: { type: object }
+        flaggedAt: { type: string, format: date-time }
+      required: [accountId, principalType, principalIdentifier, flaggedAt]
+
+# --- Note: existing `Finding` schema (specs 003/004), extended additively (data-model.md R-508) --
+#
+# `resource` (was required) -> now optional, present only when `kind = "tag_violation"`.
+# `ruleKey`/`ruleVersion` (were required) -> now optional, same condition.
+# `kind` (new, required): "tag_violation" | "budget_overrun".
+# `sda` (new, optional object {id, name}): present only when `kind = "budget_overrun"`.
+# `escalatedAt` (new, optional date-time): non-null exactly while FR-008/FR-009's escalated
+#   state is active.
+#
+# `GET /findings` and `GET /findings/{findingId}` (paths unchanged) both return this extended
+# shape; no new query parameter is added by this spec — `kind` is present on every result and
+# can already be filtered client-side, matching spec 004's own precedent of not adding a new
+# filter parameter for every new discriminator.
