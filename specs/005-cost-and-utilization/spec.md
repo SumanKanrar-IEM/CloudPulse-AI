@@ -158,7 +158,8 @@ correct 80%/100% actual-and-forecast thresholds, within the success-criteria win
 **Acceptance Scenarios**:
 
 1. **Given** a newly registered project/SDA, **When** registration completes, **Then** a budget
-   exists for it within a day, with 80% and 100% actual-spend and forecast-spend alert thresholds.
+   already exists for it (created synchronously, no later than the end of that calendar day),
+   with 80% and 100% actual-spend and forecast-spend alert thresholds.
 2. **Given** a project's spend crosses 80% of its budget, **When** the next spend ingestion runs,
    **Then** an alert condition is recorded and shown on the cost dashboard, distinct from the
    100% threshold — this alone does not send any notification (only crossing 100% opens a finding
@@ -276,70 +277,76 @@ flags on the active ones.
 
 **Spend and cost visibility**
 
-- **FR-001**: The system MUST ingest daily spend, broken down by project tag, account, and
+- **FR-001** `[P1]`: The system MUST ingest daily spend, broken down by project tag, account, and
   service, into the governance store.
-- **FR-002**: Ingested spend totals MUST reconcile with the cloud provider's own cost reporting
-  within the success-criteria tolerance.
-- **FR-002a**: A day's failed spend ingestion MUST be retried automatically; if it remains missing
-  after retries, the system MUST display that day as an explicit gap rather than interpolating,
-  zeroing, or silently omitting it from totals.
-- **FR-003**: The system MUST expose spend by project/SDA/environment with trend visualization
-  and drill-down from an org-wide total to a single resource's own spend.
+- **FR-002** `[P1]`: Ingested spend totals MUST reconcile with the cloud provider's own cost
+  reporting within the success-criteria tolerance.
+- **FR-002a** `[P1]`: A day's failed spend ingestion MUST be retried automatically; if it remains
+  missing after retries, the system MUST display that day as an explicit gap rather than
+  interpolating, zeroing, or silently omitting it from totals.
+- **FR-003** `[P1]`: The system MUST expose spend by project/SDA/environment with trend
+  visualization and drill-down from an org-wide total to a single resource's own spend.
 
 **Notification**
 
-- **FR-004**: The system MUST send an email to a finding's resolved owner the same day a new
-  finding opens against their resource, naming the resource and the specific violation.
-- **FR-005**: Every notification email MUST include a deep link that opens the dashboard directly
-  to that finding's detail view for a signed-in recipient.
-- **FR-006**: The system MUST send a reminder email for a finding still open two days after its
-  day-0 notification, and a second reminder for a finding still open four days after its day-0
-  notification.
-- **FR-007**: The system MUST NOT send a scheduled reminder for a finding that has been
+- **FR-004** `[P1]`: The system MUST send an email to a finding's resolved owner the same
+  calendar day a new finding opens against their resource, naming the resource and the specific
+  violation.
+- **FR-005** `[P1]`: Every notification email MUST include a deep link that opens the dashboard
+  directly to that finding's detail view for a signed-in recipient.
+- **FR-006** `[P1]`: The system MUST send a reminder email for a finding still open two days after
+  its day-0 notification, and a second reminder for a finding still open four days after its
+  day-0 notification.
+- **FR-007** `[P1]`: The system MUST NOT send a scheduled reminder for a finding that has been
   acknowledged, resolved, or suppressed by the time that reminder is due to send.
-- **FR-008**: The system MUST mark a finding as escalated when it is still open after its day-4
-  reminder has been sent, and MUST NOT take any automated action beyond that flag (no further
-  emails, no external escalation) as part of this feature.
-- **FR-009**: An escalated finding MUST be visible as escalated wherever findings are already
-  exposed to users (dashboard, API), distinguishable from open-and-in-cadence and from
+- **FR-008** `[P1]`: The system MUST mark a finding as escalated when it is still open after its
+  day-4 reminder has been sent, and MUST NOT take any automated action beyond that flag (no
+  further emails, no external escalation) as part of this feature.
+- **FR-009** `[P1]`: An escalated finding MUST be visible as escalated wherever findings are
+  already exposed to users (dashboard, API), distinguishable from open-and-in-cadence and from
   acknowledged findings, and MUST no longer display as escalated once it is acknowledged,
   resolved, or suppressed.
-- **FR-010**: A finding whose owner email cannot be resolved, or whose only resolved address has
-  previously bounced, MUST NOT receive any notification, and MUST be recorded as unnotifiable
-  rather than retried or silently dropped.
-- **FR-011**: A finding that reopens after a prior resolution MUST start its own independent
-  day-0/2/4 cadence, unaffected by reminders already sent or suppressed for its earlier
-  occurrence.
-- **FR-012**: Each notification email MUST correspond to exactly one finding — findings are never
-  bundled into a single combined email, even when the same owner has multiple findings opening on
-  the same day.
-- **FR-013**: The system MUST record, per finding, which notifications were sent (or why one was
-  withheld) in a form an admin can audit.
-- **FR-014**: Every outbound notification MUST originate from a single, consistently-branded
-  sending identity recipients can recognize and safelist.
+- **FR-010** `[P1]`: A finding whose owner email cannot be resolved, or whose only resolved
+  address has previously bounced, MUST NOT receive any notification, and MUST be recorded as
+  unnotifiable rather than retried or silently dropped.
+- **FR-011** `[P1]`: A finding that reopens after a prior resolution MUST start its own
+  independent day-0/2/4 cadence, unaffected by reminders already sent or suppressed for its
+  earlier occurrence.
+- **FR-012** `[P1]`: Each notification email MUST correspond to exactly one finding — findings
+  are never bundled into a single combined email, even when the same owner has multiple findings
+  opening on the same day.
+- **FR-013** `[P1]`: The system MUST record, per finding, which notifications were sent (or why
+  one was withheld) in a form an admin can audit.
+- **FR-014** `[P1]`: Every outbound notification MUST originate from a single,
+  consistently-branded sending identity recipients can recognize and safelist.
 
 **Budgets and overrun findings**
 
-- **FR-015**: The system MUST automatically create a budget for a project/SDA within a day of its
-  registration, with 80% and 100% actual-spend and forecast-spend alert thresholds. Crossing 80%
-  MUST be visible on the cost dashboard only and MUST NOT send any notification; only crossing
-  100% triggers FR-016.
-- **FR-016**: When a project's spend crosses its 100% budget threshold, the system MUST open a
-  finding for it in the same findings pipeline and lifecycle spec 003 already defines
-  (open/acknowledge/resolve), notified the same way any other finding is (FR-004–FR-014).
-- **FR-017**: An overrun finding MUST resolve when the project's spend drops back under its
-  threshold.
+- **FR-015** `[P2]`: The system MUST create a budget for a project/SDA no later than the end of
+  the calendar day of its registration — in practice immediately, as part of the same
+  registration request, not a separately-scheduled or delayed step — with 80% and 100%
+  actual-spend and forecast-spend alert thresholds. Crossing 80% MUST be visible on the cost
+  dashboard only and MUST NOT send any notification; only crossing 100% triggers FR-016.
+- **FR-016** `[P2]`: When a project's spend crosses its 100% budget threshold, the system MUST
+  open a finding for it in the same findings pipeline and lifecycle spec 003 already defines
+  (open/acknowledge/resolve/suppressed — a budget-overrun finding is eligible for every status a
+  tag-violation finding is, including `suppressed`, not only open/resolved), notified the same
+  way any other finding is (FR-004–FR-014).
+- **FR-017** `[P2]`: An overrun finding MUST resolve when the project's spend drops back under
+  its threshold.
 
 **Utilization and IAM hygiene**
 
-- **FR-018**: The system MUST compute a utilization percentage per account and per project as the
-  count of resources in an active/running state divided by the count of all provisioned resources
-  (spec 002's existing per-resource state data — no new metrics collection), with drill-down from
-  account to project to resource reachable in no more than three navigation steps.
-- **FR-019**: The system MUST identify IAM roles, users, and keys that appear unused based on
-  last-used analysis and access patterns, and present them as flag-only cleanup recommendations —
-  never an automatic deletion or deactivation.
-- **FR-020**: An IAM hygiene analysis MUST NOT flag an actively-used role, user, or key as unused.
+- **FR-018** `[P2]`: The system MUST compute a utilization percentage per account and per project
+  as the count of resources in an active/running state divided by the count of all provisioned
+  resources (spec 002's existing per-resource state data — no new metrics collection), with
+  drill-down from account to project to resource reachable in no more than three navigation
+  steps.
+- **FR-019** `[P2]`: The system MUST identify IAM roles, users, and keys that appear unused based
+  on last-used analysis and access patterns, and present them as flag-only cleanup
+  recommendations — never an automatic deletion or deactivation.
+- **FR-020** `[P2]`: An IAM hygiene analysis MUST NOT flag an actively-used role, user, or key as
+  unused.
 
 ### Key Entities *(include if feature involves data)*
 
@@ -357,7 +364,9 @@ flags on the active ones.
   open state before the send executed.
 - **Finding** *(spec 003, extended here)*: Gains an escalated state (set at day-4 if still open,
   cleared on leaving the open state) and a new violation kind — a budget overrun — alongside spec
-  003's existing tag-violation kinds, sharing the same lifecycle.
+  003's existing tag-violation kinds, sharing the same lifecycle in full: a budget-overrun finding
+  can be open, acknowledged, resolved, or suppressed exactly like a tag-violation finding, not a
+  narrower subset of those states.
 - **Utilization Record**: A computed ratio (active-state resource count ÷ total provisioned
   resource count) for one account or project at a point in time, derived from spec 002's existing
   per-resource state data.
@@ -368,22 +377,32 @@ flags on the active ones.
 
 ### Measurable Outcomes
 
+**P1 (User Stories 1–3) — provable without any P2 work existing:**
+
 - **SC-001**: Ingested spend totals reconcile with the cloud provider's own cost reporting within
   ±1%.
 - **SC-002**: The cost dashboard loads and reflects the current day's ingested totals within the
-  same standard the platform's other dashboard pages already meet (spec 004's under-2-second
-  budget at scale).
-- **SC-003**: An owner with a resolvable email receives a notification for a newly-opened finding
-  the same day it opens, at least 95% of the time.
-- **SC-004**: 100% of findings that reach day 4 still open are visible as escalated within the
-  same day.
-- **SC-005**: A newly registered project has a budget with correct thresholds within a day of
-  registration, 100% of the time.
+  same standard the platform's other dashboard pages already meet (spec 004's 2-second budget at
+  up to 5,000 resources, its own stated scale).
+- **SC-003**: Measured over a rolling 30-day window of day-0 notification attempts, at least 95%
+  of owners with a resolvable email receive their notification the same calendar day the finding
+  opened.
+- **SC-004**: 100% of findings that reach day 4 still open are visible as escalated by the end of
+  the same calendar day their day-4 reminder was sent.
+
+**P2 (User Stories 4–7) — depend on that tier's own work; dropping P2 leaves SC-001–SC-004 fully
+provable, SC-005–SC-008 inapplicable rather than failing:**
+
+- **SC-005**: Every newly registered project has a budget with correct thresholds by the end of
+  its registration day — in practice immediately, since budget creation is synchronous with
+  registration (no sampling; this is a per-event guarantee, not a rate).
 - **SC-006**: A budget overrun surfaces as a finding within a day of crossing its threshold.
-- **SC-007**: Utilization figures match a hand calculation using the documented formula, and
-  account-to-resource drill-down completes in three clicks or fewer.
+- **SC-007**: Utilization figures match a hand calculation using the documented formula exactly
+  (integer counts, no rounding tolerance needed), and account-to-resource drill-down completes in
+  three clicks or fewer.
 - **SC-008**: Zero active IAM roles, users, or keys are flagged as unused in the test account used
-  to validate this feature.
+  to validate this feature — reproducible by seeding that account with at least one deliberately
+  active and one deliberately unused role/user/key before running the analysis.
 
 ## Assumptions
 
@@ -396,7 +415,14 @@ flags on the active ones.
   required content (resource, violation, deep link); exact wording, branding, and layout are a
   plan/implementation decision.
 - **"Day" means a calendar day boundary in a single, system-wide reference timezone (UTC)**,
-  consistent with how spec 002's scheduling already reasons about scan cadence.
+  consistent with how spec 002's scheduling already reasons about scan cadence. The spec's three
+  same-day-shaped bounds are related but not interchangeable, stated explicitly here to prevent
+  conflation: FR-004/SC-003's "the same day" is a freshness bound on the daily notification
+  worker (a finding opened today gets emailed today); FR-015/SC-005's "no later than the end of
+  the day" is a loose outer bound that budget creation (synchronous with registration, R-502)
+  satisfies trivially, not a same-worker-run guarantee; SC-004's "by the end of the same day" ties
+  to the day the day-4 reminder itself sends, not the day the finding originally opened four days
+  earlier.
 - **One email per finding, never bundled per owner or per event** — the backlog's own "day-0/2/4
   sends per finding" phrasing, and User Story 2's Scenario 3, both point at this as the only
   unambiguous reading; a digest view is not part of this feature.

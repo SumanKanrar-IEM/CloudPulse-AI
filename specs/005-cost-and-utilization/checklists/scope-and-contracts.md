@@ -16,22 +16,30 @@ quality. It does not mean implementation work is complete.
 
 ## P1/P2 Tier Completeness
 
-- [ ] CHK001 Does each Functional Requirement (FR-001–FR-020, FR-002a) carry an explicit tier
+- [x] CHK001 Does each Functional Requirement (FR-001–FR-020, FR-002a) carry an explicit tier
       marker of its own, rather than requiring a reader to infer P1/P2 status indirectly from
       which User Story references it? [Clarity, Gap, Spec §Requirements]
-- [ ] CHK002 Does the spec state, in its own Success Criteria section, which of SC-001–SC-008
+      **Fixed 2026-09-02**: every FR now carries an inline `` `[P1]` ``/`` `[P2]` `` tag, matching
+      spec 004's own FR-021–026 precedent.
+- [x] CHK002 Does the spec state, in its own Success Criteria section, which of SC-001–SC-008
       depend on P2-tier work — so a P1-only delivery's provable subset is unambiguous without
       cross-referencing plan.md's Constitution Check table? [Completeness, Gap]
+      **Fixed 2026-09-02**: Measurable Outcomes now splits into an explicit "P1 (User Stories
+      1–3)" group (SC-001–SC-004) and a "P2 (User Stories 4–7)" group (SC-005–SC-008), with a
+      one-line note that dropping P2 leaves the first group fully provable and the second
+      inapplicable rather than failing.
 - [ ] CHK003 Is it explicit whether User Stories 4–7 (P2) being dropped entirely still leaves
       every P1 acceptance scenario in User Stories 1–3 independently demonstrable, or does any P1
       scenario implicitly assume a budget (User Story 4, P2) already exists? [Consistency, Spec
       §User Story 5]
-- [ ] CHK004 FR-016/FR-017 (overrun-finding open/resolve, a P2 capability per User Story 5) sit in
+- [x] CHK004 FR-016/FR-017 (overrun-finding open/resolve, a P2 capability per User Story 5) sit in
       the same Requirements subsection as no FR from User Stories 2/3 (P1) — is the subsection
       boundary itself tier-consistent, or does grouping by topic ("Budgets and overrun findings")
       rather than by tier risk implying FR-015–FR-017 are uniformly P1 or uniformly P2 when they
       are not (FR-015 is P2 alone; FR-016/017 are P2 *and* depend on P1 notification machinery)?
       [Clarity, Ambiguity, Spec §Requirements]
+      **Fixed 2026-09-02**: moot now that every FR carries its own inline tier tag (CHK001) —
+      the subsection heading no longer needs to carry tier meaning on its own.
 - [ ] CHK005 Are FR-001–FR-020 (plus FR-002a) each traceable to exactly one backlog story
       (S24/S25/S39–S42/S54–S56), with no requirement serving two backlog items under one implied
       tier? [Traceability]
@@ -41,13 +49,19 @@ quality. It does not mean implementation work is complete.
 - [ ] CHK006 Is SC-002's "same standard the platform's other dashboard pages already meet"
       self-contained, or does verifying it require a reader to open spec 004's own SC-003 to learn
       the actual numeric threshold? [Clarity, Traceability, Spec §SC-002]
-- [ ] CHK007 Is SC-003's "at least 95% of the time" anchored to a specific measurement population
+- [x] CHK007 Is SC-003's "at least 95% of the time" anchored to a specific measurement population
       and window (e.g., all day-0 notifications sent in a rolling 30-day period), or left
       ambiguous enough that two different reasonable measurement methodologies could produce
       different pass/fail verdicts? [Measurability, Spec §SC-003]
-- [ ] CHK008 Is SC-005's "100% of the time" given the same measurement-window specificity SC-003
+      **Fixed 2026-09-02**: SC-003 now states "measured over a rolling 30-day window of day-0
+      notification attempts."
+- [x] CHK008 Is SC-005's "100% of the time" given the same measurement-window specificity SC-003
       needs, or does it read as an absolute claim with no bounded observation period? [Clarity,
       Spec §SC-005]
+      **Fixed 2026-09-02**: reworded — SC-005 is a per-registration-event guarantee (budget
+      creation is synchronous, R-502), not a sampled rate, so a measurement window doesn't apply;
+      the "100% of the time" framing (which implied sampling) was removed rather than given a
+      window that would have misrepresented it.
 - [ ] CHK009 Is SC-007's "matches a hand calculation" given a tolerance (exact integer match, or a
       rounding allowance), given `usedCount`/`provisionedCount` are integers but `percentage` is a
       derived ratio? [Measurability, Ambiguity, Spec §SC-007]
@@ -95,10 +109,13 @@ quality. It does not mean implementation work is complete.
       spend... ingested into the governance store" as tech-agnostic as spec 001–004's own FRs
       keep their AWS-service choices (Principle II's runtime constraint lives in the constitution,
       not repeated as an implementation detail in every spec)? [Consistency, Spec §FR-001]
-- [ ] CHK019 Is it stated whether an overrun finding (FR-016) can enter every status spec 003's
+- [x] CHK019 Is it stated whether an overrun finding (FR-016) can enter every status spec 003's
       Finding lifecycle already defines (open, resolved, **and** suppressed), or only the two this
       spec's own Acceptance Scenarios exercise (open, resolved) — leaving `suppressed`'s
       applicability to a budget-overrun finding unaddressed? [Completeness, Gap, Spec §FR-016]
+      **Fixed 2026-09-02**: FR-016 and the Finding key-entity description now state explicitly
+      that a budget-overrun finding is eligible for every status a tag-violation finding is,
+      `suppressed` included, not a narrower subset.
 - [ ] CHK020 Is the equivalence "project" = "SDA" (spec 003's registered entity) stated once, early
       enough, and then used consistently as a single canonical term pairing throughout every User
       Story and FR that follows — or does any requirement use "project" or "SDA" alone in a way
@@ -129,11 +146,16 @@ quality. It does not mean implementation work is complete.
 - [ ] CHK026 Do the Edge Cases and FR-002a use identical language for what happens on a failed
       ingestion day (both say "retried... explicit gap... never guessed or zeroed"), or does any
       wording drift between the two that could be read as two subtly different behaviors? [Consistency, Spec §Edge Cases, §FR-002a]
-- [ ] CHK027 Is "within a day" (FR-015, budget auto-creation) given a consistent meaning against
+- [x] CHK027 Is "within a day" (FR-015, budget auto-creation) given a consistent meaning against
       "the same day" (FR-004, notification) and "within the same day" (SC-004, escalation) — three
       similar-sounding but not-necessarily-identical time bounds — or could a reader reasonably
       read all three as interchangeable when they may not be intended to be? [Consistency,
       Ambiguity, Spec §FR-004, §FR-015, §SC-004]
+      **Fixed 2026-09-02**: a new Assumptions bullet distinguishes all three explicitly (FR-004's
+      freshness bound on the daily worker vs. FR-015's loose outer bound trivially satisfied by
+      synchronous creation vs. SC-004's bound on the day-4 reminder's own send day), and FR-015/
+      SC-005/User Story 4's Acceptance Scenario 1 wording was tightened to "no later than the end
+      of the day — in practice immediately" so it no longer reads as a same-shape bound to FR-004.
 - [ ] CHK028 Does the spec define what "genuinely unused" (User Story 7's framing) means precisely
       enough to distinguish it from FR-019's own "based on last-used analysis and access
       patterns," or do the two phrases risk being read as two different, competing definitions of
