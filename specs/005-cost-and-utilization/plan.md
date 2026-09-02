@@ -62,7 +62,7 @@ purpose-specific Lambda functions** (`notification-worker`, `cost-ingestion-work
 project has added since spec 003's governance workers.
 
 **Project Type**: Web application in the existing monorepo — new backend routers under
-`backend/app/api/routers/`, three new `backend/app/governance/` modules (pure logic, mirroring
+`backend/app/api/routers/`, five new `backend/app/governance/` modules (pure logic, mirroring
 `scoring.py`/`suggestions.py`'s existing split), three new `backend/handlers/*_worker_handler.py`
 entrypoints (mirroring `compliance_validation_worker_handler.py`'s exact shape), `connectors/
 aws.py` extended with two new functions (`get_daily_spend`, `iam_unused_analysis` — the
@@ -141,12 +141,17 @@ backend/
 │   │   └── sdas.py                        # EXTENDED — R-502: budget auto-created inside the
 │   │                                         existing SDA-registration transaction
 │   ├── governance/
+│   │   ├── spend.py                       # NEW — FR-001, FR-002a: ingestion, attribution via
+│   │   │                                     `sda_matching.find_matching_sda`, correction/gap
+│   │   │                                     handling
 │   │   ├── notifications.py               # NEW — FR-004–FR-013: "what's due today" query,
 │   │   │                                     cadence/escalation state transitions
 │   │   ├── budgets.py                     # NEW — FR-015–FR-017: threshold check, forecast
 │   │   │                                     (R-506), overrun finding open/resolve
-│   │   └── utilization.py                 # NEW — FR-018: active/idle state classification
-│   │                                         (R-509, data-driven) + the live aggregate query
+│   │   ├── utilization.py                 # NEW — FR-018: active/idle state classification
+│   │   │                                     (R-509, data-driven) + the live aggregate query
+│   │   └── iam_hygiene.py                 # NEW — FR-019, FR-020: unused-principal
+│   │                                         classification, clear/re-flag upsert
 │   └── models/
 │       └── (extends `finding` behaviorally + schema; adds `spend_record`, `budget`,
 │             `notification`, `iam_hygiene_flag` — see data-model.md)

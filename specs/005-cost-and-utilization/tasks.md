@@ -156,9 +156,12 @@ resolvable owner email sends nothing and is recorded as unnotifiable.
       `withheld_no_owner_email`/`withheld_bounced`, never `sent` — S24, FR-004, FR-010
 - [ ] T013 [P] [US2] Write `backend/tests/integration/test_day0_notification.py` — a real finding
       with a resolvable owner email produces one `sent` `Notification` row and one email call;
-      two findings opening the same day for the same owner produce two distinct `Notification`
-      rows and two separate email calls, never one bundled message (FR-012) — S24, FR-004,
-      FR-012, FR-013
+      the sent email's link resolves to `{frontend_url}/findings/{findingId}` — that specific
+      finding's own ID, not a generic findings-list URL (FR-005); the email's from-address
+      matches the one configured, fixed sending identity, asserted the same way across every
+      test case in this file rather than left as an assumption (FR-014); two findings opening the
+      same day for the same owner produce two distinct `Notification` rows and two separate email
+      calls, never one bundled message (FR-012) — S24, FR-004, FR-005, FR-012, FR-013, FR-014
 
 ### Implementation for User Story 2
 
@@ -307,7 +310,8 @@ provable at the mocked-test level.
 
 ## Phase 8: User Story 5 — An overrun budget becomes a finding, not a surprise at month's end (Priority: P2)
 
-**⚠️ P2 — STRETCH ONLY.** Depends on Phase 7 (a `Budget` must exist) and Phases 4–5 (this
+**⚠️ P2 — STRETCH ONLY.** Depends on Phase 7 (a `Budget` must exist), Phase 3 (the threshold
+check runs inside `cost_ingestion_worker_handler.py`, created there), and Phases 4–5 (this
 story's finding is notified via the same machinery, unchanged).
 
 **Goal**: Actual spend crossing 100% of budget opens a finding in the existing pipeline, notified
@@ -479,9 +483,16 @@ research.md R-511 until R-407 is funded.**
   role tag compliance and ownership's own Phase 8, and governance dashboard's own Phase 7, played
   there.
 - **Phase 7 (US4) depends on nothing but Phase 2's schema.** Phase 8 (US5) depends on Phase 7 (a
-  `Budget` must exist) and reuses Phases 4–5's notification machinery unchanged. Phases 9 (US6)
-  and 10 (US7) are independent of every other phase and of each other — different files,
-  different workers, no shared state.
+  `Budget` must exist), on Phase 3/US1 (T035 extends `cost_ingestion_worker_handler.py`, created
+  in T008 — the threshold check runs inside that same daily job, research.md R-505), and reuses
+  Phases 4–5's notification machinery unchanged. Phases 9 (US6) and 10 (US7) are independent of
+  every other phase and of each other — different files, different workers, no shared state.
+- **`infra/modules/cost/{main.tf,scheduler.tf}` is a second shared-file lineage**, beyond
+  `notification_worker_handler.py`'s: T009 (Phase 3) creates it, T016 (Phase 4) and T047
+  (Phase 10) each append their own worker's resources to it. Sequential, never concurrent — no
+  two of those three tasks are in flight at once — but each of T016/T047 should pull the latest
+  trunk before editing rather than assume the file still looks like it did when its phase's own
+  branch was cut.
 - **T0XX-style mid-implementation additions**: if any phase's work surfaces a gap this list
   didn't anticipate, add the task here before its fix PR, per this file's own Process Note.
 - **T025/T026 must stay adjacent**: do not let Phase 7 work begin between live-verification and

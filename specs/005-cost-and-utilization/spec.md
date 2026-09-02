@@ -174,9 +174,11 @@ same pipeline spec 003 already built for tag violations — same open/acknowledg
 lifecycle, same visibility on the findings workbench, and (via User Stories 2/3) the same
 owner-email notification any other finding gets.
 
-**Why this priority**: Depends on User Story 4's budgets existing first, and depends on User
-Stories 2/3 for its own notification behavior — it's additive polish on top of already-functional
-budgets and cost visibility (User Story 1 already lets an admin see an overrun by looking).
+**Why this priority**: Depends on User Story 4's budgets existing first, on User Story 1's own
+spend-ingestion worker (the threshold check runs inside that same daily job, not a separate one —
+research.md R-505), and on User Stories 2/3 for its own notification behavior — it's additive
+polish on top of already-functional budgets and cost visibility (User Story 1 already lets an
+admin see an overrun by looking).
 
 **Independent Test**: Push a test project's ingested spend past its 100% threshold and confirm a
 finding opens for it, visible on the findings workbench with the same fields any other finding
@@ -229,9 +231,11 @@ this only produces flagged recommendations, and an active role must never be fla
 **Why this priority**: A safety-oriented, read-only visibility feature — valuable but strictly
 additive; nothing else in this spec or the platform depends on IAM hygiene flags existing.
 
-**Independent Test**: Run the analysis against a test account with both active and genuinely
-unused IAM roles/keys and confirm only the genuinely unused ones are flagged, with zero false
-flags on the active ones.
+**Independent Test**: Run the analysis against a test account seeded with both an actively-used
+role/key and one deliberately left idle (a known ground truth the test itself controls, distinct
+from FR-019's "appear unused" — the system's own determination, which this test is what proves
+matches ground truth) and confirm only the deliberately-idle one is flagged, with zero false
+flags on the active one.
 
 **Acceptance Scenarios**:
 
@@ -317,8 +321,9 @@ flags on the active ones.
   opening on the same day.
 - **FR-013** `[P1]`: The system MUST record, per finding, which notifications were sent (or why
   one was withheld) in a form an admin can audit.
-- **FR-014** `[P1]`: Every outbound notification MUST originate from a single,
-  consistently-branded sending identity recipients can recognize and safelist.
+- **FR-014** `[P1]`: Every outbound notification MUST originate from a single, fixed, configured
+  sending identity — the same address on every send, so recipients can recognize and safelist
+  it.
 
 **Budgets and overrun findings**
 
@@ -407,9 +412,10 @@ provable, SC-005–SC-008 inapplicable rather than failing:**
 ## Assumptions
 
 - **Sending infrastructure and delivery mechanics are an implementation concern**, not specified
-  here beyond FR-014's "one consistent identity" — this spec defines what gets sent, to whom, and
-  when, not how mail is transmitted (Principle II already fixes the runtime as AWS-native; the
-  backlog's own naming of a specific email service is an implementation choice for the plan
+  here beyond FR-014's "single, fixed sending identity" — this spec defines what gets sent, to
+  whom, and when, not how mail is transmitted (Principle II already fixes the runtime as
+  AWS-native; the backlog's own naming of a specific email service is an implementation choice
+  for the plan
   phase, not a user-facing requirement).
 - **Notification templates are out of this spec's scope in detail** — FR-004/FR-005 fix the
   required content (resource, violation, deep link); exact wording, branding, and layout are a
