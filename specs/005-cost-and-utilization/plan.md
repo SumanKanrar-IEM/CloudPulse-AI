@@ -14,16 +14,18 @@ an escalation flag). The technical approach adds three new daily/weekly-schedule
 following spec 002's own `scan-worker` scheduling pattern exactly (no SQS — research.md R-501),
 extends spec 003's `Finding` table to carry a non-resource violation kind (a budget overrun,
 R-508), and computes utilization live from data spec 002 already persists (`resource.state`,
-R-509) with zero new AWS call. Two of the three new workers (`cost-ingestion-worker`,
-`iam-hygiene-worker`) call AWS services — Cost Explorer, IAM — that have no VPC PrivateLink
-support at all, and so inherit governance dashboard's own standing R-407 constraint unconditionally
-(R-503); the third (`notification-worker`) depends on one still-open VERIFY (R-504: does this
-region's SES support a reachable VPC endpoint) before its own live-verifiability is known.
+R-509) with zero new AWS call. **All three new workers** inherit governance dashboard's own
+standing R-407 constraint unconditionally: `cost-ingestion-worker` and `iam-hygiene-worker` call
+AWS services (Cost Explorer, IAM) that have no VPC PrivateLink support at all (R-503);
+`notification-worker` calls one that does (SES, confirmed live in this account's region), but
+funding that single endpoint was presented to the user with real cost figures and declined
+(R-504) — so it stays bounded by R-407 identically to the other two, not as an exception.
 
 Twelve decisions dominate the design, settled in [research.md](./research.md): why notification
 is one daily-scheduled worker with no SQS (**R-501**), why budget creation is synchronous inside
 SDA registration rather than its own worker (**R-502**), which of this spec's own new AWS calls
-inherit R-407 and which don't (**R-503**, **R-504**), why budget/overrun-checking shares
+inherit R-407, confirmed technically or by explicit user decision (**R-503**, **R-504**), why
+budget/overrun-checking shares
 `cost-ingestion-worker`'s transaction rather than running as a second worker (**R-505**), why
 forecast is a simple linear trend over this spec's own data rather than a second Cost Explorer
 call (**R-506**), why only actual-100% opens the overrun finding (**R-507**), the `Finding` schema
@@ -48,8 +50,8 @@ new `kind`/`sda_id`/`escalated_at` — data-model.md, R-508). No new cluster.
 
 **Testing**: pytest + moto (unit — `ce`, `iam`, `ses` clients all have moto support) ·
 Testcontainers PostgreSQL (integration, unchanged pattern) · Playwright (the cost dashboard,
-utilization, and IAM hygiene P1/P2 screens) — see research.md R-503/R-504/R-511 for what stays
-mocked-only pending R-407/R-504's resolution versus what's fully live-testable now (utilization,
+utilization, and IAM hygiene P1/P2 screens) — see research.md R-511 for what stays mocked-only
+pending R-407 (everything except utilization) versus what's fully live-testable now (utilization,
 R-509, makes no AWS call at all).
 
 **Target Platform**: AWS Lambda arm64 on Python 3.12. Existing API Lambda gets five new routers
@@ -113,7 +115,7 @@ genuine scope, not convenience.
 ```text
 specs/005-cost-and-utilization/
 ├── plan.md               # This file
-├── research.md            # Phase 0 output — 12 decisions, cost profile, 1 open VERIFY
+├── research.md            # Phase 0 output — 12 decisions, cost profile, R-504 verified+declined
 ├── data-model.md          # Phase 1 output — 3 new tables, 1 small new table, Finding extended
 ├── quickstart.md          # Phase 1 output — validation guide mapped to success criteria
 ├── contracts/
