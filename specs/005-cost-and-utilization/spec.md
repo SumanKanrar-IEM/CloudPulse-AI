@@ -13,6 +13,21 @@ attention, not just when they happen to look at the dashboard. Functional scope 
 S39–S42, S54–S56, S24, S25): spend ingestion, cost dashboard, owner email notification,
 notification cadence, auto-budgets, overrun findings, sandbox utilization, IAM hygiene."
 
+## Clarifications
+
+### Session 2026-09-02
+
+- Q: For sandbox utilization (User Story 6), what should "used" mean, given that CloudWatch-style
+  metrics collection (backlog S50) is explicitly R3 and not in this spec's scope? → A: Used =
+  resource in an active/running state (existing `Resource.state` data from spec 002); no new
+  metrics dependency.
+- Q: When a day's spend ingestion fails outright, what should happen? → A: Retry automatically;
+  a day still missing after retries shows as an explicit gap on the dashboard, never guessed or
+  zeroed.
+- Q: When a project's spend crosses its 80% budget warning threshold, does that trigger a
+  notification? → A: No — 80% is dashboard-visible only; only crossing 100% (the overrun finding,
+  User Story 5) triggers the email/cadence machinery.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - See where the money is actually going (Priority: P1)
@@ -145,7 +160,9 @@ correct 80%/100% actual-and-forecast thresholds, within the success-criteria win
 1. **Given** a newly registered project/SDA, **When** registration completes, **Then** a budget
    exists for it within a day, with 80% and 100% actual-spend and forecast-spend alert thresholds.
 2. **Given** a project's spend crosses 80% of its budget, **When** the next spend ingestion runs,
-   **Then** an alert condition is recorded for that threshold, distinct from the 100% threshold.
+   **Then** an alert condition is recorded and shown on the cost dashboard, distinct from the
+   100% threshold — this alone does not send any notification (only crossing 100% opens a finding
+   and triggers User Stories 2/3's email/cadence machinery, per User Story 5).
 
 ---
 
@@ -179,22 +196,24 @@ carries, and that fixing the overrun (spend drops back under threshold) resolves
 ### User Story 6 - See how well a sandbox account or project is actually being used (Priority: P2)
 
 An admin wants to know, per account and per project, how much of what's provisioned is actually
-in use — not just what exists, but what's idle. A documented utilization percentage (used vs.
-provisioned) is available with drill-down from an account down to project down to resource.
+in use — not just what exists, but what's idle. A documented utilization percentage (resources
+in an active/running state vs. all provisioned resources — spec 002's existing `Resource.state`
+data, not a CPU/memory metric) is available with drill-down from an account down to project down
+to resource.
 
 **Why this priority**: A real capability, but it depends on nothing else in this spec working
 first and nothing else in this spec depends on it — it's independently deferrable without
 weakening any P1 story.
 
-**Independent Test**: Compute utilization for a test account with a known provisioned/used ratio
-and confirm the dashboard's number matches a hand calculation, then confirm drill-down reaches a
-single resource in the success-criteria's click budget.
+**Independent Test**: Compute utilization for a test account with a known count of active vs.
+stopped/idle resources and confirm the dashboard's number matches a hand calculation, then
+confirm drill-down reaches a single resource in the success-criteria's click budget.
 
 **Acceptance Scenarios**:
 
-1. **Given** an account with known provisioned and in-use capacity, **When** an admin views its
-   utilization page, **Then** the displayed percentage matches a manual calculation using the same
-   documented formula.
+1. **Given** an account with a known count of active and stopped/idle provisioned resources,
+   **When** an admin views its utilization page, **Then** the displayed percentage (active ÷
+   total provisioned) matches a manual calculation using the same documented formula.
 2. **Given** the account-level utilization view, **When** an admin drills down to a project and
    then a resource, **Then** they reach the resource-level view in no more than three clicks.
 
@@ -240,6 +259,10 @@ flags on the active ones.
 - What happens when spend data for a day arrives late or is corrected after ingestion? A
   correction updates that day's stored total rather than creating a second, conflicting record for
   the same account/day/service.
+- What happens when a day's spend ingestion fails outright (upstream cost data unavailable)? It
+  retries automatically; if the day is still missing after retries, the dashboard shows an
+  explicit gap for that day rather than interpolating, zeroing, or silently omitting it from
+  totals.
 - What happens when a project has no registered owner at budget-overrun time? The overrun finding
   still opens and is visible on the dashboard (User Story 5); it simply has no notification target
   (User Story 2's Scenario 2 applies the same way).
@@ -257,6 +280,9 @@ flags on the active ones.
   service, into the governance store.
 - **FR-002**: Ingested spend totals MUST reconcile with the cloud provider's own cost reporting
   within the success-criteria tolerance.
+- **FR-002a**: A day's failed spend ingestion MUST be retried automatically; if it remains missing
+  after retries, the system MUST display that day as an explicit gap rather than interpolating,
+  zeroing, or silently omitting it from totals.
 - **FR-003**: The system MUST expose spend by project/SDA/environment with trend visualization
   and drill-down from an org-wide total to a single resource's own spend.
 
@@ -295,7 +321,9 @@ flags on the active ones.
 **Budgets and overrun findings**
 
 - **FR-015**: The system MUST automatically create a budget for a project/SDA within a day of its
-  registration, with 80% and 100% actual-spend and forecast-spend alert thresholds.
+  registration, with 80% and 100% actual-spend and forecast-spend alert thresholds. Crossing 80%
+  MUST be visible on the cost dashboard only and MUST NOT send any notification; only crossing
+  100% triggers FR-016.
 - **FR-016**: When a project's spend crosses its 100% budget threshold, the system MUST open a
   finding for it in the same findings pipeline and lifecycle spec 003 already defines
   (open/acknowledge/resolve), notified the same way any other finding is (FR-004–FR-014).
@@ -304,9 +332,10 @@ flags on the active ones.
 
 **Utilization and IAM hygiene**
 
-- **FR-018**: The system MUST compute a utilization percentage (used vs. provisioned) per account
-  and per project, using a single documented formula, with drill-down from account to project to
-  resource reachable in no more than three navigation steps.
+- **FR-018**: The system MUST compute a utilization percentage per account and per project as the
+  count of resources in an active/running state divided by the count of all provisioned resources
+  (spec 002's existing per-resource state data — no new metrics collection), with drill-down from
+  account to project to resource reachable in no more than three navigation steps.
 - **FR-019**: The system MUST identify IAM roles, users, and keys that appear unused based on
   last-used analysis and access patterns, and present them as flag-only cleanup recommendations —
   never an automatic deletion or deactivation.
@@ -317,9 +346,11 @@ flags on the active ones.
 - **Spend Record**: One account/service/day's ingested spend amount, tagged to the project it
   belongs to (via the same tag-value mapping spec 003's SDA registry already resolves resources
   by). Corrections update the existing record for that account/service/day rather than creating a
-  duplicate.
+  duplicate. A day that failed ingestion after retries is recorded as an explicit gap, never a
+  guessed or zero amount.
 - **Budget**: A spend ceiling attached to one project/SDA, carrying its 80%/100%
-  actual-and-forecast alert thresholds and whether each has been crossed.
+  actual-and-forecast alert thresholds and whether each has been crossed. Crossing 80% is a
+  dashboard-visible flag only; crossing 100% additionally opens a Finding.
 - **Notification**: One outbound email tied to exactly one finding and one point in its cadence
   (day 0, day 2, or day 4). Records what was sent, to whom, when, and whether it succeeded, was
   withheld (no resolvable/working owner email), or was suppressed because the finding left the
@@ -327,8 +358,9 @@ flags on the active ones.
 - **Finding** *(spec 003, extended here)*: Gains an escalated state (set at day-4 if still open,
   cleared on leaving the open state) and a new violation kind — a budget overrun — alongside spec
   003's existing tag-violation kinds, sharing the same lifecycle.
-- **Utilization Record**: A computed used/provisioned ratio for one account or project at a point
-  in time, using the platform's single documented formula.
+- **Utilization Record**: A computed ratio (active-state resource count ÷ total provisioned
+  resource count) for one account or project at a point in time, derived from spec 002's existing
+  per-resource state data.
 - **IAM Hygiene Flag**: A recommendation (never an action) against one IAM role, user, or key,
   carrying the evidence (last-used date, access pattern) that produced it.
 
