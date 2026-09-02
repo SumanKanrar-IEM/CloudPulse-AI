@@ -44,9 +44,14 @@ quality. It does not mean implementation work is complete.
       [Clarity, Ambiguity, Spec §Requirements]
       **Fixed 2026-09-02**: moot now that every FR carries its own inline tier tag (CHK001) —
       the subsection heading no longer needs to carry tier meaning on its own.
-- [ ] CHK005 Are FR-001–FR-020 (plus FR-002a) each traceable to exactly one backlog story
+- [x] CHK005 Are FR-001–FR-020 (plus FR-002a) each traceable to exactly one backlog story
       (S24/S25/S39–S42/S54–S56), with no requirement serving two backlog items under one implied
       tier? [Traceability]
+      **Fixed 2026-09-03**: a new traceability note opens the Requirements section, mapping each
+      of the four FR subsections to exactly one User Story and its S-numbers. Deliberately not
+      per-FR inline citations — specs 001–004 never do that in spec.md either (traceability lives
+      at the User-Story/subsection level there too; tasks.md is where per-task citations live) —
+      adding them here would have been a new, inconsistent convention for spec 005 alone.
 
 ## Acceptance Criteria Testability
 
@@ -74,46 +79,67 @@ quality. It does not mean implementation work is complete.
       derived ratio? [Measurability, Ambiguity, Spec §SC-007]
       **Reviewed 2026-09-03, satisfied on inspection**: SC-007 already states "(integer counts,
       no rounding tolerance needed)" — added during an earlier fix pass, checkbox was missed.
-- [ ] CHK010 Does SC-006 ("a budget overrun surfaces as a finding within a day") specify whether
+- [x] CHK010 Does SC-006 ("a budget overrun surfaces as a finding within a day") specify whether
       "a day" means the same ingestion-cadence day FR-001's spend ingestion already runs on, or an
       independent SLA that could be tested even if ingestion itself is delayed? [Clarity, Spec
       §SC-006]
+      **Fixed 2026-09-03**: SC-006 now states it's the same daily ingestion run that detects the
+      crossing, not an independent SLA — a delayed ingestion day delays detection by the same
+      amount.
 - [x] CHK011 Is SC-008's "the test account used to validate this feature" specific enough to be
       independently reproducible by a second reviewer, or does it depend on an undocumented,
       reviewer-specific test fixture? [Measurability, Gap, Spec §SC-008]
       **Reviewed 2026-09-03, satisfied on inspection**: SC-008 already states "reproducible by
       seeding that account with at least one deliberately active and one deliberately unused
       role/user/key" — added during an earlier fix pass, checkbox was missed.
-- [ ] CHK012 Are every User Story's Acceptance Scenarios written in a Given/When/Then form precise
+- [x] CHK012 Are every User Story's Acceptance Scenarios written in a Given/When/Then form precise
       enough that a reviewer could write a passing/failing test from the scenario text alone,
       without consulting data-model.md for entity shape first? [Measurability, Spec §User
       Scenarios]
+      **Reviewed 2026-09-03, satisfied on inspection**: scanned every Acceptance Scenario across
+      all 7 stories — none reference a schema-level term (a column name, an enum value spelled
+      as code); every one stays in domain language ("marked escalated," "recorded as
+      unnotifiable"), matching this project's own established Acceptance Scenario style. No edit
+      needed.
 
 ## Out-of-Scope Leakage
 
-- [ ] CHK013 Does the spec's own body (not only its Assumptions section) make clear that
+- [x] CHK013 Does the spec's own body (not only its Assumptions section) make clear that
       in-app notification bell/feed (backlog S26/S32) is excluded, everywhere a reader might
       otherwise assume FR-009's "visible... wherever findings are already surfaced" implies a
       push/notification-center mechanism rather than ordinary dashboard/API display? [Clarity,
       Ambiguity, Spec §FR-009]
-- [ ] CHK014 Is FR-017 ("an overrun finding MUST resolve when the project's spend drops back under
+      **Fixed 2026-09-03**: FR-009 now states inline that "dashboard, API" means the same places
+      any finding is already shown, explicitly not a push notification or notification-center
+      entry.
+- [x] CHK014 Is FR-017 ("an overrun finding MUST resolve when the project's spend drops back under
       its threshold") unambiguous that this is automatic detection of an already-changed external
       fact, not the platform taking any remediation action to reduce spend itself? [Clarity,
       Ambiguity, Spec §FR-017]
-- [ ] CHK015 Does the spec state explicitly, in the body (not only research.md's R-506), that
+      **Fixed 2026-09-03**: FR-017 now states explicitly that this is detection of an
+      already-changed fact, granting no remediation action, matching this project's platform-wide
+      remediation-execution exclusion (backlog E8).
+- [x] CHK015 Does the spec state explicitly, in the body (not only research.md's R-506), that
       the "forecast" threshold (FR-015) is a deterministic calculation and not an AI/ML
       prediction — given "forecast" is a term a reader could otherwise associate with spec 6's
       eventual Bedrock Agent forecasting capability (backlog S51)? [Clarity, Ambiguity, Spec
       §FR-015]
-- [ ] CHK016 Does the spec's Assumptions section's "email-only" scoping statement for notification
+      **Fixed 2026-09-03**: FR-015 now states inline that "forecast" is a deterministic
+      calculation over already-ingested spend history, not an AI/ML prediction, and names spec
+      6's S51 as the distinct, later, unrelated feature.
+- [x] CHK016 Does the spec's Assumptions section's "email-only" scoping statement for notification
       (S24/S25) sit close enough to the FRs it bounds (FR-004–FR-014) that a reader working from
       the Requirements section alone, without reading Assumptions, would not reasonably infer a
       second (in-app) delivery channel is also in scope? [Clarity, Gap]
-- [ ] CHK017 Is it explicit that no functional requirement in this spec grants the platform write
+      **Fixed 2026-09-03**: the "Notification" subsection header itself now states "(email only —
+      no in-app bell/feed; see Assumptions for the full scope boundary)" directly above FR-004.
+- [x] CHK017 Is it explicit that no functional requirement in this spec grants the platform write
       access to modify a resource's tags, an IAM principal, or any other AWS-side state — i.e.,
       that FR-019/FR-020 (IAM hygiene) and FR-001–FR-003 (spend ingestion) are read-only by
       requirement, not merely by current implementation choice? [Completeness, Spec
       §FR-019–FR-020]
+      **Fixed 2026-09-03**: a new Assumptions bullet states this explicitly, citing Principle
+      III's platform-wide read-only-scanning rule.
 
 ## Cross-Spec Contract Consistency
 
@@ -130,10 +156,13 @@ quality. It does not mean implementation work is complete.
       **Fixed 2026-09-02**: FR-016 and the Finding key-entity description now state explicitly
       that a budget-overrun finding is eligible for every status a tag-violation finding is,
       `suppressed` included, not a narrower subset.
-- [ ] CHK020 Is the equivalence "project" = "SDA" (spec 003's registered entity) stated once, early
+- [x] CHK020 Is the equivalence "project" = "SDA" (spec 003's registered entity) stated once, early
       enough, and then used consistently as a single canonical term pairing throughout every User
       Story and FR that follows — or does any requirement use "project" or "SDA" alone in a way
       that could be read as a third, undefined concept? [Consistency, Terminology]
+      **Fixed 2026-09-03**: the equivalence is now stated at its first use, in User Story 1's
+      opening sentence (the very first "project/SDA" mention in the doc), with a forward
+      reference to the fuller Assumptions bullet — no longer only stated at the end.
 - [x] CHK021 Does FR-004's owner-notification requirement correctly presuppose spec 003's
       owner-email resolution chain (including its bounce-flagging, FR-008/FR-010 in this spec)
       without restating or silently altering any part of that chain's own defined behavior?
@@ -147,24 +176,31 @@ quality. It does not mean implementation work is complete.
       "resource" means? [Consistency, Spec §FR-018]
       **Reviewed 2026-09-03, satisfied on inspection**: FR-018 explicitly cites "spec 002's
       existing per-resource state data" and adds no new meaning to either term.
-- [ ] CHK023 Are the data points this spec produces (spend by project, budget/overrun state,
+- [x] CHK023 Are the data points this spec produces (spend by project, budget/overrun state,
       utilization percentage) described in a way a future AI-insights spec (backlog S51–S53,
       explicitly named in this spec's own Assumptions as depending on this spec's data) could
       consume as read-only, tenant-scoped facts — or does any requirement leave the shape of that
       data implementation-defined in a way that would block that future integration from being
       specified independently? [Completeness, Forward-Compatibility, Spec §Assumptions]
-- [ ] CHK024 Is FR-013's "in a form an admin can audit" specific enough to be verified against
+      **Fixed 2026-09-03**: the spec 6 Assumptions bullet now states explicitly that this spec's
+      Key Entities are read-only, tenant-scoped facts by construction, so spec 6's eventual read
+      access needs no shape change here.
+- [x] CHK024 Is FR-013's "in a form an admin can audit" specific enough to be verified against
       spec 001's existing append-only audit-event mechanism, or does it leave open whether this
       spec introduces a second, parallel audit concept? [Clarity, Ambiguity, Spec §FR-013]
+      **Fixed 2026-09-03**: FR-013 now states explicitly that this is a dedicated
+      notification-history record, distinct from spec 001's audit-event log, and says why (a
+      notification attempt is neither privileged nor state-changing).
 
 ## Ambiguities & Conflicts
 
-- [ ] CHK025 Does FR-014's "single, fixed, configured sending identity" (reworded 2026-09-02, see
+- [x] CHK025 Does FR-014's "single, fixed, configured sending identity" (reworded 2026-09-02, see
       the fix note on the now-superseded finding this replaced) specify whether that identity
       must be verified per-environment (dev vs. prod) or is a single value shared across both,
       given the platform's own dev/prod separation elsewhere? [Ambiguity, Gap, Spec §FR-014]
-      **Still open 2026-09-03**: the vagueness of "consistently-branded" was fixed, but this
-      narrower per-environment question was never actually addressed by that edit.
+      **Fixed 2026-09-03**: FR-014 now states explicitly that "single" means single per
+      deployment environment — dev and prod each configure their own identity independently,
+      matching every other per-environment value in this platform.
 - [x] CHK026 Do the Edge Cases and FR-002a use identical language for what happens on a failed
       ingestion day (both say "retried... explicit gap... never guessed or zeroed"), or does any
       wording drift between the two that could be read as two subtly different behaviors? [Consistency, Spec §Edge Cases, §FR-002a]

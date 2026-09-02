@@ -32,8 +32,10 @@ notification cadence, auto-budgets, overrun findings, sandbox utilization, IAM h
 
 ### User Story 1 - See where the money is actually going (Priority: P1)
 
-An admin or finance stakeholder needs to know what every project/SDA is spending, broken down
-by account and service, without pulling it by hand from the cloud provider's own console. Daily
+An admin or finance stakeholder needs to know what every project/SDA is spending — "project" and
+"SDA" name the same registered entity throughout this spec (spec 003's SDA registry; restated in
+full in Assumptions) — broken down by account and service, without pulling it by hand from the
+cloud provider's own console. Daily
 spend is ingested into the governance store and surfaced on a cost dashboard with trend charts
 and drill-down from an org-wide total down to a single resource's own spend.
 
@@ -279,6 +281,14 @@ flags on the active one.
 
 ### Functional Requirements
 
+*Traceability note*: matching specs 001–004's own convention (no spec.md FR carries an inline
+backlog citation anywhere in this project — traceability lives at the User Story/subsection
+level, with tasks.md carrying the per-task citation), each subsection below maps 1:1 to exactly
+one User Story and the S-numbers already named in that story's heading: "Spend and cost
+visibility" → User Story 1 (S39, S42); "Notification" → User Stories 2–3 (S24, S25); "Budgets and
+overrun findings" → User Stories 4–5 (S40, S41); "Utilization and IAM hygiene" → User Stories 6–7
+(S54–S56).
+
 **Spend and cost visibility**
 
 - **FR-001** `[P1]`: The system MUST ingest daily spend, broken down by project tag, account, and
@@ -291,7 +301,7 @@ flags on the active one.
 - **FR-003** `[P1]`: The system MUST expose spend by project/SDA/environment with trend
   visualization and drill-down from an org-wide total to a single resource's own spend.
 
-**Notification**
+**Notification** (email only — no in-app bell/feed; see Assumptions for the full scope boundary)
 
 - **FR-004** `[P1]`: The system MUST send an email to a finding's resolved owner the same
   calendar day a new finding opens against their resource, naming the resource and the specific
@@ -307,7 +317,9 @@ flags on the active one.
   day-4 reminder has been sent, and MUST NOT take any automated action beyond that flag (no
   further emails, no external escalation) as part of this feature.
 - **FR-009** `[P1]`: An escalated finding MUST be visible as escalated wherever findings are
-  already exposed to users (dashboard, API), distinguishable from open-and-in-cadence and from
+  already exposed to users (dashboard, API — the same places any finding is already shown today;
+  this is not a push notification or an in-app notification-center entry, which stay out of
+  scope for this feature entirely), distinguishable from open-and-in-cadence and from
   acknowledged findings, and MUST no longer display as escalated once it is acknowledged,
   resolved, or suppressed.
 - **FR-010** `[P1]`: A finding whose owner email cannot be resolved, or whose only resolved
@@ -320,17 +332,27 @@ flags on the active one.
   are never bundled into a single combined email, even when the same owner has multiple findings
   opening on the same day.
 - **FR-013** `[P1]`: The system MUST record, per finding, which notifications were sent (or why
-  one was withheld) in a form an admin can audit.
+  one was withheld) in a form an admin can audit — a dedicated notification-history record
+  scoped to this feature, distinct from spec 001's platform-wide append-only audit-event log
+  (which records privileged/state-changing actions generally); this spec introduces its own
+  record rather than repurposing that one, since a notification attempt is neither privileged
+  nor state-changing in the sense that log exists to capture.
 - **FR-014** `[P1]`: Every outbound notification MUST originate from a single, fixed, configured
   sending identity — the same address on every send, so recipients can recognize and safelist
-  it.
+  it. "Single" means single *per deployment environment*: dev and prod each verify and configure
+  their own identity independently, matching how every other per-environment value (database
+  host, API endpoint) already works in this platform — not one identity literally shared across
+  both environments.
 
 **Budgets and overrun findings**
 
 - **FR-015** `[P2]`: The system MUST create a budget for a project/SDA no later than the end of
   the calendar day of its registration — in practice immediately, as part of the same
   registration request, not a separately-scheduled or delayed step — with 80% and 100%
-  actual-spend and forecast-spend alert thresholds. Crossing 80% MUST be visible on the cost
+  actual-spend and forecast-spend alert thresholds. "Forecast" here is a deterministic
+  calculation over this platform's own already-ingested spend history, not an AI/ML prediction —
+  spec 6's own eventual forecasting capability (backlog S51) is a distinct, later feature this
+  requirement does not anticipate or depend on. Crossing 80% MUST be visible on the cost
   dashboard only and MUST NOT send any notification; only crossing 100% triggers FR-016.
 - **FR-016** `[P2]`: When a project's spend crosses its 100% budget threshold, the system MUST
   open a finding for it in the same findings pipeline and lifecycle spec 003 already defines
@@ -338,7 +360,10 @@ flags on the active one.
   tag-violation finding is, including `suppressed`, not only open/resolved), notified the same
   way any other finding is (FR-004–FR-014).
 - **FR-017** `[P2]`: An overrun finding MUST resolve when the project's spend drops back under
-  its threshold.
+  its threshold — the system only detects that an already-changed external fact (spend dropping,
+  by whatever means someone reduced it) now satisfies the threshold again; this requirement
+  grants no remediation action of any kind, matching this project's platform-wide exclusion of
+  remediation execution (backlog E8, out of scope for every spec through at least this one).
 
 **Utilization and IAM hygiene**
 
@@ -401,7 +426,10 @@ provable, SC-005–SC-008 inapplicable rather than failing:**
 - **SC-005**: Every newly registered project has a budget with correct thresholds by the end of
   its registration day — in practice immediately, since budget creation is synchronous with
   registration (no sampling; this is a per-event guarantee, not a rate).
-- **SC-006**: A budget overrun surfaces as a finding within a day of crossing its threshold.
+- **SC-006**: A budget overrun surfaces as a finding within a day of crossing its threshold —
+  specifically, by the same daily spend-ingestion run that detects the crossing (the two are not
+  independent schedules; a delayed ingestion day delays detection by the same amount, not a
+  separate SLA measured from the threshold-crossing moment itself).
 - **SC-007**: Utilization figures match a hand calculation using the documented formula exactly
   (integer counts, no rounding tolerance needed), and account-to-resource drill-down completes in
   three clicks or fewer.
@@ -447,7 +475,17 @@ provable, SC-005–SC-008 inapplicable rather than failing:**
   two thresholds and gives no indication they should be configurable yet.
 - **Rightsizing and spend/capacity forecasting are spec 6's job** (Bedrock Agent insights, backlog
   S51–S53) — this spec ingests the raw spend and utilization data those features will eventually
-  consume, but does not itself forecast or recommend instance changes.
+  consume, but does not itself forecast or recommend instance changes. The entities this spec
+  defines (Key Entities, above) are read-only, tenant-scoped facts by construction — the same
+  discipline every entity in specs 001–004 already follows — so spec 6's eventual read access to
+  them needs no shape change here; that spec will define its own tool surface against what
+  already exists, not wait on a redesign of this one.
 - **Viewer-role and non-owner visibility of cost, utilization, and escalated-finding data follows
   the existing platform visibility model** (spec 003/004: this class of governance data is visible
   to every role) — no new permission tier is introduced by this feature.
+- **Every AWS-facing capability this spec adds is read-only by requirement, not merely by
+  current implementation choice** — spend ingestion (FR-001) only reads cost data; IAM hygiene
+  analysis (FR-019/FR-020) only reads role/user/key metadata. No functional requirement in this
+  spec grants write access to modify a resource's tags, an IAM principal, a budget in any
+  external billing system, or any other AWS-side state — matching Principle III's platform-wide
+  read-only-scanning rule, restated here explicitly rather than left implicit.
