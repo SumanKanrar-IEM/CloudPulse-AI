@@ -35,14 +35,16 @@ from P1's, because it's the only genuinely new thing to prove live once P2 exist
 
 ## Phase 1: Setup
 
-- [ ] T001 [P] Scaffold three new empty directories mirroring `accounts/`/`sdas/`'s existing
+- [X] T001 [P] Scaffold three new empty directories mirroring `accounts/`/`sdas/`'s existing
       standalone-component layout: `frontend/src/app/features/{cost,utilization,iam-hygiene}/` —
       no logic yet, just the layout plan.md's Project Structure commits to.
-- [ ] T002 [P] Scaffold `infra/modules/cost/` (empty directory) — the new Terraform module
+      **Done.**
+- [X] T002 [P] Scaffold `infra/modules/cost/` (empty directory) — the new Terraform module
       plan.md's Project Structure names; its four files (`main.tf`, `scheduler.tf`,
       `variables.tf`, `outputs.tf`) are populated incrementally as each story's own worker is
       built (T010, T016, T047), matching `governance`/`scan`'s own precedent of one module built
       up across several phases rather than scaffolded whole up front.
+      **Done.**
 
 **Checkpoint**: Directory layout exists; nothing yet imports from or deploys it.
 
@@ -57,7 +59,7 @@ depend on this migration, so it belongs here, not in whichever story happens to 
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete.
 
-- [ ] T003 Write migration `backend/migrations/versions/0012_cost_utilization_and_notifications.py`
+- [X] T003 Write migration `backend/migrations/versions/0012_cost_utilization_and_notifications.py`
       plus the model/enum changes it codifies: four new enums (`finding_kind`,
       `notification_cadence_point`, `notification_outcome`, `iam_principal_type`) in
       `backend/app/models/enums.py`; `backend/app/models/core.py` gains three new tables
@@ -72,6 +74,13 @@ depend on this migration, so it belongs here, not in whichever story happens to 
       second open tag-violation finding on the same resource/rule; a `budget_overrun` row's
       `resource_id`/`rule_id` being `NULL` does **not** collide with that index (confirms the
       schema note in data-model.md that a Postgres unique index never matches on `NULL`).
+      **Done.** `EXPECTED_TABLES` in `test_migrations.py` extended with the four new tables.
+      Also fixed a pre-existing test that now asserted something false:
+      `test_tenant_scoping.py::test_finding_pins_the_rule_version` checked
+      `rule_version`'s column-level `NOT NULL` — no longer true now that a `budget_overrun`
+      finding has no rule at all — rewritten to check `ck_finding_kind_shape`'s text instead,
+      which is where that guarantee actually lives now for a `tag_violation` finding. Full
+      backend suite (594 tests), mypy, and ruff all clean after the fix.
 
 **Checkpoint**: Schema exists — every table this spec needs is real, but nothing yet reads or
 writes any of it.
