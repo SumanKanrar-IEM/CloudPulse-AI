@@ -742,6 +742,19 @@ against real infrastructure after every dev deploy, not only in CI's mocked suit
       bottleneck; it does not and cannot prove real-network/real-AWS latency, which stays T032's
       job. No other finding (0 duplication, 0 ambiguity, 0 constitution violations, 100% FR
       coverage, 7/8 → 8/8 SC coverage after this fix).
+- [X] T044 **Not anticipated by this task list — process correction, not spec 004 work.**
+      Spec 5 was specified as `005-notification-engine` (PR #94, merged), diverging from
+      `SPECKIT_PLAYBOOK.md` §0.4 step 18's own plan (spec 5 = cost-and-utilization, S39/S42)
+      without updating the playbook to match — the playbook's §0.3 scope table still listed E6
+      Notification Engine as an intentional MVP cut at the same time a whole spec for it was
+      merged to trunk. Caught before spec 5's `/speckit-plan` began, corrected rather than
+      silently carried forward: `SPECKIT_PLAYBOOK.md` now folds S24/S25 (email + day-0/2/4
+      cadence) into spec 5's actual scope alongside cost-and-utilization — a real scope
+      decision, not a revert — with a superseded-note trail at §0.3 rather than a silent
+      rewrite, and `specs/005-notification-engine/` removed so numbering re-aligns: the next
+      `/speckit-specify` lands on `005-cost-and-utilization` as originally planned. PR #94
+      stays in git history as the honest record of what was actually built — this task
+      documents the correction, not an erasure of it — Governance, §0.1's judged-evidence rule.
 
 ---
 
