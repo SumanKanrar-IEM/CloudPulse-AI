@@ -4,19 +4,17 @@ Validation guide, not a tutorial. Assumes specs 001–004's dev environment is d
 spec's migrations, workers, and routes implemented and deployed on top of it. Each scenario cites
 the success criterion it proves. Run in order; later ones assume earlier ones passed.
 
-**Before running V1, V4–V7 live**: read research.md R-511 first. `cost-ingestion-worker` and
-`iam-hygiene-worker` both inherit research.md R-407 (governance dashboard's own standing,
-twice-declined-to-fund VPC-networking gap) unconditionally — Cost Explorer and IAM have no
-VPC PrivateLink support at all, so these two workers cannot reach either API live until that gap
-is funded. Unless it has been resolved since this quickstart was written, scope a live run to
-V2–V3 (notification, if R-504's SES VERIFY resolves favorably) and V6 (utilization, which makes
-no external AWS call at all) — prove V1, V4, V5, and V7 at the mocked-test level only (moto covers
-`ce` and `iam`). This is the honest continuation of specs 002/003/004's own outcome on this same
-gap, not a new blocker to re-report.
-
-**Before running V2–V3 live**: resolve research.md R-504's VERIFY (does this region's SES support
-a VPC interface endpoint reachable from the worker's private subnets) first. If it resolves
-unfavorably, V2–V3 are also mocked-test-only until R-407 itself is funded.
+**Before running V1–V5, V7 live**: read research.md R-511 first. All three new workers
+(`cost-ingestion-worker`, `iam-hygiene-worker`, and `notification-worker`) inherit research.md
+R-407 (governance dashboard's own standing, twice-declined-to-fund VPC-networking gap)
+unconditionally — Cost Explorer and IAM have no VPC PrivateLink support at all (R-503), and
+although SES's own endpoint is technically reachable and was verified live, funding it was
+presented to the user with real cost figures and declined (R-504), so `notification-worker` is
+bounded identically, not an exception. Unless R-407 itself has been funded since this quickstart
+was written, scope a live run to **V6 only** (utilization, which makes no external AWS call at
+all, R-509) — prove V1–V5 and V7 at the mocked-test level only (moto covers `ce`, `iam`, and
+`ses`). This is the honest continuation of specs 002/003/004's own outcome on this same gap, not
+a new blocker to re-report.
 
 **Tear down and run the full cost sweep (playbook §0.5.3) at the end of any session that
 deployed** — extended per research.md R-510 to confirm all three new EventBridge Scheduler rules,
@@ -25,9 +23,9 @@ all three new Lambda functions, and their CloudWatch log groups are gone.
 ## Prerequisites
 
 - Specs 001–004's dev environment deployed and reachable, with at least one admin-role user.
-- For V1/V4/V5/V7 (if R-407/R-511's gap is resolved by the time this runs): at least one
-  verified, scanned account with real spend history and a registered SDA/project.
-- For V2/V3 (if R-504 resolves favorably, or R-407 is funded): a resource with a resolvable owner
+- For V1/V4/V5/V7 (if R-407 is funded by the time this runs): at least one verified, scanned
+  account with real spend history and a registered SDA/project.
+- For V2/V3 (if R-407 is funded by the time this runs): a resource with a resolvable owner
   email (spec 003's attribution chain) and an SES-verified recipient address (sandbox mode,
   research.md R-510 — the same operational pattern spec 004's own T032 used for Cognito test
   users).

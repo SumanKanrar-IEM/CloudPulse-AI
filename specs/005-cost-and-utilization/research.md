@@ -1,12 +1,12 @@
 # Research: Cost, Utilization, and Notifications
 
-Twelve decisions, in dependency order: notification delivery and its own scheduling, the two
-services (Cost Explorer, IAM) this spec calls that inherit spec 004's own R-407 constraint
-unchanged (plus one still-open VERIFY for SES), the budget/forecast model and its finding-trigger
-semantics, the Finding schema extension a non-resource finding kind requires, utilization's data
-source, and the real granularity limit on cost drill-down. R-510 is the cost profile (playbook
-§0.5.3). R-511 carries R-407 forward — a standing constraint, not re-litigated a third time per
-playbook §0.5.5.
+Twelve decisions, in dependency order: notification delivery and its own scheduling, the three
+services (Cost Explorer, IAM, and — confirmed technically avoidable but not funded — SES) this
+spec calls that all inherit spec 004's own R-407 constraint identically, the budget/forecast model
+and its finding-trigger semantics, the Finding schema extension a non-resource finding kind
+requires, utilization's data source, and the real granularity limit on cost drill-down. R-510 is
+the cost profile (playbook §0.5.3). R-511 carries R-407 forward — a standing constraint, not
+re-litigated a third time per playbook §0.5.5.
 
 ## R-501 — Notification is one daily-scheduled Lambda per concern, not SQS fan-out
 
@@ -81,20 +81,41 @@ proxies Aurora writes through the API Lambda instead of connecting directly) wou
 meaningfully more complex than the gap they'd dodge, for a constraint this project has already
 decided twice not to spend money resolving.
 
-## R-504 — SES reachability from inside the VPC: VERIFY before implementation
+## R-504 — Resolved: SES's API is technically reachable via a VPC interface endpoint; not funded — `notification-worker` inherits R-407 like the other two workers
 
-**VERIFY**: Whether Amazon SES's API (not just its SMTP interface) is reachable via a VPC
-interface endpoint in this account's region — run
-`aws ec2 describe-vpc-endpoint-services --query "ServiceDetails[?contains(ServiceName, 'email')].ServiceName"`
-before `notification-worker`'s first implementation task. If an endpoint exists and is funded
-(a genuinely small, single-purpose interface endpoint, not the broader NAT/multi-endpoint
-package R-407's fix would require), `notification-worker` reaches SES through it and email
-sending works even with R-407 unresolved. If not, `notification-worker` inherits R-407 exactly
-like R-503's two workers, and this spec's live-verification for User Stories 2/3 is bounded the
-same honest way spec 004's own T032 was for account registration — provable in CI against mocked
-SES (moto), not provable live against a real send until R-407 (or a standalone SES endpoint) is
-funded. Resolve this VERIFY with a real command output, not an assumption, before `tasks.md`
-commits to either path.
+**Verified 2026-09-02**, against this project's real dev account (767828743440, us-east-1), not
+assumed:
+
+```
+$ aws ec2 describe-vpc-endpoint-services --region us-east-1 \
+    --query "ServiceNames" --output text | tr '\t' '\n' | grep -i email
+com.amazonaws.us-east-1.email
+com.amazonaws.us-east-1.email-fips
+com.amazonaws.us-east-1.email-smtp
+```
+
+`com.amazonaws.us-east-1.email`'s private DNS name is `email.us-east-1.amazonaws.com` —
+boto3's own default SES client endpoint, confirmed via
+`describe-vpc-endpoint-services --service-names com.amazonaws.us-east-1.email`. So a VPC
+interface endpoint for this service **would** work, technically, if funded.
+
+**Decision**: Not funded. Presented to the user with real numbers (~$0.01/AZ/hour + ~$0.01/GB,
+~$14.40/month at 2 AZs if left running continuously) — declined. `notification-worker` stays
+VPC-attached with no endpoint, exactly like `cost-ingestion-worker`/`iam-hygiene-worker`, and so
+inherits **R-407 unconditionally, the same as all three workers now** — R-503's "two of three"
+framing is corrected by this entry; all three are bounded identically. This spec provisions no
+new `aws_vpc_endpoint` resource.
+
+**Rationale**: A real, new recurring cost is the user's call, not this plan's to decide
+unilaterally, even at a small scale and even when it would cleanly unblock two P1 user stories'
+live-verifiability — the same standard this project has already applied twice to the larger
+NAT/VPC-endpoint package for R-407 itself. Confirming technical feasibility (this entry) without
+assuming approval to spend on it were two separate questions, and only the first was this plan's
+to answer alone.
+
+**Alternatives considered**: Funding it (either 2-AZ or single-AZ) — offered to the user with
+both cost and redundancy tradeoffs stated plainly; declined. Re-litigating the full R-407 package
+instead — out of scope per playbook §0.5.5, unchanged.
 
 ## R-505 — Budget and overrun-finding checking run inside the same daily Lambda as spend ingestion, not a separate worker
 
@@ -254,7 +275,7 @@ reasoning as spec 1's R-003 and spec 003's R-306, not an assertion of "cheap."
 | Amazon Cost Explorer API calls (`ce:GetCostAndUsage`) | Standard API pricing (~$0.01/request beyond the first request per month, which is free) | One call per registered account per day. At demo scale (a handful of accounts), this is cents per month, stated explicitly rather than left as "presumably cheap." No new AWS resource is provisioned for this — it's an API call against data AWS already collects, not a new billable service instance. |
 | Amazon SES | No monthly base cost; **$0.10 per 1,000 messages sent**, with a persistent (not 12-month-limited) free allowance of 62,000 messages/month when sending from a Lambda in the same AWS region — a perpetual per-service allowance, distinct from and not contradicting this account's lack of the general 12-month AWS Free Tier the rest of this section reasons around. At this platform's demo-scale finding volume (single digits to low tens of notifications/day), actual cost is $0 either way. **Domain identity is NOT provisioned** — dev/demo operates in SES's default sandbox mode (verified individual recipient addresses only, 200 emails/day, 1/sec), the same operational pattern already used for Cognito test users in prior live-verification sessions (T032's `*@cloudpulse-t032-verify.test` accounts) — a real owned domain for production sending is an ops decision out of this spec's scope, not a blocker for demo-scale live-verification. |
 | No new Aurora capacity | Reuses the existing dev/prod clusters at their existing `min_acu = 0.5` | This spec adds five columns and one enum to `finding`, plus three small new tables (`spend_record`, `budget`, `notification`). No new database capacity is provisioned. Spec 1's R-003 RDS Proxy reasoning still applies unchanged. |
-| No new VPC endpoint, no NAT gateway | Explicitly not provisioned by this plan | R-503/R-511: the standing, twice-declined-to-fund gap is not funded a third time without a new signal from the user. R-504's SES-endpoint VERIFY is a narrower, single-purpose question — resolving it (if the answer is favorable) would be a small, focused addition, not the broader NAT/multi-endpoint package R-407's full fix would require, and is not assumed funded by this plan either. |
+| No new VPC endpoint, no NAT gateway | Explicitly not provisioned by this plan | R-503/R-511: the standing, twice-declined-to-fund gap is not funded a third time without a new signal from the user. R-504 confirmed a narrower, single-purpose SES endpoint was technically available and would have unblocked notification-worker alone at a small, stated cost — presented to the user with real figures, and declined; not provisioned by this plan either. |
 | No new Cognito pool, API Gateway, or Step Functions state machine | Reuses spec 1's identity/API surface and spec 002's orchestration entirely | Per playbook §0.5.4 — nothing here needs a second instance of any of the three. |
 
 **Live-verification discipline (playbook §0.5.3, §0.5.5)**: any session that deploys this spec's
@@ -263,17 +284,17 @@ playbook §0.5.3, extended to confirm all three new EventBridge Scheduler rules 
 Lambda functions (and their CloudWatch log groups — the "no retention policy" check applies to
 three *new* log groups here) are gone. `DEV_AUTO_DEPLOY` discipline is unchanged from prior specs.
 
-## R-511 — Standing constraint, carried forward unchanged: R-407 (governance dashboard's own account-registration gap) now also bounds this spec's cost/IAM ingestion and (pending R-504) possibly notification
+## R-511 — Standing constraint, carried forward unchanged: R-407 (governance dashboard's own account-registration gap) now also bounds this spec's cost/IAM ingestion and — confirmed feasible, declined to fund — its notification worker too
 
 Per playbook §0.5.5's explicit instruction not to re-litigate the NAT/VPC-endpoint cost tradeoff a
 third time without a new signal from the user: this plan does not attempt to fund a fix. R-503
-above states precisely which of this spec's own new AWS calls inherit the gap (Cost Explorer,
-IAM) and which one's status is still open pending R-504's VERIFY (SES). Live-verification for
-User Stories 1 and 5–7 (spend visibility, overrun findings, utilization, IAM hygiene) is bounded
-by this exactly the way spec 004's own T032 was bounded for its populated-dashboard stories:
-provable at the mocked-test level in CI (moto covers `ce`, `iam`, and `ses` clients), not provable
-live against real ingested data until R-407 is funded or R-504 resolves favorably for SES alone.
-User Stories 2/3 (notification) and User Story 6 (utilization, computed entirely from already-
-persisted `Resource.state` with no external AWS call at all) are **not** bounded by this — User
-Story 6 makes no AWS call at all (R-509), and User Stories 2/3's live-verifiability depends solely
-on R-504's answer, independent of R-503's Cost Explorer/IAM finding.
+and R-504 above together state precisely why every one of this spec's three new workers — not
+just two — is bounded identically: Cost Explorer and IAM have no PrivateLink option to fund even
+if the user wanted to (R-503); SES does have one, priced and presented, and the user declined it
+(R-504). Live-verification for User Stories 1, 2, 3, 5, and 7 (spend visibility, notification,
+cadence/escalation, overrun findings, IAM hygiene) is bounded by this exactly the way spec 004's
+own T032 was bounded for its populated-dashboard stories: provable at the mocked-test level in CI
+(moto covers `ce`, `iam`, and `ses` clients), not provable live against a real send or real
+ingested data until R-407 is funded. **User Story 6 (utilization) is the one genuine exception**
+— it makes no AWS call at all (R-509, computed entirely from already-persisted `Resource.state`)
+and is fully live-verifiable today, independent of R-407's status.
