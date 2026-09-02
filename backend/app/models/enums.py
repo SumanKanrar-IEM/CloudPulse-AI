@@ -101,6 +101,52 @@ class SuggestionSource(StrEnum):
     ADMIN_SEEDED = "admin_seeded"
 
 
+class FindingKind(StrEnum):
+    """Which shape of violation a finding is (spec 005, research.md R-508).
+
+    `TAG_VIOLATION` is spec 003's original, only kind -- the schema's default,
+    unchanged for every existing row. `BUDGET_OVERRUN` is this spec's addition:
+    such a finding attaches to an `Sda`, never a `Resource`/`Rule` pair (see
+    `Finding`'s own `ck_finding_kind_shape` CHECK constraint).
+    """
+
+    TAG_VIOLATION = "tag_violation"
+    BUDGET_OVERRUN = "budget_overrun"
+
+
+class NotificationCadencePoint(StrEnum):
+    """Which point in FR-006's day-0/2/4 cadence one `Notification` row is for
+    (spec 005)."""
+
+    DAY_0 = "day_0"
+    DAY_2 = "day_2"
+    DAY_4 = "day_4"
+
+
+class NotificationOutcome(StrEnum):
+    """What happened when a due notification was attempted (spec 005, FR-013).
+
+    `SENT` is the only outcome with a non-null `recipient_email`. The other
+    three are all "nothing was emailed," distinguished by why -- an admin
+    auditing this feature needs to tell "no owner" from "bounced" from "the
+    finding closed before we got to it," not just "no email."
+    """
+
+    SENT = "sent"
+    WITHHELD_NO_OWNER_EMAIL = "withheld_no_owner_email"
+    WITHHELD_BOUNCED = "withheld_bounced"
+    SUPPRESSED_FINDING_CLOSED = "suppressed_finding_closed"
+
+
+class IamPrincipalType(StrEnum):
+    """What kind of IAM principal one `IamHygieneFlag` row is about (spec 005,
+    FR-019)."""
+
+    ROLE = "role"
+    USER = "user"
+    ACCESS_KEY = "access_key"
+
+
 # name -> members, consumed by migration 0001 so the two cannot drift.
 ENUM_TYPES: dict[str, type[StrEnum]] = {
     "tenant_status": TenantStatus,

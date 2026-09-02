@@ -14,6 +14,7 @@ to specs 002–006, which extend the schema by additive migration:
 | `tenant`, `app_user`, `audit_event`, `deployment` | **spec 001** |
 | `cloud_account`, `resource`, `scan` | spec 002 |
 | `rule`, `finding`, `sda`, `resource_owner` | spec 003 |
+| `spend_record`, `budget`, `notification`, `iam_hygiene_flag` | spec 005 |
 
 ## Two things that look like mistakes and are not
 

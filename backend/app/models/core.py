@@ -8,17 +8,21 @@ empty until their owning spec lands.
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import date, datetime
+from decimal import Decimal
 from enum import StrEnum
 from typing import Any
 
 from sqlalchemy import (
+    Boolean,
     CheckConstraint,
+    Date,
     DateTime,
     Enum,
     ForeignKey,
     Index,
     Integer,
+    Numeric,
     String,
     Text,
     UniqueConstraint,
@@ -295,15 +299,31 @@ class Finding(UUIDPrimaryKey, Timestamps, TenantScoped, Base):
 
     __tablename__ = "finding"
 
-    resource_id: Mapped[uuid.UUID] = mapped_column(
-        PgUUID(as_uuid=True), ForeignKey("resource.id", ondelete="CASCADE"), nullable=False
+    # migration 0012 (spec 005). Nullable as of this migration -- a `budget_overrun`
+    # finding (kind, below) has neither a resource nor a rule; it attaches to an
+    # `Sda` instead. `ck_finding_kind_shape` is what actually enforces which three
+    # of these six columns are populated together, not the column definitions alone
+    # (data-model.md, research.md R-508).
+    resource_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("resource.id", ondelete="CASCADE")
     )
-    rule_id: Mapped[uuid.UUID] = mapped_column(
-        PgUUID(as_uuid=True), ForeignKey("rule.id", ondelete="RESTRICT"), nullable=False
+    rule_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("rule.id", ondelete="RESTRICT")
     )
     # Pinned, not derived from rule_id: the rule may be superseded, and the finding
     # must still say which version produced it.
-    rule_version: Mapped[int] = mapped_column(Integer, nullable=False)
+    rule_version: Mapped[int | None] = mapped_column(Integer)
+    # migration 0012 (spec 005). NOT a resource_id alternative encoding -- a
+    # budget_overrun finding really does attach to a project/SDA, not a resource
+    # standing in for one (research.md R-508's own rejected alternative).
+    sda_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("sda.id", ondelete="CASCADE")
+    )
+    kind: Mapped[enums.FindingKind] = mapped_column(
+        _pg_enum(enums.FindingKind, "finding_kind"),
+        nullable=False,
+        server_default=enums.FindingKind.TAG_VIOLATION.value,
+    )
     severity: Mapped[enums.FindingSeverity] = mapped_column(
         _pg_enum(enums.FindingSeverity, "finding_severity"), nullable=False
     )
@@ -324,6 +344,11 @@ class Finding(UUIDPrimaryKey, Timestamps, TenantScoped, Base):
     acknowledged_by: Mapped[uuid.UUID | None] = mapped_column(
         PgUUID(as_uuid=True), ForeignKey("app_user.id", ondelete="SET NULL")
     )
+    # migration 0012 (spec 005, FR-008/FR-009). Set the first time a still-open
+    # finding's day-4 reminder is sent; cleared (NULL) the moment the finding
+    # leaves `open` by any means. Orthogonal to `status`, the same discipline
+    # `acknowledged_at` already established above -- never a stand-in for it.
+    escalated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     __table_args__ = (
         # One OPEN finding per (resource, rule). Re-running a scan must not create a
@@ -336,9 +361,36 @@ class Finding(UUIDPrimaryKey, Timestamps, TenantScoped, Base):
             unique=True,
             postgresql_where=text("status = 'open'"),
         ),
+        # migration 0012 (spec 005). The per-project mirror of the index above --
+        # one open budget_overrun finding per SDA at a time. A tag_violation row's
+        # sda_id is always NULL, which Postgres never treats as matching any other
+        # row's NULL (data-model.md), so the two indexes never interfere.
+        Index(
+            "uq_finding_open_overrun_per_sda",
+            "tenant_id",
+            "sda_id",
+            unique=True,
+            postgresql_where=text("status = 'open' AND kind = 'budget_overrun'"),
+        ),
         Index("ix_finding_tenant_status_severity", "tenant_id", "status", "severity"),
         CheckConstraint(
             "status <> 'resolved' OR resolved_at IS NOT NULL", name="resolved_requires_timestamp"
+        ),
+        # migration 0012 (spec 005, research.md R-508). Exactly one shape per kind:
+        # tag_violation carries resource/rule/rule_version and no sda_id;
+        # budget_overrun carries sda_id and none of the other three.
+        CheckConstraint(
+            "(kind = 'tag_violation' AND resource_id IS NOT NULL AND rule_id IS NOT NULL "
+            "AND rule_version IS NOT NULL AND sda_id IS NULL) "
+            "OR "
+            "(kind = 'budget_overrun' AND sda_id IS NOT NULL AND resource_id IS NULL "
+            "AND rule_id IS NULL AND rule_version IS NULL)",
+            # Naming convention prepends "ck_finding_" (base.py's NAMING_CONVENTION) --
+            # passing "kind_shape" here, not "ck_finding_kind_shape", is what actually
+            # produces "ck_finding_kind_shape" as the constraint's real name, matching
+            # data-model.md/tasks.md's documented name. resolved_requires_timestamp
+            # above follows this exact same rule.
+            name="kind_shape",
         ),
     )
 
@@ -385,6 +437,147 @@ class Sda(UUIDPrimaryKey, Timestamps, TenantScoped, Base):
     )
 
     __table_args__ = (UniqueConstraint("tenant_id", "name", name="uq_sda_tenant_name"),)
+
+
+class SpendRecord(UUIDPrimaryKey, TenantScoped, Base):
+    """One account/service/day's ingested spend amount (spec 005, FR-001/FR-002a).
+
+    Deliberately no `Timestamps` mixin: `ingested_at` (below) already serves the
+    "last write time" role `updated_at` would, and there is no meaningful
+    `created_at` distinct from it for a row that's always either fresh or
+    corrected-in-place (data-model.md).
+    """
+
+    __tablename__ = "spend_record"
+
+    cloud_account_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("cloud_account.id", ondelete="CASCADE"), nullable=False
+    )
+    # NULL = the "No SDA" bucket -- mirrors resource.sda_id's own nullability
+    # exactly (research.md R-505).
+    sda_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("sda.id", ondelete="SET NULL")
+    )
+    service: Mapped[str] = mapped_column(String(100), nullable=False)
+    spend_date: Mapped[date] = mapped_column(Date, nullable=False)
+    # NULL exactly when is_gap is true (FR-002a) -- never a guessed or zeroed
+    # value for a day ingestion never actually produced.
+    amount_usd: Mapped[Decimal | None] = mapped_column(Numeric(12, 4))
+    is_gap: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
+    ingested_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=text("now()")
+    )
+
+    __table_args__ = (
+        UniqueConstraint(
+            "tenant_id",
+            "cloud_account_id",
+            "service",
+            "spend_date",
+            "sda_id",
+            name="uq_spend_record_tenant_account_service_date_sda",
+        ),
+        CheckConstraint(
+            "is_gap = true OR amount_usd IS NOT NULL", name="amount_required_unless_gap"
+        ),
+    )
+
+
+class Budget(UUIDPrimaryKey, Timestamps, TenantScoped, Base):
+    """A spend ceiling attached to one project/SDA (spec 005, FR-015).
+
+    Created synchronously inside `POST /sdas`'s own transaction (research.md
+    R-502) -- there is no separate "create a budget" endpoint.
+    """
+
+    __tablename__ = "budget"
+
+    sda_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("sda.id", ondelete="CASCADE"), nullable=False
+    )
+    amount_usd: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    actual_80_crossed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    actual_100_crossed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    forecast_80_crossed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    forecast_100_crossed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    __table_args__ = (UniqueConstraint("tenant_id", "sda_id", name="uq_budget_tenant_sda"),)
+
+
+class Notification(UUIDPrimaryKey, TenantScoped, Base):
+    """One outbound-email attempt for one finding at one cadence point (spec
+    005, FR-004-FR-013).
+
+    No `Timestamps` mixin -- `attempted_at` is this row's one meaningful
+    timestamp; there is no later update, a row is written once per attempt.
+    """
+
+    __tablename__ = "notification"
+
+    finding_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("finding.id", ondelete="CASCADE"), nullable=False
+    )
+    cadence_point: Mapped[enums.NotificationCadencePoint] = mapped_column(
+        _pg_enum(enums.NotificationCadencePoint, "notification_cadence_point"), nullable=False
+    )
+    outcome: Mapped[enums.NotificationOutcome] = mapped_column(
+        _pg_enum(enums.NotificationOutcome, "notification_outcome"), nullable=False
+    )
+    # Populated only when outcome = 'sent'.
+    recipient_email: Mapped[str | None] = mapped_column(String(320))
+    attempted_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=text("now()")
+    )
+
+    __table_args__ = (
+        # At most one attempt per finding per cadence point, ever -- what makes a
+        # reopened finding's fresh Finding.id naturally start its own independent
+        # cadence (FR-011), with no separate "cycle number" column needed.
+        UniqueConstraint(
+            "tenant_id",
+            "finding_id",
+            "cadence_point",
+            name="uq_notification_tenant_finding_cadence",
+        ),
+    )
+
+
+class IamHygieneFlag(UUIDPrimaryKey, TenantScoped, Base):
+    """A flag-only unused-principal recommendation (spec 005, FR-019/FR-020).
+
+    Deliberately not a `Finding` -- FR-019 fixes this as flag-only, never
+    entering the acknowledge/notify/escalate pipeline a `Finding` carries.
+    """
+
+    __tablename__ = "iam_hygiene_flag"
+
+    cloud_account_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("cloud_account.id", ondelete="CASCADE"), nullable=False
+    )
+    principal_type: Mapped[enums.IamPrincipalType] = mapped_column(
+        _pg_enum(enums.IamPrincipalType, "iam_principal_type"), nullable=False
+    )
+    # A role/user ARN, or an access key ID for an `access_key` flag.
+    principal_identifier: Mapped[str] = mapped_column(String(2048), nullable=False)
+    evidence: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    flagged_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=text("now()")
+    )
+    # NULL = still active. Set when a later weekly run no longer finds this
+    # principal unused; re-flagged with a fresh flagged_at if it later becomes
+    # unused again, rather than reusing a stale row.
+    cleared_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    __table_args__ = (
+        Index(
+            "uq_iam_hygiene_flag_active_principal",
+            "tenant_id",
+            "cloud_account_id",
+            "principal_identifier",
+            unique=True,
+            postgresql_where=text("cleared_at IS NULL"),
+        ),
+    )
 
 
 class ResourceOwner(UUIDPrimaryKey, Timestamps, TenantScoped, Base):
@@ -467,6 +660,10 @@ __all__ = [
     "Finding",
     "FindingRemediationSuggestion",
     "Sda",
+    "SpendRecord",
+    "Budget",
+    "Notification",
+    "IamHygieneFlag",
     "ResourceOwner",
     "OwnerIdentityOverride",
     "Scan",

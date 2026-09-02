@@ -35,6 +35,11 @@ EXPECTED_TABLES = {
     "sda",
     "resource_owner",
     "scan",
+    # migration 0012 (spec 005)
+    "spend_record",
+    "budget",
+    "notification",
+    "iam_hygiene_flag",
 }
 
 

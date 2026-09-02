@@ -185,9 +185,24 @@ def test_deployment_requires_an_approver_for_prod() -> None:
 
 
 def test_finding_pins_the_rule_version() -> None:
-    """A finding must trace to the rule version that produced it, not the current one."""
+    """A tag-violation finding must trace to the rule version that produced it,
+    not the current one.
+
+    migration 0012 (spec 005) widened this column to nullable at the SQL level
+    -- a budget_overrun finding (research.md R-508) has no rule at all -- so the
+    "required for a real tag violation" guarantee this test protects now lives
+    in `ck_finding_kind_shape`, not a column-level NOT NULL. Asserted against
+    the real constraint text rather than the column's own nullability, which
+    is no longer the right place to look.
+    """
     assert "rule_version" in Finding.__table__.c.keys()
-    assert not Finding.__table__.c.rule_version.nullable
+    check_constraints = [
+        c.sqltext.text
+        for c in Finding.__table__.constraints
+        if hasattr(c, "sqltext") and c.name == "ck_finding_kind_shape"
+    ]
+    assert check_constraints, "ck_finding_kind_shape is missing"
+    assert "rule_version IS NOT NULL" in check_constraints[0]
 
 
 def test_all_ten_governance_entities_exist() -> None:
