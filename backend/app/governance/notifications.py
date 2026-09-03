@@ -106,8 +106,13 @@ def due_day0_findings(session: TenantSession, *, now: datetime | None = None) ->
     forever), exactly like one already `sent`.
     """
     now = now or datetime.now(UTC)
+    # Tenant-filtered as well as correlated. A finding's notifications can only
+    # belong to that finding's own tenant today, so this is belt-and-braces rather
+    # than a live leak -- but FR-030's rule is that a tenant-scoped model is never
+    # queried unscoped, and a subquery is still a query.
     already_attempted = select(NotificationRow.finding_id).where(
         NotificationRow.finding_id == FindingRow.id,
+        NotificationRow.tenant_id == session.tenant_id,
         NotificationRow.cadence_point == NotificationCadencePoint.DAY_0,
     )
     statement = (

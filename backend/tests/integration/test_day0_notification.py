@@ -220,10 +220,14 @@ def test_the_link_resolves_to_that_findings_own_detail_view(
 
     sent, _ = _run(session)
 
-    links = {email.body for email in sent}
-    assert any(deep_link(FRONTEND_URL, finding_a.id) in body for body in links)
-    assert any(deep_link(FRONTEND_URL, finding_b.id) in body for body in links)
-    assert f"{FRONTEND_URL}/findings\n" not in "".join(links)
+    link_a = deep_link(FRONTEND_URL, finding_a.id)
+    link_b = deep_link(FRONTEND_URL, finding_b.id)
+    bodies = [email.body for email in sent]
+    assert sum(link_a in body for body in bodies) == 1
+    assert sum(link_b in body for body in bodies) == 1
+    # Neither email carries the other's link, which is what would happen if the
+    # link were built from anything but the finding the email is about.
+    assert not any(link_a in body and link_b in body for body in bodies)
 
 
 def test_two_findings_for_the_same_owner_are_two_emails_never_one_bundle(

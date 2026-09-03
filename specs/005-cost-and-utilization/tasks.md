@@ -312,6 +312,15 @@ resolvable owner email sends nothing and is recorded as unnotifiable.
       `tests/integration/test_finding_acknowledgment.py`, which already owns this router's
       API-level fixtures, rather than in a second near-identical harness.
 
+- [X] T014a [US2] Tenant-filter the day-0 due query's `NOT EXISTS` subquery in
+      `backend/app/governance/notifications.py`. Found in self-review of T014: the correlated
+      subquery over `notification` was built with a bare `select()` rather than through
+      `session.scoped`, so a tenant-scoped model was being queried without a tenant filter.
+      Not a live leak — a finding's notifications can only belong to that finding's own
+      tenant — but FR-030's rule is that a tenant-scoped model is never queried unscoped, and
+      a subquery is still a query. Added retroactively per this file's Process Note rather
+      than folded in silently — S24, FR-030
+
 - [ ] T017a [US2] **BLOCKED — FR-010's bounce clause has no mechanism to build on.** Spec.md's
       FR-010 and its Edge Case both cite "spec 003's bounce flagging" as an existing feature to
       integrate with. It does not exist. Verified by grep across the whole repository: zero
