@@ -27,6 +27,8 @@ import { FindingsList } from '../model/findings-list';
 // @ts-ignore
 import { HTTPValidationError } from '../model/http-validation-error';
 // @ts-ignore
+import { NotificationAttempts } from '../model/notification-attempts';
+// @ts-ignore
 import { RemediationSuggestion } from '../model/remediation-suggestion';
 // @ts-ignore
 import { RemediationSuggestionSeed } from '../model/remediation-suggestion-seed';
@@ -158,6 +160,66 @@ export class FindingsService extends BaseService implements FindingsServiceInter
         let localVarPath = `/findings/${this.configuration.encodeParam({name: "findingId", value: findingId, in: "path", style: "simple", explode: false, dataType: "string", dataFormat: "uuid"})}/suggestion`;
         const { basePath, withCredentials } = this.configuration;
         return this.httpClient.request<RemediationSuggestion>('get', `${basePath}${localVarPath}`,
+            {
+                context: localVarHttpContext,
+                responseType: <any>responseType_,
+                ...(withCredentials ? { withCredentials } : {}),
+                headers: localVarHeaders,
+                observe: observe,
+                ...(localVarTransferCache !== undefined ? { transferCache: localVarTransferCache } : {}),
+                reportProgress: reportProgress
+            }
+        );
+    }
+
+    /**
+     * Every notification attempt recorded for a finding
+     * FR-013\&#39;s auditable trail. Any role may view, matching this router\&#39;s other read endpoints. A finding nothing has been attempted for is a normal 200 with an empty list -- only a missing finding is a 404, the same distinction &#x60;getFindingSuggestion&#x60; already draws.
+     * @endpoint get /findings/{finding_id}/notifications
+     * @param findingId 
+     * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
+     * @param reportProgress flag to report request and response progress.
+     * @param options additional options
+     */
+    public listFindingNotifications(findingId: string, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<NotificationAttempts>;
+    public listFindingNotifications(findingId: string, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<NotificationAttempts>>;
+    public listFindingNotifications(findingId: string, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<NotificationAttempts>>;
+    public listFindingNotifications(findingId: string, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
+        if (findingId === null || findingId === undefined) {
+            throw new Error('Required parameter findingId was null or undefined when calling listFindingNotifications.');
+        }
+
+        let localVarHeaders = this.defaultHeaders;
+
+        // authentication (cognitoJwt) required
+        localVarHeaders = this.configuration.addCredentialToHeaders('cognitoJwt', 'Authorization', localVarHeaders, 'Bearer ');
+
+        const localVarHttpHeaderAcceptSelected: string | undefined = options?.httpHeaderAccept ?? this.configuration.selectHeaderAccept([
+            'application/json'
+        ]);
+        if (localVarHttpHeaderAcceptSelected !== undefined) {
+            localVarHeaders = localVarHeaders.set('Accept', localVarHttpHeaderAcceptSelected);
+        }
+
+        const localVarHttpContext: HttpContext = options?.context ?? new HttpContext();
+
+        const localVarTransferCache: boolean = options?.transferCache ?? true;
+
+
+        let responseType_: 'text' | 'json' | 'blob' = 'json';
+        if (localVarHttpHeaderAcceptSelected) {
+            if (localVarHttpHeaderAcceptSelected.startsWith('text')) {
+                responseType_ = 'text';
+            } else if (this.configuration.isJsonMime(localVarHttpHeaderAcceptSelected)) {
+                responseType_ = 'json';
+            } else {
+                responseType_ = 'blob';
+            }
+        }
+
+        let localVarPath = `/findings/${this.configuration.encodeParam({name: "findingId", value: findingId, in: "path", style: "simple", explode: false, dataType: "string", dataFormat: "uuid"})}/notifications`;
+        const { basePath, withCredentials } = this.configuration;
+        return this.httpClient.request<NotificationAttempts>('get', `${basePath}${localVarPath}`,
             {
                 context: localVarHttpContext,
                 responseType: <any>responseType_,

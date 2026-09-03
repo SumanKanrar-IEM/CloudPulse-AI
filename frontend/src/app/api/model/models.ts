@@ -18,6 +18,8 @@ export * from './http-validation-error';
 export * from './health-response';
 export * from './inventory-resource-summary';
 export * from './location-inner';
+export * from './notification-attempt';
+export * from './notification-attempts';
 export * from './owner-identity-override-body';
 export * from './owner-identity-overrides-list';
 export * from './owner-identity-pattern-body';

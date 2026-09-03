@@ -22,9 +22,12 @@ resource "aws_iam_role" "scheduler" {
 
 data "aws_iam_policy_document" "scheduler_runtime" {
   statement {
-    effect    = "Allow"
-    actions   = ["lambda:InvokeFunction"]
-    resources = [aws_lambda_function.cost_ingestion_worker.arn]
+    effect  = "Allow"
+    actions = ["lambda:InvokeFunction"]
+    resources = [
+      aws_lambda_function.cost_ingestion_worker.arn,
+      aws_lambda_function.notification_worker.arn,
+    ]
   }
 }
 
@@ -46,6 +49,30 @@ resource "aws_scheduler_schedule" "cost_ingestion_daily" {
 
   target {
     arn      = aws_lambda_function.cost_ingestion_worker.arn
+    role_arn = aws_iam_role.scheduler.arn
+    input    = jsonencode({ action = "trigger_daily" })
+
+    retry_policy {
+      maximum_retry_attempts = 2
+    }
+  }
+}
+
+# T016. One daily pass, not one rule per cadence point: day-2/day-4 and the day-4
+# escalation (T021) are answered by this same invocation, because they are one
+# question about one findings table (research.md R-501).
+resource "aws_scheduler_schedule" "notification_daily" {
+  name       = "${local.name}-notification-daily"
+  group_name = "default"
+
+  flexible_time_window {
+    mode = "OFF"
+  }
+
+  schedule_expression = var.notification_schedule_expression
+
+  target {
+    arn      = aws_lambda_function.notification_worker.arn
     role_arn = aws_iam_role.scheduler.arn
     input    = jsonencode({ action = "trigger_daily" })
 

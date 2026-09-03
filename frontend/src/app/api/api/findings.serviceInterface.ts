@@ -16,6 +16,7 @@ import { FindingAcknowledgment } from '../model/models';
 import { FindingStatus } from '../model/models';
 import { FindingsList } from '../model/models';
 import { HTTPValidationError } from '../model/models';
+import { NotificationAttempts } from '../model/models';
 import { RemediationSuggestion } from '../model/models';
 import { RemediationSuggestionSeed } from '../model/models';
 
@@ -43,6 +44,14 @@ export interface FindingsServiceInterface {
      * @param findingId 
      */
     getFindingSuggestion(findingId: string, extraHttpRequestParams?: any): Observable<RemediationSuggestion>;
+
+    /**
+     * Every notification attempt recorded for a finding
+     * FR-013\&#39;s auditable trail. Any role may view, matching this router\&#39;s other read endpoints. A finding nothing has been attempted for is a normal 200 with an empty list -- only a missing finding is a 404, the same distinction &#x60;getFindingSuggestion&#x60; already draws.
+     * @endpoint get /findings/{finding_id}/notifications
+     * @param findingId 
+     */
+    listFindingNotifications(findingId: string, extraHttpRequestParams?: any): Observable<NotificationAttempts>;
 
     /**
      * List findings

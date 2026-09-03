@@ -81,6 +81,11 @@ module "cost" {
   db_user       = "cloudpulse_admin"
   db_secret_arn = module.database.master_user_secret_arn
 
+  # The same CloudFront domain the API takes as its one allowed CORS origin -- the
+  # notification worker's deep links must land on the app the recipient actually uses.
+  frontend_url              = module.frontend.url
+  notification_sender_email = var.notification_sender_email
+
   log_retention_days = local.log_retention_days
   package_path       = var.package_path
   package_hash       = var.package_hash

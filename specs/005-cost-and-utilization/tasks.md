@@ -235,12 +235,21 @@ resolvable owner email sends nothing and is recorded as unnotifiable.
 
 ### Tests for User Story 2
 
-- [ ] T012 [P] [US2] Write `backend/tests/unit/test_notification_due.py` — the "what's due today"
+- [X] T012 [P] [US2] Write `backend/tests/unit/test_notification_due.py` — the "what's due today"
       query: a finding opened today with no `Notification` row for `day_0` is due; a finding
       already carrying a `day_0` row (any outcome) is not due again; a finding whose owner email
       can't be resolved or has bounced (spec 003's bounce flagging) is due but resolves to
       `withheld_no_owner_email`/`withheld_bounced`, never `sent` — S24, FR-004, FR-010
-- [ ] T013 [P] [US2] Write `backend/tests/integration/test_day0_notification.py` — a real finding
+      **Done.** Two placement notes, both recorded in the file's own docstring. (1) The
+      "already attempted, so not due again" rule is a real `NOT EXISTS` against the
+      `uq_notification_tenant_finding_cadence`-constrained table — there is nothing a stub
+      session can prove about it — so it is asserted against a real PostgreSQL in T013
+      instead. Same split, and the same stated reason, as `test_spend_ingestion.py`'s own
+      docstring already records for this codebase. What stayed here is genuinely pure: the
+      deep link, the email contents, and the per-finding outcome branch. (2)
+      `withheld_bounced` is deliberately untested — nothing in the system can set it, per
+      T017a; a test would have to assert a mechanism into existence.
+- [X] T013 [P] [US2] Write `backend/tests/integration/test_day0_notification.py` — a real finding
       with a resolvable owner email produces one `sent` `Notification` row and one email call;
       the sent email's link resolves to `{frontend_url}/findings/{findingId}` — that specific
       finding's own ID, not a generic findings-list URL (FR-005); the email's from-address
@@ -248,30 +257,93 @@ resolvable owner email sends nothing and is recorded as unnotifiable.
       test case in this file rather than left as an assumption (FR-014); two findings opening the
       same day for the same owner produce two distinct `Notification` rows and two separate email
       calls, never one bundled message (FR-012) — S24, FR-004, FR-005, FR-012, FR-013, FR-014
+      **Done.** FR-014's from-address is asserted by the file's shared `_run` helper, which
+      every test goes through, so a new test cannot forget it. FR-005's deep link is checked
+      against *two* findings in one run, so a hardcoded or first-row ID fails rather than
+      coincidentally passing. Also carries T012's due-query half (see T012's note).
 
 ### Implementation for User Story 2
 
-- [ ] T014 [US2] New `backend/app/governance/notifications.py` — `send_due_day0_notifications
+- [X] T014 [US2] New `backend/app/governance/notifications.py` — `send_due_day0_notifications
       (session)`: T012's tested due-query, resolves each finding's owner email (spec 003's
       existing chain, unchanged), sends via SES with the deep link (`{frontend_url}/findings/
       {findingId}`, reusing spec 004's existing route shape) and the resource/violation content
       FR-004/FR-005 fix, writes one `Notification` row per attempt regardless of outcome — S24,
       FR-004, FR-005, FR-010, FR-012, FR-014
-- [ ] T015 [US2] New `backend/handlers/notification_worker_handler.py` — daily EventBridge
+      **Done.** Three decisions worth recording. (1) The SES client is *not* imported here —
+      the send is a `Callable` the handler passes in, the same boundary
+      `ownership_attribution_worker_handler.py` set (Principle V), which is what makes every
+      rule testable without mocking a cloud client. (2) FR-014's sending identity rides on the
+      `NotificationEmail` itself rather than being filled in by the transport, so "every email
+      leaves from the one configured identity" is assertable in a plain unit test. (3) A
+      *transport* failure records no row on purpose, so the next daily pass retries it —
+      FR-010's "never retried forever" is about an unnotifiable address, not a transient
+      error. Owner email is read from spec 003's existing `resource_owner` row rather than
+      re-running `resolve_owner_email` at send time, so the email cannot disagree with what
+      the dashboard shows for the same finding. A 48-hour lookback bounds the query: without
+      it the first deployment would email the owner of every finding specs 003/004 ever
+      opened.
+- [X] T015 [US2] New `backend/handlers/notification_worker_handler.py` — daily EventBridge
       entrypoint calling T014 (day-2/4/escalation logic joins this same handler in Phase 5,
       T021 — one daily pass, not three separate triggers) — S24, research.md R-501
-- [ ] T016 [US2] Extend `infra/modules/cost/{main.tf,scheduler.tf}` — the `notification-worker`
+      **Done.** `frontend_url` and `notification_sender_email` are validated here, at the
+      point of use, rather than on the shared `Settings` model — that one model is used by
+      every Lambda, and the API/scan/migration functions have no notification configuration
+      at all, so making the fields required would stop those resolving settings.
+- [X] T016 [US2] Extend `infra/modules/cost/{main.tf,scheduler.tf}` — the `notification-worker`
       Lambda (arm64, 512MB, VPC-attached, `ses:SendEmail` IAM permission, no PrivateLink endpoint
       per research.md R-504's declined decision) and its own daily EventBridge Scheduler rule —
       S24, research.md R-504, R-510
       `terraform fmt -check -recursive infra/` and `terraform validate` must pass.
-- [ ] T017 [US2] New `backend/app/api/routers/findings.py` extension — `GET /findings/
+      **Done**, both clean, dev and prod. `ses:SendEmail` is scoped to the one configured
+      identity ARN rather than `*` (an unset sender falls back to `*` only because an
+      empty-string ARN is a malformed policy document that would fail the whole apply — the
+      worker itself refuses to run without the value). `frontend_url` is wired from
+      `module.frontend.url`, the same CloudFront domain the API already takes as its single
+      allowed CORS origin, so a deep link lands on the app the recipient actually uses. The
+      scheduler role's invoke policy gained the new function alongside the existing one
+      rather than getting a second role.
+- [X] T017 [US2] New `backend/app/api/routers/findings.py` extension — `GET /findings/
       {findingId}/notifications` (FR-013's admin-auditable trail), `require_viewer`-gated.
       Regenerate `backend/openapi.generated.yaml` — S24, FR-013
+      **Done.** Contract regenerated. A finding with no attempts recorded is a normal 200 with
+      an empty list — only a missing finding is a 404, the same distinction
+      `getFindingSuggestion` already draws. Endpoint tests live in
+      `tests/integration/test_finding_acknowledgment.py`, which already owns this router's
+      API-level fixtures, rather than in a second near-identical harness.
+
+- [X] T014a [US2] Tenant-filter the day-0 due query's `NOT EXISTS` subquery in
+      `backend/app/governance/notifications.py`. Found in self-review of T014: the correlated
+      subquery over `notification` was built with a bare `select()` rather than through
+      `session.scoped`, so a tenant-scoped model was being queried without a tenant filter.
+      Not a live leak — a finding's notifications can only belong to that finding's own
+      tenant — but FR-030's rule is that a tenant-scoped model is never queried unscoped, and
+      a subquery is still a query. Added retroactively per this file's Process Note rather
+      than folded in silently — S24, FR-030
+
+- [ ] T017a [US2] **BLOCKED — FR-010's bounce clause has no mechanism to build on.** Spec.md's
+      FR-010 and its Edge Case both cite "spec 003's bounce flagging" as an existing feature to
+      integrate with. It does not exist. Verified by grep across the whole repository: zero
+      mentions of bounce/undeliverable/deliverability in `specs/003-*/` (spec, plan, or tasks),
+      and no deliverability column or table anywhere in the schema — not on `resource_owner`,
+      `owner_identity_override`, or `tenant`. `OwnerConfidence` is about attribution confidence,
+      not deliverability. The only artifacts are spec 005's own `NotificationOutcome
+      .WITHHELD_BOUNCED` enum value and migration 0012 that created it, so **nothing can ever
+      set that outcome today**.
+      FR-010's first clause ("owner email cannot be resolved") is fully implemented in T014 via
+      the existing `resolve_owner_email` chain, so the P1 demo path is unaffected. Building the
+      second clause means real unplanned scope — an SES configuration set, an SNS topic and
+      bounce-event handler, a suppression table, and a migration — and it is not meaningfully
+      testable end-to-end anyway while SES itself is unreachable from the VPC (R-504's declined
+      funding). Deliberately deferred rather than faked: a hardcoded `False` "has this bounced"
+      predicate would make the requirement look satisfied while changing nothing.
+      **Needs a decision** (not this task list's to make): either fund the R-504/R-407 networking
+      gap and build real bounce handling as its own spec-level scope, or amend FR-010 to drop the
+      bounce clause and remove the unreachable enum value.
 
 **Checkpoint**: A newly-opened finding with a resolvable owner email is emailed the same day, with
 a working deep link, and every attempt (sent or withheld) is auditable. SC-003 provable at the
-mocked-test level.
+mocked-test level — with FR-010's bounce clause explicitly excluded per T017a.
 
 ---
 

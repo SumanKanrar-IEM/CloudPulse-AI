@@ -46,6 +46,8 @@ model/http-validation-error.ts
 model/inventory-resource-summary.ts
 model/location-inner.ts
 model/models.ts
+model/notification-attempt.ts
+model/notification-attempts.ts
 model/owner-identity-override-body.ts
 model/owner-identity-overrides-list.ts
 model/owner-identity-pattern-body.ts
