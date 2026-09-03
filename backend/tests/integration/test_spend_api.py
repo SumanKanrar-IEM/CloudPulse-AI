@@ -160,6 +160,20 @@ def test_list_spend_filters_to_the_no_sda_bucket(
     assert rows[0]["service"] == "AmazonS3"
 
 
+def test_list_spend_rejects_a_malformed_sda_id_as_422_not_500(
+    spend_app: tuple[TestClient, _ClaimStager, uuid.UUID, CloudAccount, SdaRow],
+) -> None:
+    """`sdaId` is a string so the literal "none" can share the parameter, which
+    means FastAPI does not validate the UUID case -- a malformed value would
+    otherwise reach `uuid.UUID()` and surface as an unhandled 500."""
+    client, *_ = spend_app
+    response = client.get(
+        "/spend", params={"from": "2026-09-01", "to": "2026-09-02", "sdaId": "not-a-uuid"}
+    )
+    assert response.status_code == 422, response.text
+    assert response.json()["error"]["code"] == "VALIDATION_FAILED"
+
+
 def test_summary_totals_and_by_project_breakdown(
     spend_app: tuple[TestClient, _ClaimStager, uuid.UUID, CloudAccount, SdaRow],
 ) -> None:

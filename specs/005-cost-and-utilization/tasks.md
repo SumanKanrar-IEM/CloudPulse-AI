@@ -197,6 +197,17 @@ list (research.md R-512 — resource-level *attribution*, not a per-resource dol
       linked on this machine — `brew`'s `openjdk` was installed but not on `PATH`/`JAVA_HOME`).
       Ran it with `JAVA_HOME=$(brew --prefix openjdk)/libexec/openjdk.jdk/Contents/Home`; produced
       `spend.service.ts`/`spend.serviceInterface.ts` and the five `spend-*` model files cleanly.
+- [X] T010a [US1] Fix `GET /spend`'s `sdaId` validation — a malformed value returned 500
+      instead of 422 — S39, FR-003
+      **Added retroactively** (same discipline as T003a), found during this phase's own
+      self-review, not by a task description. `sdaId` is typed as a string rather than a UUID so
+      the literal `"none"` sentinel can share the parameter — which means FastAPI never validates
+      the UUID case, and `uuid.UUID("not-a-uuid")` raised a bare `ValueError`. There is no
+      `ValueError` exception handler, so it reached the catch-all and surfaced as an unhandled
+      500. Now rejected as a 422 `VALIDATION_FAILED` via the same `AppError` pattern
+      `accounts.py` already uses, with `422` declared in the contract. Confirmed to be a real
+      defect rather than a hypothetical: the new regression test fails `assert 500 == 422`
+      against the pre-fix code and passes after.
 - [X] T011 [P] [US1] New `frontend/src/app/features/cost/{cost.service.ts,
       cost-dashboard.component.ts}` — trend chart (`ng2-charts`, reused from spec 004), per-
       project table, drill-down to a resource list (R-512); wire the `/cost` route into

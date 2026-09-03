@@ -15,7 +15,7 @@ from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 
-from app.api.errors import ERROR_RESPONSES
+from app.api.errors import ERROR_RESPONSES, AppError, ErrorCode
 from app.core.db import tenant_session
 from app.core.security import Principal, require_viewer
 from app.models.core import Sda as SdaRow
@@ -26,6 +26,22 @@ router = APIRouter(tags=["spend"])
 ViewerPrincipal = Annotated[Principal, Depends(require_viewer)]
 
 _NO_SDA_FILTER = "none"
+
+
+def _parse_sda_id(raw: str) -> uuid.UUID:
+    """`sdaId` is typed as a string, not a UUID, so the literal `"none"`
+    sentinel can share the parameter -- which means FastAPI does not validate
+    the UUID case for us, and a malformed value would otherwise reach
+    `uuid.UUID()` and surface as an unhandled 500 rather than a 422.
+    """
+    try:
+        return uuid.UUID(raw)
+    except ValueError:
+        raise AppError(
+            ErrorCode.VALIDATION_FAILED,
+            status_code=422,
+            message=f'sdaId must be a UUID, or the literal "{_NO_SDA_FILTER}".',
+        ) from None
 
 
 # --- Schemas -----------------------------------------------------------------------
@@ -78,7 +94,11 @@ class SpendSummary(BaseModel):
     summary="Daily spend records, optionally filtered",
     response_model=SpendList,
     response_model_by_alias=True,
-    responses={401: ERROR_RESPONSES[401], 403: ERROR_RESPONSES[403]},
+    responses={
+        401: ERROR_RESPONSES[401],
+        403: ERROR_RESPONSES[403],
+        422: ERROR_RESPONSES[422],
+    },
 )
 async def list_spend(
     principal: ViewerPrincipal,
@@ -99,7 +119,7 @@ async def list_spend(
         if sda_id == _NO_SDA_FILTER:
             stmt = stmt.where(SpendRecordRow.sda_id.is_(None))
         elif sda_id is not None:
-            stmt = stmt.where(SpendRecordRow.sda_id == uuid.UUID(sda_id))
+            stmt = stmt.where(SpendRecordRow.sda_id == _parse_sda_id(sda_id))
 
         rows = session.raw.execute(stmt).scalars().all()
         return SpendList(

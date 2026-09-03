@@ -1583,11 +1583,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
         '422':
-          description: Validation Error
+          description: Request body or parameters failed validation.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+                $ref: '#/components/schemas/ErrorEnvelope'
   /spend/summary:
     get:
       tags:
