@@ -465,12 +465,20 @@ AWS account, the way specs 001–004 did — honestly bounded this time by a con
 before the attempt (research.md R-511), not discovered mid-attempt the way spec 002/003's own
 first tries were.
 
-- [ ] T024 Write `backend/tests/integration/test_role_matrix_cost_and_notifications.py` — the
+- [X] T024 Write `backend/tests/integration/test_role_matrix_cost_and_notifications.py` — the
       full role matrix across this spec's P1 read surfaces (`GET /spend`, `GET /spend/summary`,
       `GET /findings/{findingId}/notifications`): all three roles can read (spec 003/004's
       established "governance data is visible to every role" pattern, no write endpoint exists
       in P1 scope to test refusal against — noted explicitly, not silently assumed) — S24, S25,
       S39, S42, FR-003, FR-013
+      **Done.** Every cell asserted explicitly, admin included — R-205's non-hierarchical-roles
+      point means admin is never inferred from viewer working. The "no write endpoint to refuse
+      against" claim is stated in the file's docstring with its reason: every write in this spec
+      is performed by a worker Lambda under its own IAM role, not by a signed-in principal
+      through the API. Two refusal cells do exist and are asserted — an unauthenticated caller
+      (401) and an authenticated caller with no recognised group (403, since FR-032a's
+      cardinality rule means an empty group claim is no role, not viewer-by-default). Each read
+      cell asserts the response *body*, so an empty result cannot pass as success.
 - [ ] T025 **Live-verification.** Deploy this spec's P1 work to dev (dispatch `Deploy dev`
       manually, per specs 002–004's precedent). **Before attempting any AWS-call-dependent
       scenario, re-confirm research.md R-511's status has not changed** — Cost Explorer and IAM
