@@ -14,10 +14,10 @@ requires, the email content FR-004 requires, and the per-finding outcome
 branch FR-010 requires -- including that an unresolvable owner is *recorded*
 rather than skipped or retried forever.
 
-`NotificationOutcome.WITHHELD_BOUNCED` is deliberately untested: nothing in the
-system can set it today, because the "spec 003 bounce flagging" FR-010 builds
-on does not exist. See T017a in tasks.md -- a test here would have to assert a
-mechanism into existence.
+There is no bounce case to test. FR-010 originally covered a previously-bounced
+address by deferring to a "spec 003 bounce flagging" feature that does not
+exist; the requirement was amended and the unreachable `withheld_bounced`
+outcome dropped (T017a's evidence, T017b's change, migration 0014).
 """
 
 from __future__ import annotations

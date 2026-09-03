@@ -195,3 +195,49 @@ def test_irreversible_revision_refuses_to_downgrade(clean_database: Engine, alem
     command.upgrade(alembic_config, "head")
     with pytest.raises(RuntimeError, match="irreversible"):
         command.downgrade(alembic_config, "0002")
+
+
+def test_notification_outcome_has_no_unreachable_bounced_value(
+    clean_database: Engine, alembic_config
+) -> None:
+    """Migration 0014, after FR-010's amendment (T017a's decision, T017b).
+
+    The schema must state only what the system can actually record. Asserted
+    against the real type rather than against `NotificationOutcome`, so the
+    enum and the migration cannot drift apart silently.
+    """
+    command.upgrade(alembic_config, "head")
+    with clean_database.connect() as conn:
+        values = set(
+            conn.execute(
+                text(
+                    "SELECT e.enumlabel FROM pg_enum e "
+                    "JOIN pg_type t ON t.oid = e.enumtypid "
+                    "WHERE t.typname = 'notification_outcome'"
+                )
+            )
+            .scalars()
+            .all()
+        )
+    assert values == {"sent", "withheld_no_owner_email", "suppressed_finding_closed"}
+
+
+def test_dropping_the_bounced_value_is_reversible(clean_database: Engine, alembic_config) -> None:
+    """0014 declares REVERSIBLE: yes, and an enum swap is exactly the kind of
+    migration where that claim is worth exercising rather than trusting."""
+    command.upgrade(alembic_config, "head")
+    command.downgrade(alembic_config, "0013")
+    with clean_database.connect() as conn:
+        restored = set(
+            conn.execute(
+                text(
+                    "SELECT e.enumlabel FROM pg_enum e "
+                    "JOIN pg_type t ON t.oid = e.enumtypid "
+                    "WHERE t.typname = 'notification_outcome'"
+                )
+            )
+            .scalars()
+            .all()
+        )
+    assert "withheld_bounced" in restored
+    command.upgrade(alembic_config, "head")

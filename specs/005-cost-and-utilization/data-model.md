@@ -113,7 +113,7 @@ account/day genuinely had zero services with spend," which is a normal, non-gap 
 | `tenant_id` | UUID | FK, NOT NULL |
 | `finding_id` | UUID | FK → `finding.id`, NOT NULL |
 | `cadence_point` | ENUM `notification_cadence_point` (`day_0`, `day_2`, `day_4`) | NOT NULL |
-| `outcome` | ENUM `notification_outcome` (`sent`, `withheld_no_owner_email`, `withheld_bounced`, `suppressed_finding_closed`) | NOT NULL |
+| `outcome` | ENUM `notification_outcome` (`sent`, `withheld_no_owner_email`, `suppressed_finding_closed`) | NOT NULL — migration 0014 dropped `withheld_bounced`; see FR-010's amendment |
 | `recipient_email` | VARCHAR(320) | nullable — populated only when `outcome = 'sent'` |
 | `attempted_at` | TIMESTAMPTZ | NOT NULL, default `now()` |
 

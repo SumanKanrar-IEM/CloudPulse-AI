@@ -239,7 +239,7 @@ resolvable owner email sends nothing and is recorded as unnotifiable.
       query: a finding opened today with no `Notification` row for `day_0` is due; a finding
       already carrying a `day_0` row (any outcome) is not due again; a finding whose owner email
       can't be resolved or has bounced (spec 003's bounce flagging) is due but resolves to
-      `withheld_no_owner_email`/`withheld_bounced`, never `sent` — S24, FR-004, FR-010
+      `withheld_no_owner_email`, never `sent` — S24, FR-004, FR-010
       **Done.** Two placement notes, both recorded in the file's own docstring. (1) The
       "already attempted, so not due again" rule is a real `NOT EXISTS` against the
       `uq_notification_tenant_finding_cadence`-constrained table — there is nothing a stub
@@ -247,8 +247,8 @@ resolvable owner email sends nothing and is recorded as unnotifiable.
       instead. Same split, and the same stated reason, as `test_spend_ingestion.py`'s own
       docstring already records for this codebase. What stayed here is genuinely pure: the
       deep link, the email contents, and the per-finding outcome branch. (2)
-      `withheld_bounced` is deliberately untested — nothing in the system can set it, per
-      T017a; a test would have to assert a mechanism into existence.
+      there is no bounce case to test — FR-010's bounce clause was amended away and the
+      unreachable `withheld_bounced` outcome dropped (T017a's evidence, T017b's change).
 - [X] T013 [P] [US2] Write `backend/tests/integration/test_day0_notification.py` — a real finding
       with a resolvable owner email produces one `sent` `Notification` row and one email call;
       the sent email's link resolves to `{frontend_url}/findings/{findingId}` — that specific
@@ -321,7 +321,9 @@ resolvable owner email sends nothing and is recorded as unnotifiable.
       a subquery is still a query. Added retroactively per this file's Process Note rather
       than folded in silently — S24, FR-030
 
-- [ ] T017a [US2] **BLOCKED — FR-010's bounce clause has no mechanism to build on.** Spec.md's
+- [X] T017a [US2] **RESOLVED — decision taken: amend FR-010 (carried out by T017b).** The
+      finding that prompted it, unchanged: **FR-010's bounce clause had no mechanism to build
+      on.** Spec.md's
       FR-010 and its Edge Case both cite "spec 003's bounce flagging" as an existing feature to
       integrate with. It does not exist. Verified by grep across the whole repository: zero
       mentions of bounce/undeliverable/deliverability in `specs/003-*/` (spec, plan, or tasks),
@@ -340,10 +342,25 @@ resolvable owner email sends nothing and is recorded as unnotifiable.
       **Needs a decision** (not this task list's to make): either fund the R-504/R-407 networking
       gap and build real bounce handling as its own spec-level scope, or amend FR-010 to drop the
       bounce clause and remove the unreachable enum value.
+      **Decision: amend FR-010.** Carried out by T017b. Bounce handling is not built and is not
+      pretended to exist; if it is ever wanted, it returns as its own spec-level scope with the
+      SES configuration set, bounce-event subscriber, and suppression store that it actually
+      needs.
+
+- [X] T017b [US2] Amend FR-010 and drop the unreachable outcome, per T017a's decision — spec.md
+      (FR-010 and its Edge Case), `data-model.md`, `contracts/openapi.yaml`, `ops/erd/schema.mmd`,
+      `backend/app/models/enums.py`, and new migration `0014_drop_unreachable_bounced_outcome.py`.
+      Postgres cannot drop a value from an existing enum, so 0014 takes the standard
+      rename-create-recast-drop route; the recast fails loudly if any row holds the value, which
+      is correct rather than hazardous — such a row would mean bounce handling exists after all.
+      Covered by two tests in `backend/tests/integration/test_migrations.py`: the live type has
+      exactly the three reachable values, and 0014's REVERSIBLE claim survives a real downgrade
+      and re-upgrade — S24, FR-010
 
 **Checkpoint**: A newly-opened finding with a resolvable owner email is emailed the same day, with
 a working deep link, and every attempt (sent or withheld) is auditable. SC-003 provable at the
-mocked-test level — with FR-010's bounce clause explicitly excluded per T017a.
+mocked-test level — with FR-010's bounce clause removed from the requirement itself per
+T017a/T017b, rather than left unimplemented.
 
 ---
 

@@ -237,7 +237,7 @@ components:
         cadencePoint: { type: string, enum: [day_0, day_2, day_4] }
         outcome:
           type: string
-          enum: [sent, withheld_no_owner_email, withheld_bounced, suppressed_finding_closed]
+          enum: [sent, withheld_no_owner_email, suppressed_finding_closed]
         recipientEmail: { type: string, nullable: true }
         attemptedAt: { type: string, format: date-time }
       required: [cadencePoint, outcome, attemptedAt]

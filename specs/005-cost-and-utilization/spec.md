@@ -250,9 +250,12 @@ flags on the active one.
 
 ### Edge Cases
 
-- What happens when a finding opens for a resource whose owner email previously bounced (spec
-  003's bounce flagging)? No email is sent and the finding is recorded as unnotifiable, the same
-  as an unresolved owner — a bounced address is not a working delivery target either.
+- What happens when a finding opens for a resource whose owner email is undeliverable? Out of
+  scope for this feature. An earlier draft of this edge case answered it by deferring to "spec
+  003's bounce flagging" — a feature that does not exist anywhere in this repository (see
+  tasks.md T017a for the evidence). Rather than carry a requirement nothing could satisfy, the
+  clause was removed. Real bounce handling needs its own spec-level scope: an SES configuration
+  set, a bounce-event subscriber, and a suppression store.
 - What happens when many findings open across many resources at once (a large scan, or a spend
   ingestion that pushes several projects over threshold the same day)? Every eligible finding
   gets its own day-0 email; an owner with many findings from one event gets one email per finding
@@ -322,9 +325,11 @@ overrun findings" → User Stories 4–5 (S40, S41); "Utilization and IAM hygien
   scope for this feature entirely), distinguishable from open-and-in-cadence and from
   acknowledged findings, and MUST no longer display as escalated once it is acknowledged,
   resolved, or suppressed.
-- **FR-010** `[P1]`: A finding whose owner email cannot be resolved, or whose only resolved
-  address has previously bounced, MUST NOT receive any notification, and MUST be recorded as
-  unnotifiable rather than retried or silently dropped.
+- **FR-010** `[P1]`: A finding whose owner email cannot be resolved MUST NOT receive any
+  notification, and MUST be recorded as unnotifiable rather than retried or silently dropped.
+  (Amended: this requirement originally also covered an address that had previously bounced,
+  by deferring to a "spec 003 bounce flagging" feature that does not exist. See the Edge Case
+  above and tasks.md T017a/T017b. Bounce handling is out of scope for this feature.)
 - **FR-011** `[P1]`: A finding that reopens after a prior resolution MUST start its own
   independent day-0/2/4 cadence, unaffected by reminders already sent or suppressed for its
   earlier occurrence.

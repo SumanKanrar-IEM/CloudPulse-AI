@@ -127,14 +127,19 @@ class NotificationOutcome(StrEnum):
     """What happened when a due notification was attempted (spec 005, FR-013).
 
     `SENT` is the only outcome with a non-null `recipient_email`. The other
-    three are all "nothing was emailed," distinguished by why -- an admin
-    auditing this feature needs to tell "no owner" from "bounced" from "the
-    finding closed before we got to it," not just "no email."
+    two are both "nothing was emailed," distinguished by why -- an admin
+    auditing this feature needs to tell "no owner" from "the finding closed
+    before we got to it," not just "no email."
+
+    There is deliberately no `withheld_bounced`. Migration 0012 created one for
+    FR-010's original bounce clause, which cited a "spec 003 bounce flagging"
+    feature that does not exist in this repository. FR-010 was amended to drop
+    that clause (T017a's decision, T017b's change) and migration 0014 removed
+    the value, rather than leave an outcome nothing could ever record.
     """
 
     SENT = "sent"
     WITHHELD_NO_OWNER_EMAIL = "withheld_no_owner_email"
-    WITHHELD_BOUNCED = "withheld_bounced"
     SUPPRESSED_FINDING_CLOSED = "suppressed_finding_closed"
 
 
