@@ -19,6 +19,7 @@ from app.api.errors import ERROR_RESPONSES, AppError, ErrorCode, ErrorEnvelope, 
 from app.core.audit import write_audit_event
 from app.core.db import TenantSession, tenant_session
 from app.core.security import Principal, require_admin, require_viewer
+from app.governance.budgets import create_budget_for_sda, default_budget_usd
 from app.governance.sda_matching import mappings_overlap
 from app.models.core import Resource
 from app.models.core import Sda as SdaRow
@@ -188,6 +189,11 @@ async def register_sda(body: SdaCreate, request: Request, principal: AdminPrinci
         )
         session.add(row)
         session.flush()
+        # FR-015, research.md R-502: the guardrail exists the moment the project
+        # does, in this same transaction -- not on a later schedule. Rolling back
+        # together is the correct coupling: a project that registered without a
+        # budget would be invisible to Phase 8's overrun check forever after.
+        create_budget_for_sda(session, row, amount_usd=default_budget_usd())
         _audit(
             session,
             principal=principal,

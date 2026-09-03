@@ -552,24 +552,57 @@ correct thresholds, created synchronously (research.md R-502), not on any later 
 
 ### Tests for User Story 4
 
-- [ ] T027 [P] [US4] **[P2]** Write `backend/tests/unit/test_budget_creation.py` — a `Budget` row
+- [X] T027 [P] [US4] **[P2]** Write `backend/tests/unit/test_budget_creation.py` — a `Budget` row
       is created with the fixed 80%/100% actual-and-forecast thresholds and no crossed-timestamps
       set — S40, FR-015
-- [ ] T028 [P] [US4] **[P2]** Write `backend/tests/integration/test_sda_registration_creates_
+      **Done.** The crossed-timestamps assertion is the load-bearing one: R-507 reads
+      `actual_100_crossed_at` going NULL to non-NULL as the trigger that opens an overrun
+      finding, so a budget seeded with anything else would fire that trigger for a project that
+      has never spent a cent. Also covers the configured cap's parsing (see T029a).
+- [X] T028 [P] [US4] **[P2]** Write `backend/tests/integration/test_sda_registration_creates_
       budget.py` — `POST /sdas` (spec 003's existing endpoint) produces exactly one `Budget` row
       per SDA, in the same transaction as the SDA itself — S40, FR-015, research.md R-502
+      **Done.** The rollback case is asserted explicitly, not just the happy path: an
+      overlapping mapping refused with 409 (FR-010a) must leave neither the SDA nor an orphan
+      budget behind. That is the half of R-502 a stub session cannot demonstrate.
 
 ### Implementation for User Story 4
 
-- [ ] T029 [US4] **[P2]** Extend `backend/app/api/routers/sdas.py` — `POST /sdas` creates the
+- [X] T029 [US4] **[P2]** Extend `backend/app/api/routers/sdas.py` — `POST /sdas` creates the
       `Budget` row synchronously, inside the existing registration transaction (research.md
       R-502) — S40, FR-015
-- [ ] T030 [US4] **[P2]** New `backend/app/api/routers/budgets.py` — `GET /budgets`,
+      **Done.** Rolling back together is the correct coupling — a project that registered
+      without a budget would be invisible to Phase 8's overrun check forever after. See T029a
+      for where the cap amount comes from and why not from `Settings`.
+- [X] T030 [US4] **[P2]** New `backend/app/api/routers/budgets.py` — `GET /budgets`,
       `require_viewer`-gated. Regenerate `backend/openapi.generated.yaml` and the frontend
       client — S40, FR-015
-- [ ] T031 [P] [US4] **[P2]** Extend `frontend/src/app/features/cost/{cost.service.ts,
+      **Done**, both regenerated. Read-only by design and the router says so: a budget is
+      created by `POST /sdas`, its cap is a platform-wide configured default, and its four
+      crossed-timestamps are written by `cost-ingestion-worker` — nothing in this spec's scope
+      gives a human a reason to write one. All four timestamps are exposed, not just the one
+      that opens a finding: FR-015 makes 80% dashboard-visible precisely because it sends no
+      notification, so hiding it would leave that warning with nowhere to appear.
+- [X] T031 [P] [US4] **[P2]** Extend `frontend/src/app/features/cost/{cost.service.ts,
       cost-dashboard.component.ts}` — a budget row per project (amount, 80%/100% crossed state)
       alongside the existing spend table — S40, FR-015
+      **Done.** Budgets are fetched in parallel with the spend summary rather than lazily, for
+      the same reason the API exposes all four timestamps. A crossed-100 timestamp outranks a
+      crossed-80 one in the displayed label, since both are set once spend passes 100% and
+      reporting the lesser would understate it.
+
+- [X] T029a [US4] **[P2]** Read the auto-created budget's cap from the environment directly
+      (`app/governance/budgets.py`'s `default_budget_usd`), not through `Settings`. Found
+      immediately: routing it through `get_settings()` gave `POST /sdas` its first-ever
+      configuration dependency and broke **11 existing spec-003 tests** across
+      `test_sdas_api.py` and `test_role_matrix_governance.py`, none of which construct a
+      Settings environment because that request path never needed one. Adding the fixture to
+      all eleven would have made every future test of SDA registration carry a Settings
+      dependency to supply one `Decimal`. `app/api/main.py` already reads `frontend_url`
+      straight from `os.environ` for CORS, so this follows an existing precedent rather than
+      inventing one. A malformed or non-positive value falls back rather than raising — a bad
+      budget cap must not take SDA registration down with it, and a cap of 0 would put every
+      project instantly over 100% of its own guardrail — S40, FR-015
 
 **Checkpoint**: Every registered project has a budget with visible threshold state. SC-005
 provable at the mocked-test level.
