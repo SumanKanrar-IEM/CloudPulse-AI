@@ -1,6 +1,8 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import {
+  Budget,
+  BudgetsService,
   InventoryResourceSummary,
   SpendService,
   SpendSummary,
@@ -30,6 +32,7 @@ export function defaultSpendRange(): { from: string; to: string } {
 export class CostService {
   private readonly spendApi = inject(SpendService);
   private readonly resourcesApi = inject(ResourcesService);
+  private readonly budgetsApi = inject(BudgetsService);
 
   private readonly summaryState = signal<SpendSummary | null>(null);
   private readonly loadingState = signal(false);
@@ -40,6 +43,7 @@ export class CostService {
   );
   private readonly drillDownResourcesState = signal<InventoryResourceSummary[]>([]);
   private readonly drillDownLoadingState = signal(false);
+  private readonly budgetsState = signal<Budget[]>([]);
 
   readonly summary = this.summaryState.asReadonly();
   readonly loading = this.loadingState.asReadonly();
@@ -47,12 +51,21 @@ export class CostService {
   readonly drillDownSda = this.drillDownSdaState.asReadonly();
   readonly drillDownResources = this.drillDownResourcesState.asReadonly();
   readonly drillDownLoading = this.drillDownLoadingState.asReadonly();
+  readonly budgets = this.budgetsState.asReadonly();
 
   async refresh(from: string, to: string): Promise<void> {
     this.loadingState.set(true);
     this.errorState.set(null);
     try {
-      this.summaryState.set(await firstValueFrom(this.spendApi.getSpendSummary(from, to)));
+      // Budgets are fetched alongside spend, not lazily on expand: FR-015 makes
+      // the 80% threshold dashboard-only precisely because it sends no
+      // notification, so it has to be on screen with the spend it warns about.
+      const [summary, budgets] = await Promise.all([
+        firstValueFrom(this.spendApi.getSpendSummary(from, to)),
+        firstValueFrom(this.budgetsApi.listBudgets()),
+      ]);
+      this.summaryState.set(summary);
+      this.budgetsState.set(budgets.budgets);
     } catch {
       this.errorState.set('Could not load spend. Try again.');
     } finally {

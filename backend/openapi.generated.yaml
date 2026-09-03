@@ -1701,6 +1701,38 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /budgets:
+    get:
+      tags:
+      - budgets
+      summary: Every project's budget and threshold state
+      description: 'FR-015. Any role may read. Ordered by project name, so the dashboard''s
+
+        budget rows line up with its spend-by-project table rather than arriving in
+
+        insertion order.'
+      operationId: listBudgets
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BudgetsList'
+        '401':
+          description: No valid identity presented.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Valid identity, but the caller's role does not permit the action
+            -- or the caller maps to zero or multiple directory groups and therefore
+            has no resolvable role (FR-032a, FR-034).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
 components:
   schemas:
     Account:
@@ -1809,6 +1841,73 @@ components:
       required:
       - accounts
       title: AccountsList
+    Budget:
+      properties:
+        id:
+          type: string
+          title: Id
+        sdaId:
+          type: string
+          title: Sdaid
+        sdaName:
+          type: string
+          title: Sdaname
+        amountUsd:
+          type: string
+          pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
+          title: Amountusd
+        actual80CrossedAt:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Actual80Crossedat
+        actual100CrossedAt:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Actual100Crossedat
+        forecast80CrossedAt:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Forecast80Crossedat
+        forecast100CrossedAt:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Forecast100Crossedat
+      type: object
+      required:
+      - id
+      - sdaId
+      - sdaName
+      - amountUsd
+      title: Budget
+      description: 'One project''s guardrail and which thresholds it has crossed.
+
+
+        All four crossed timestamps are exposed, not just the one that opens a
+
+        finding: FR-015 makes 80% dashboard-visible precisely *because* it sends no
+
+        notification, so hiding it here would leave the only warning signal with
+
+        nowhere to appear.'
+    BudgetsList:
+      properties:
+        budgets:
+          items:
+            $ref: '#/components/schemas/Budget'
+          type: array
+          title: Budgets
+      type: object
+      required:
+      - budgets
+      title: BudgetsList
     ComplianceScore:
       properties:
         compliantCount:

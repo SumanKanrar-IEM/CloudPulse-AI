@@ -85,6 +85,47 @@ import { CostService, defaultSpendRange } from './cost.service';
       </section>
     }
 
+    @if (cost.budgets().length > 0) {
+      <section>
+        <h2>Budgets</h2>
+        <table>
+          <caption class="visually-hidden">
+            Each project's budget and which alert thresholds it has crossed this month
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col">Project</th>
+              <th scope="col">Budget</th>
+              <th scope="col">Actual</th>
+              <th scope="col">Forecast</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (budget of cost.budgets(); track budget.id) {
+              <tr>
+                <td>{{ budget.sdaName }}</td>
+                <td>{{ budget.amountUsd }}</td>
+                <!-- FR-015: 80% is dashboard-only and sends no notification, so this
+                     table is the only place it is ever surfaced. 100% also opens a
+                     finding (FR-016), but is still shown here so the two thresholds
+                     read as one progression rather than two unrelated signals. -->
+                <td>
+                  <span class="badge" [class]="thresholdClass(budget.actual100CrossedAt, budget.actual80CrossedAt)">
+                    {{ thresholdLabel(budget.actual100CrossedAt, budget.actual80CrossedAt) }}
+                  </span>
+                </td>
+                <td>
+                  <span class="badge" [class]="thresholdClass(budget.forecast100CrossedAt, budget.forecast80CrossedAt)">
+                    {{ thresholdLabel(budget.forecast100CrossedAt, budget.forecast80CrossedAt) }}
+                  </span>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </section>
+    }
+
     @if (cost.drillDownSda(); as sda) {
       <section aria-label="Resources for this project">
         <h2>Resources -- {{ sda.name ?? 'No SDA' }}</h2>
@@ -148,6 +189,26 @@ import { CostService, defaultSpendRange } from './cost.service';
       canvas {
         max-width: 100%;
       }
+      /* The label carries the meaning; colour only reinforces it. */
+      .badge {
+        border-radius: 0.75rem;
+        padding: 0.1rem 0.6rem;
+        font-size: 0.85rem;
+        font-weight: 600;
+        white-space: nowrap;
+      }
+      .badge-over {
+        background: #7a1f1f;
+        color: #ffffff;
+      }
+      .badge-warning {
+        background: #8a5a00;
+        color: #ffffff;
+      }
+      .badge-ok {
+        background: #e4e4e4;
+        color: #333333;
+      }
     `,
   ],
 })
@@ -190,5 +251,21 @@ export class CostDashboardComponent implements OnInit {
 
   protected applyRange(): void {
     void this.cost.refresh(this.from, this.to);
+  }
+
+  /** A crossed-100 timestamp outranks a crossed-80 one: both are set once spend
+   * passes 100%, and reporting the lesser of the two would understate it. */
+  protected thresholdLabel(crossed100?: string | null, crossed80?: string | null): string {
+    if (crossed100) {
+      return 'Over budget';
+    }
+    return crossed80 ? 'Over 80%' : 'Within budget';
+  }
+
+  protected thresholdClass(crossed100?: string | null, crossed80?: string | null): string {
+    if (crossed100) {
+      return 'badge-over';
+    }
+    return crossed80 ? 'badge-warning' : 'badge-ok';
   }
 }

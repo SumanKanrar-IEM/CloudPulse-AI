@@ -1,6 +1,9 @@
 export * from './accounts.service';
 import { AccountsService } from './accounts.service';
 export * from './accounts.serviceInterface';
+export * from './budgets.service';
+import { BudgetsService } from './budgets.service';
+export * from './budgets.serviceInterface';
 export * from './compliance.service';
 import { ComplianceService } from './compliance.service';
 export * from './compliance.serviceInterface';
@@ -28,4 +31,4 @@ export * from './spend.serviceInterface';
 export * from './system.service';
 import { SystemService } from './system.service';
 export * from './system.serviceInterface';
-export const APIS = [AccountsService, ComplianceService, FindingsService, IdentityService, OwnershipService, ResourcesService, RulesService, SdasService, SpendService, SystemService];
+export const APIS = [AccountsService, BudgetsService, ComplianceService, FindingsService, IdentityService, OwnershipService, ResourcesService, RulesService, SdasService, SpendService, SystemService];
