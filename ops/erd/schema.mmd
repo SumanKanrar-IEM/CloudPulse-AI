@@ -173,7 +173,7 @@ erDiagram
         uuid tenant_id FK
         uuid finding_id FK
         enum cadence_point "day_0|day_2|day_4, spec 005"
-        enum outcome "sent|withheld_no_owner_email|withheld_bounced|suppressed_finding_closed"
+        enum outcome "sent|withheld_no_owner_email|suppressed_finding_closed -- migration 0014 dropped withheld_bounced, FR-010 amended"
         text recipient_email "set only when outcome=sent"
         timestamptz attempted_at
     }
