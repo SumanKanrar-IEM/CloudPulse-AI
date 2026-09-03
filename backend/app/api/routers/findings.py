@@ -23,6 +23,7 @@ from app.core.audit import write_audit_event
 from app.core.db import TenantSession, tenant_session
 from app.core.security import Principal, require_admin, require_operator, require_viewer
 from app.governance import suggestions as suggestions_governance
+from app.governance.notifications import displayed_escalated_at
 from app.models.core import AppUser, Resource
 from app.models.core import Finding as FindingRow
 from app.models.core import Notification as NotificationRow
@@ -61,6 +62,10 @@ class Finding(BaseModel):
     resolved_at: datetime | None = Field(default=None, alias="resolvedAt")
     acknowledged_at: datetime | None = Field(default=None, alias="acknowledgedAt")
     acknowledged_by: str | None = Field(default=None, alias="acknowledgedBy")
+    # spec 005, FR-009. Non-null exactly while the escalated state is active:
+    # the column itself is never cleared, so this is derived rather than read
+    # straight through (`governance.notifications.displayed_escalated_at`).
+    escalated_at: datetime | None = Field(default=None, alias="escalatedAt")
 
     model_config = {"populate_by_name": True}
 
@@ -195,6 +200,7 @@ async def list_findings(
                     resolved_at=row.resolved_at,
                     acknowledged_at=row.acknowledged_at,
                     acknowledged_by=str(row.acknowledged_by) if row.acknowledged_by else None,
+                    escalated_at=displayed_escalated_at(row),
                 )
             )
         return FindingsList(findings=findings)

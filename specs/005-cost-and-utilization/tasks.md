@@ -377,34 +377,80 @@ escalated, and that acknowledging it afterward clears the flag.
 
 ### Tests for User Story 3
 
-- [ ] T018 [P] [US3] Write `backend/tests/unit/test_notification_cadence.py` — day-2/day-4 due
+- [X] T018 [P] [US3] Write `backend/tests/unit/test_notification_cadence.py` — day-2/day-4 due
       logic mirrors T012's day-0 shape; a finding acknowledged/resolved/suppressed before a
       reminder's scheduled send is not due (FR-007); a finding that reopens after resolution gets
       its own independent `day_0`/`day_2`/`day_4` rows, unaffected by its prior occurrence's
       `Notification` rows (FR-011, since a reopened finding is a fresh `Finding.id` per spec
       003's own re-open semantics) — S25, FR-006, FR-007, FR-011
-- [ ] T019 [P] [US3] Write `backend/tests/integration/test_escalation_flag.py` — a finding still
+      **Done.** Same unit/integration split this codebase already uses, recorded in the file's
+      docstring: FR-007's "already dealt with" predicate and the branch that turns it into a
+      `suppressed_finding_closed` row are pure and live here; the due-window subquery and
+      FR-011's independence rest on a real correlated subquery and a real unique constraint, so
+      they are asserted against PostgreSQL in T019. The acknowledged case is called out
+      explicitly — `acknowledged_at` is orthogonal to `status` (spec 004, FR-017), so a
+      status-only check would keep emailing someone who has already said "seen it".
+- [X] T019 [P] [US3] Write `backend/tests/integration/test_escalation_flag.py` — a finding still
       open after its `day_4` reminder sends gets `escalated_at` set; `GET /findings/{findingId}`
       reflects it; acknowledging the finding afterward clears `escalated_at` on the next read —
       S25, FR-008, FR-009
+      **Done**, with one deviation recorded as T019a: asserted against `GET /findings`, not
+      `GET /findings/{findingId}`.
 
 ### Implementation for User Story 3
 
-- [ ] T020 [US3] Extend `backend/app/governance/notifications.py` — `send_due_reminders(session)`
+- [X] T020 [US3] Extend `backend/app/governance/notifications.py` — `send_due_reminders(session)`
       (day-2/day-4, T018's tested logic) and `flag_stale_escalations(session)` (sets
       `escalated_at` the first time a still-open finding's `day_4` row is written) — S25,
       FR-006–FR-009, FR-011
-- [ ] T021 [US3] Extend `backend/handlers/notification_worker_handler.py` — one daily pass now
+      **Done.** Four decisions worth recording. (1) Both reminders are measured from the day-0
+      *attempt*, not from when the finding opened — those differ whenever the worker was down or
+      the finding opened just after a pass, and anchoring on the attempt is what keeps the gap
+      between emails the two and four days the recipient is promised. (2) FR-007's suppression
+      is written as a `suppressed_finding_closed` row, not as an absence: an admin auditing this
+      needs to see the reminder came due and was withheld, which a missing row cannot express
+      (R-501 asks for a row per attempt, sent/withheld/suppressed). This is also what finally
+      makes that enum value reachable. (3) `flag_stale_escalations` is a separate idempotent
+      pass rather than a side effect of the day-4 send, so re-running flags nothing twice and a
+      finding whose day-4 row predates this function still gets picked up. (4) The day-0 and
+      reminder paths share one `_attempt` helper, so the withheld/transport-failure distinction
+      cannot drift between them.
+- [X] T021 [US3] Extend `backend/handlers/notification_worker_handler.py` — one daily pass now
       calls T014's day-0 logic, T020's reminder logic, and T020's escalation-flag logic together,
       in that order, per research.md R-501's "one worker queries what's due" design — S25,
       research.md R-501
-- [ ] T022 [US3] Extend `backend/app/api/routers/findings.py` — the `Finding` response model
+      **Done.** Escalation runs last on purpose: it keys on the day-4 row the reminder pass may
+      have just written, so a finding reaching day 4 today is flagged today rather than a day
+      late.
+- [X] T022 [US3] Extend `backend/app/api/routers/findings.py` — the `Finding` response model
       gains `escalatedAt` (optional date-time, non-null exactly while FR-008/FR-009's escalated
       state is active). Regenerate `backend/openapi.generated.yaml` and the frontend client —
       S25, FR-009
-- [ ] T023 [P] [US3] Extend `frontend/src/app/features/findings/findings-workbench.component.ts`
+      **Done**, both regenerated. `escalatedAt` is *derived* at read time rather than read
+      straight through — see T022a for why the stored column is never cleared.
+- [X] T023 [P] [US3] Extend `frontend/src/app/features/findings/findings-workbench.component.ts`
       — an "Escalated" badge, visually distinct from open-and-in-cadence and from acknowledged
       (FR-009) — S25, FR-009
+      **Done.** The label carries the meaning and colour only reinforces it, so the two badges
+      stay distinguishable without relying on colour vision.
+
+- [X] T019a [US3] Assert FR-009's API visibility against `GET /findings` rather than `GET
+      /findings/{findingId}`, which T019 names but which does not exist. Spec 004 shipped a
+      findings *list* plus the two `/{findingId}/...` sub-resources (`/acknowledge`,
+      `/suggestion`); there is no single-finding GET. Inventing a third endpoint shape to
+      satisfy a task's phrasing would have added an untested surface for no requirement —
+      FR-009 asks that an escalated finding be visible "wherever findings are already exposed",
+      and the list is that place. Recorded rather than silently substituted — S25, FR-009
+
+- [X] T022a [US3] `escalated_at` is never cleared; FR-009's "no longer display as escalated" is
+      derived at read time in `governance.notifications.displayed_escalated_at`. Migration
+      0012's model comment originally said the column was cleared the moment a finding left
+      `open`, which would have required every present and future state transition — resolve,
+      acknowledge, suppress — to remember to null it, with any single omission leaving a finding
+      stuck showing as escalated. FR-009 is a display rule, not a storage rule, so one reader
+      enforces it instead of three-plus writers, and the column keeps its honest meaning: when
+      this finding was escalated, whether or not it still is. The comment in
+      `backend/app/models/core.py` was corrected to say so — S25, FR-008, FR-009
 
 **Checkpoint**: 🏁 **P1 functionally complete.** Every P1 user story is implemented. What remains
 is proving it against reality (Phase 6) — SC-001–SC-004 are provable at the mocked-test level

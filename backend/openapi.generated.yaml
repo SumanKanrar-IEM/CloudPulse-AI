@@ -2006,6 +2006,12 @@ components:
           - type: string
           - type: 'null'
           title: Acknowledgedby
+        escalatedAt:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Escalatedat
       type: object
       required:
       - id
