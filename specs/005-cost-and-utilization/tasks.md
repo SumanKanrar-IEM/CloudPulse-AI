@@ -81,6 +81,19 @@ depend on this migration, so it belongs here, not in whichever story happens to 
       finding has no rule at all — rewritten to check `ck_finding_kind_shape`'s text instead,
       which is where that guarantee actually lives now for a `tag_violation` finding. Full
       backend suite (594 tests), mypy, and ruff all clean after the fix.
+- [X] T003a **Not anticipated by this task list — found while implementing T007.**
+      `spend_record.service` was `NOT NULL`, but a whole-day gap row (FR-002a) has no
+      per-service breakdown to report — the same "never guess" discipline `amount_usd` already
+      followed, missing from this column. Worse: the single plain `UniqueConstraint(tenant_id,
+      cloud_account_id, service, spend_date, sda_id)` silently allowed duplicate "No SDA" rows
+      for the same account/service/day, since Postgres never treats two NULLs as equal for a
+      plain constraint's purposes — a correction ingestion would have inserted a second row
+      instead of updating the first. New migration
+      `backend/migrations/versions/0013_spend_record_null_safe_uniqueness.py`: `service` becomes
+      nullable, the plain constraint is replaced by three partial unique indexes (real SDA,
+      "No SDA" bucket, and gap — each with its own conflict target), new CHECK constraint
+      `ck_spend_record_amount_and_service_required_unless_gap`. Not an edit to the already-
+      committed migration 0012 — a new one, never amend merged history — S39, FR-001, FR-002a
 
 **Checkpoint**: Schema exists — every table this spec needs is real, but nothing yet reads or
 writes any of it.
@@ -98,33 +111,72 @@ list (research.md R-512 — resource-level *attribution*, not a per-resource dol
 
 ### Tests for User Story 1
 
-- [ ] T004 [P] [US1] Write `backend/tests/unit/test_spend_ingestion.py` — the pure attribution/
+- [X] T004 [P] [US1] Write `backend/tests/unit/test_spend_ingestion.py` — the pure attribution/
       correction/gap logic: a Cost Explorer tag-group result maps to the correct `Sda` via
       `sda_matching.find_matching_sda` (reused, research.md R-505); a second ingestion for the
       same account/service/day/SDA updates the existing row rather than duplicating it; a
       still-missing day after retries writes an `is_gap = true` row with `amount_usd = NULL`,
       never a guessed or zeroed value — S39, FR-001, FR-002a
-- [ ] T005 [P] [US1] Write `backend/tests/integration/test_spend_api.py` — `GET /spend` (filtered
+      **Done, scope split in two (found while implementing, not anticipated as written)**: only
+      the genuinely pure pieces landed in this unit-test file —
+      `app.governance.spend.resolve_sda_id` (extracted as its own pure function) and
+      `connectors.aws._parse_cost_and_usage_response` (8 tests, no DB). The correction/gap
+      behavior itself needs a real unique index to conflict against — not unit-testable — moved
+      to a new integration test, T004a below, matching this project's own established
+      unit/integration split (`compute_scan_deltas` is pure and unit-tested;
+      `test_finding_kind_constraint.py` is exactly this pattern already for a different table).
+- [X] T004a **Not anticipated by this task list.** Write
+      `backend/tests/integration/test_spend_ingestion.py` — `ingest_spend_rows` against a real
+      PostgreSQL: a gap is recorded when `rows=None`; a second gap for the same day doesn't
+      duplicate; `rows=[]` (real zero-cost) is never treated as a gap; an untagged row lands in
+      the "No SDA" bucket; a tagged row attributes to the matching SDA; a repeat ingestion
+      corrects in place for both the "No SDA" bucket and a real SDA (T003a's own fix, proven
+      end-to-end); the "No SDA" bucket and a real SDA never collide for the same service/day.
+      8 tests, all pass — S39, FR-001, FR-002a
+- [X] T005 [P] [US1] Write `backend/tests/integration/test_spend_api.py` — `GET /spend` (filtered
       by account/SDA/date range) and `GET /spend/summary` (org total, per-project breakdown,
       trend) against real ingested rows, including a gap day rendering as `amountUsd: null` in the
       trend array, not a missing point — S39, S42, FR-003
+      **Done**, alongside T010's router (same-PR sequencing, matching this project's own
+      precedent of a route and its integration test landing in the same commit). 6 tests, all
+      pass — list filtering by account/SDA/`sdaId=none`, summary totals, per-project breakdown,
+      and the gap-day-renders-as-null trend case.
 
 ### Implementation for User Story 1
 
-- [ ] T006 [US1] Extend `backend/connectors/aws.py` — `get_daily_spend(account, region, tag_key,
+- [X] T006 [US1] Extend `backend/connectors/aws.py` — `get_daily_spend(account, region, tag_key,
       day)` calling `ce:GetCostAndUsage` grouped by service and the platform's configured
       project-tag key, through the existing `_build_session` (same-account ambient identity or
       cross-account assumed role, unchanged pattern) — S39, research.md R-503
-- [ ] T007 [US1] New `backend/app/governance/spend.py` — `ingest_daily_spend(session, account,
-      day)`: calls T006's connector function, upserts `SpendRecord` per (account, service, day,
-      sda) via T004's tested attribution/correction logic, writes an `is_gap` row after retries
-      are exhausted (FR-002a) — S39, FR-001, FR-002a
-- [ ] T008 [US1] New `backend/handlers/cost_ingestion_worker_handler.py` — daily EventBridge
+      **Done.** Also adds the pure `_parse_cost_and_usage_response` helper (T004) — Cost
+      Explorer's own `"{tag_key}${value}"` group-key format, an untagged group's empty value
+      after `$` correctly mapped to `None`, not `""`.
+- [X] T007 [US1] New `backend/app/governance/spend.py` — upserts `SpendRecord` per (account,
+      service, day, sda) via T004's tested attribution/correction logic, writes an `is_gap` row
+      after retries are exhausted (FR-002a) — S39, FR-001, FR-002a
+      **Done, one deliberate signature change from this task's original wording**: the function
+      is `ingest_spend_rows(session, account, day, rows)` — receiving already-fetched rows,
+      not calling `connectors.aws.get_daily_spend` itself. Matches
+      `ownership_attribution_worker_handler.py`'s own established precedent exactly (the
+      connector call and `ConnectorAccount` construction live in the *handler*, never delegated
+      through `app/governance/`) — checked against that file directly before deviating, not
+      guessed. Keeps this module free of any AWS-SDK-adjacent code at all, a stricter reading of
+      the connector-boundary rule (Principle V) than the task's original wording implied. Also
+      found and fixed a real bug live (not by inspection): `on_conflict_do_update`'s
+      `index_where` must match the target partial index's predicate *textually*, not just
+      logically — SQLAlchemy's `.is_(False)` renders `IS false`, the index itself was created
+      with literal `= false`; Postgres refused to infer an arbiter index and every upsert failed
+      until both were made to match verbatim.
+- [X] T008 [US1] New `backend/handlers/cost_ingestion_worker_handler.py` — daily EventBridge
       entrypoint (`{"action": "trigger_daily"}` payload, no per-account knowledge, matching
       `scan_worker_handler.py`'s exact shape per research.md R-501): queries every registered
       account, calls T007 per account with a plain try/except per account (one account's failure
       doesn't block another's, logged not raised) — S39, research.md R-501
-- [ ] T009 [US1] New `infra/modules/cost/{main.tf,variables.tf,outputs.tf}` — the
+      **Done.** Also builds `ConnectorAccount` and runs the retry loop here (T007's note above)
+      — matches `ownership_attribution_worker_handler.py`'s exact shape. Ingests "yesterday"
+      (UTC), not "today" — Cost Explorer reports completed days only, stated explicitly in the
+      function's own docstring rather than left implicit.
+- [X] T009 [US1] New `infra/modules/cost/{main.tf,variables.tf,outputs.tf}` — the
       `cost-ingestion-worker` Lambda (arm64, 512MB, VPC-attached like every existing worker),
       its IAM role (`ce:GetCostAndUsage`, `sts:AssumeRole` on `cloudpulse-scanner` scoped
       identically to `ownership_attribution_worker`'s existing policy, `secretsmanager:
@@ -133,14 +185,28 @@ list (research.md R-512 — resource-level *attribution*, not a per-resource dol
       `infra/envs/{dev,prod}/main.tf` alongside the existing `module "governance"`/`module
       "scan"` calls — S39, research.md R-503, R-510
       `terraform fmt -check -recursive infra/` and `terraform validate` (both envs) must pass.
-- [ ] T010 [US1] New `backend/app/api/routers/spend.py` — `GET /spend`, `GET /spend/summary`
+      **Done.** `terraform fmt -check -recursive infra/` clean; `terraform validate -backend=false`
+      passes for both envs and the module itself.
+- [X] T010 [US1] New `backend/app/api/routers/spend.py` — `GET /spend`, `GET /spend/summary`
       (contracts/openapi.yaml's exact shape), `require_viewer`-gated per the spec's own visibility
       Assumption. Regenerate `backend/openapi.generated.yaml` and the frontend
       `spend.service.ts`/interface — S39, S42, FR-003
-- [ ] T011 [P] [US1] New `frontend/src/app/features/cost/{cost.service.ts,
+      **Done.** Both endpoints implemented and wired into `app/api/main.py`; mypy/ruff clean.
+      `openapi.generated.yaml` regenerated (`/spend`, `/spend/summary` confirmed present). Frontend
+      client regeneration initially failed silently (`npm run generate:api` needs a JVM; none was
+      linked on this machine — `brew`'s `openjdk` was installed but not on `PATH`/`JAVA_HOME`).
+      Ran it with `JAVA_HOME=$(brew --prefix openjdk)/libexec/openjdk.jdk/Contents/Home`; produced
+      `spend.service.ts`/`spend.serviceInterface.ts` and the five `spend-*` model files cleanly.
+- [X] T011 [P] [US1] New `frontend/src/app/features/cost/{cost.service.ts,
       cost-dashboard.component.ts}` — trend chart (`ng2-charts`, reused from spec 004), per-
       project table, drill-down to a resource list (R-512); wire the `/cost` route into
       `app.config.ts` — S39, S42, FR-003
+      **Done.** `CostService` wraps the generated `SpendService`/`ResourcesService`
+      (signal-based state, matching `OverviewService`'s established pattern). Drill-down calls
+      `GET /resources?sdaId=...` per R-512 (resource-list membership, not a per-resource dollar
+      figure -- Cost Explorer has no such dimension). Gap days render as a broken line via
+      Chart.js's own default `spanGaps: false` on `null` points -- no extra config needed.
+      `ng build --configuration development`, `tsc --noEmit`, and `ng lint` all clean.
 
 **Checkpoint**: A day's spend can be ingested, reconciles within ±1%, and is visible on a real
 dashboard page with working drill-down. SC-001–SC-002 provable at the mocked-test level.

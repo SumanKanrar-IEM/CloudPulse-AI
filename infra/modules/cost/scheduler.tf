@@ -1,0 +1,56 @@
+# EventBridge Scheduler rules for this module's workers (research.md R-501: each
+# worker queries what's due itself; the schedule carries no per-account/per-finding
+# knowledge and never changes as accounts/findings come and go, matching
+# scan/scheduler.tf's own daily-scan rule exactly). One rule lands per task
+# (T009 here; T016 and T047 add their own later).
+
+data "aws_iam_policy_document" "scheduler_assume" {
+  statement {
+    effect  = "Allow"
+    actions = ["sts:AssumeRole"]
+    principals {
+      type        = "Service"
+      identifiers = ["scheduler.amazonaws.com"]
+    }
+  }
+}
+
+resource "aws_iam_role" "scheduler" {
+  name               = "${local.name}-cost-scheduler"
+  assume_role_policy = data.aws_iam_policy_document.scheduler_assume.json
+}
+
+data "aws_iam_policy_document" "scheduler_runtime" {
+  statement {
+    effect    = "Allow"
+    actions   = ["lambda:InvokeFunction"]
+    resources = [aws_lambda_function.cost_ingestion_worker.arn]
+  }
+}
+
+resource "aws_iam_role_policy" "scheduler_runtime" {
+  name   = "invoke-workers"
+  role   = aws_iam_role.scheduler.id
+  policy = data.aws_iam_policy_document.scheduler_runtime.json
+}
+
+resource "aws_scheduler_schedule" "cost_ingestion_daily" {
+  name       = "${local.name}-cost-ingestion-daily"
+  group_name = "default"
+
+  flexible_time_window {
+    mode = "OFF"
+  }
+
+  schedule_expression = var.cost_ingestion_schedule_expression
+
+  target {
+    arn      = aws_lambda_function.cost_ingestion_worker.arn
+    role_arn = aws_iam_role.scheduler.arn
+    input    = jsonencode({ action = "trigger_daily" })
+
+    retry_policy {
+      maximum_retry_attempts = 2
+    }
+  }
+}

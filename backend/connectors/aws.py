@@ -15,6 +15,7 @@ from __future__ import annotations
 import json
 from collections.abc import Callable
 from dataclasses import dataclass, replace
+from datetime import date, timedelta
 from typing import Any, Literal
 
 from connectors.base import ConnectorAccount, NormalizedResource
@@ -695,6 +696,61 @@ def delete_external_id(secret_arn: str) -> None:
     )
 
 
+# --- Cost ingestion (spec 005, FR-001, research.md R-503) ----------------------
+
+
+def _parse_cost_and_usage_response(response: dict[str, Any]) -> list[dict[str, Any]]:
+    """Pure: turns one day's `ce:GetCostAndUsage` (SERVICE + TAG-keyed) response
+    into `[{"service": str, "tag_value": str | None, "amount_usd": Decimal}]`.
+
+    Cost Explorer's own TAG group key format is `"{tag_key}${value}"` -- an
+    untagged resource's group key has an empty value after the `$`, which this
+    maps to `tag_value=None` (spend.py's own "No SDA" bucket), not the literal
+    empty string. `GroupBy`'s request order (SERVICE, then TAG -- `get_daily_spend`
+    below) is what fixes `Keys[0]`/`Keys[1]`'s meaning; nothing here re-derives it
+    from the tag key name itself.
+    """
+    from decimal import Decimal
+
+    rows: list[dict[str, Any]] = []
+    for result in response.get("ResultsByTime", []):
+        for group in result.get("Groups", []):
+            keys = group.get("Keys", [])
+            service = keys[0] if keys else "unknown"
+            tag_value: str | None = None
+            if len(keys) > 1:
+                _, _, raw_value = keys[1].partition("$")
+                tag_value = raw_value or None
+            amount = Decimal(group["Metrics"]["UnblendedCost"]["Amount"])
+            rows.append({"service": service, "tag_value": tag_value, "amount_usd": amount})
+    return rows
+
+
+def get_daily_spend(
+    account: ConnectorAccount, region: str, tag_key: str, day: date
+) -> list[dict[str, Any]]:
+    """One `ce:GetCostAndUsage` call for one account/day, grouped by service and
+    the platform's configured project-tag key (research.md R-503).
+
+    Cost Explorer is a single, account-wide (not per-region) API -- `region` is
+    only where the boto3 client itself is created, matching every other call in
+    this module. A failed call is not caught here (same discipline as
+    `_sweep_tagging_api`) -- retried at the worker layer, per FR-002a.
+    """
+    session = _build_session(account, session_name="cloudpulse-cost")
+    client = session.client("ce", region_name=region)
+    response = client.get_cost_and_usage(
+        TimePeriod={"Start": day.isoformat(), "End": (day + timedelta(days=1)).isoformat()},
+        Granularity="DAILY",
+        Metrics=["UnblendedCost"],
+        GroupBy=[
+            {"Type": "DIMENSION", "Key": "SERVICE"},
+            {"Type": "TAG", "Key": tag_key},
+        ],
+    )
+    return _parse_cost_and_usage_response(response)
+
+
 __all__ = [
     "VerificationOutcome",
     "verify_access",
@@ -705,4 +761,5 @@ __all__ = [
     "store_external_id",
     "read_external_id",
     "delete_external_id",
+    "get_daily_spend",
 ]

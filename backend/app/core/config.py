@@ -81,6 +81,11 @@ class Settings(BaseSettings):
     # --- build provenance, recorded on every deployment (FR-023)
     git_sha: str = Field(default="unknown")
 
+    # --- cost ingestion (spec 005, FR-001) -- the tag key spend is grouped by,
+    # matching spec 003's own seeded mandatory tag of the same name (the tag
+    # SDA matching already keys project attribution on).
+    project_tag_key: str = Field(default="project_id")
+
     @field_validator("db_secret_arn")
     @classmethod
     def _must_be_an_arn_not_a_secret(cls, v: str) -> str:

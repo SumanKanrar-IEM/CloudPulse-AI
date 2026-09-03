@@ -152,7 +152,7 @@ erDiagram
         uuid tenant_id FK
         uuid cloud_account_id FK
         uuid sda_id FK "spec 005, null = No SDA bucket"
-        text service
+        text service "null exactly when is_gap -- a gap has no per-service breakdown"
         date spend_date
         numeric amount_usd "null exactly when is_gap"
         bool is_gap "spec 005 FR-002a, no guessed/zeroed value"

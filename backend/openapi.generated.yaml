@@ -1518,6 +1518,134 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
+  /spend:
+    get:
+      tags:
+      - spend
+      summary: Daily spend records, optionally filtered
+      description: 'FR-001, FR-003. `sdaId=none` filters to the "No SDA" bucket specifically
+
+        -- distinct from omitting the parameter, which applies no SDA filter at
+
+        all.'
+      operationId: listSpend
+      parameters:
+      - name: from
+        in: query
+        required: true
+        schema:
+          type: string
+          format: date
+          title: From
+      - name: to
+        in: query
+        required: true
+        schema:
+          type: string
+          format: date
+          title: To
+      - name: accountId
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Accountid
+      - name: sdaId
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Sdaid
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SpendList'
+        '401':
+          description: No valid identity presented.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Valid identity, but the caller's role does not permit the action
+            -- or the caller maps to zero or multiple directory groups and therefore
+            has no resolvable role (FR-032a, FR-034).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /spend/summary:
+    get:
+      tags:
+      - spend
+      summary: Org-wide spend totals with trend, for the cost dashboard
+      description: 'FR-003, SC-002. Org-wide (no account filter) -- every registered
+
+        account''s spend, rolled up.
+
+
+        A trend day is `null` if *any* account has a gap for that day (FR-002a) --
+
+        a conservative "this total is not the whole picture" signal, since a
+
+        partial sum presented as complete would be worse than an honest null.'
+      operationId: getSpendSummary
+      parameters:
+      - name: from
+        in: query
+        required: true
+        schema:
+          type: string
+          format: date
+          title: From
+      - name: to
+        in: query
+        required: true
+        schema:
+          type: string
+          format: date
+          title: To
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SpendSummary'
+        '401':
+          description: No valid identity presented.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Valid identity, but the caller's role does not permit the action
+            -- or the caller maps to zero or multiple directory groups and therefore
+            has no resolvable role (FR-032a, FR-034).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
 components:
   schemas:
     Account:
@@ -2458,6 +2586,109 @@ components:
       required:
       - sdas
       title: SdasList
+    SpendByProject:
+      properties:
+        sdaId:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Sdaid
+        sdaName:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Sdaname
+        totalUsd:
+          type: string
+          pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
+          title: Totalusd
+      type: object
+      required:
+      - totalUsd
+      title: SpendByProject
+    SpendList:
+      properties:
+        spend:
+          items:
+            $ref: '#/components/schemas/SpendRecord'
+          type: array
+          title: Spend
+      type: object
+      required:
+      - spend
+      title: SpendList
+    SpendRecord:
+      properties:
+        accountId:
+          type: string
+          title: Accountid
+        sdaId:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Sdaid
+        service:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Service
+        spendDate:
+          type: string
+          format: date
+          title: Spenddate
+        amountUsd:
+          anyOf:
+          - type: string
+            pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
+          - type: 'null'
+          title: Amountusd
+        isGap:
+          type: boolean
+          title: Isgap
+      type: object
+      required:
+      - accountId
+      - spendDate
+      - isGap
+      title: SpendRecord
+    SpendSummary:
+      properties:
+        totalUsd:
+          type: string
+          pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
+          title: Totalusd
+        byProject:
+          items:
+            $ref: '#/components/schemas/SpendByProject'
+          type: array
+          title: Byproject
+        trend:
+          items:
+            $ref: '#/components/schemas/SpendTrendPoint'
+          type: array
+          title: Trend
+      type: object
+      required:
+      - totalUsd
+      - byProject
+      - trend
+      title: SpendSummary
+    SpendTrendPoint:
+      properties:
+        date:
+          type: string
+          format: date
+          title: Date
+        totalUsd:
+          anyOf:
+          - type: string
+            pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
+          - type: 'null'
+          title: Totalusd
+      type: object
+      required:
+      - date
+      title: SpendTrendPoint
     UnmatchedResourcesList:
       properties:
         resources:

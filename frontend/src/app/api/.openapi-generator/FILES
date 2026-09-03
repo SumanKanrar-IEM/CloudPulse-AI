@@ -18,6 +18,8 @@ api/rules.service.ts
 api/rules.serviceInterface.ts
 api/sdas.service.ts
 api/sdas.serviceInterface.ts
+api/spend.service.ts
+api/spend.serviceInterface.ts
 api/system.service.ts
 api/system.serviceInterface.ts
 configuration.ts
@@ -66,6 +68,11 @@ model/sda-create.ts
 model/sda-update.ts
 model/sda.ts
 model/sdas-list.ts
+model/spend-by-project.ts
+model/spend-list.ts
+model/spend-record.ts
+model/spend-summary.ts
+model/spend-trend-point.ts
 model/unmatched-resources-list.ts
 model/validation-error.ts
 param.ts
