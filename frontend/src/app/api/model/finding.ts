@@ -8,13 +8,16 @@
  * Do not edit the class manually.
  */
 import { ResourceSummary } from './resource-summary';
+import { SdaSummary } from './sda-summary';
 
 
 export interface Finding { 
     id: string;
-    resource: ResourceSummary;
-    ruleKey: string;
-    ruleVersion: number;
+    resource?: ResourceSummary | null;
+    sda?: SdaSummary | null;
+    kind: string;
+    ruleKey?: string | null;
+    ruleVersion?: number | null;
     severity: string;
     status: string;
     openedAt: string;

@@ -71,6 +71,7 @@ model/scan-summary.ts
 model/scan.ts
 model/scans-list.ts
 model/sda-create.ts
+model/sda-summary.ts
 model/sda-update.ts
 model/sda.ts
 model/sdas-list.ts

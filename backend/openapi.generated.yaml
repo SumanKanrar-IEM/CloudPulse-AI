@@ -2071,12 +2071,25 @@ components:
           type: string
           title: Id
         resource:
-          $ref: '#/components/schemas/ResourceSummary'
-        ruleKey:
+          anyOf:
+          - $ref: '#/components/schemas/ResourceSummary'
+          - type: 'null'
+        sda:
+          anyOf:
+          - $ref: '#/components/schemas/SdaSummary'
+          - type: 'null'
+        kind:
           type: string
+          title: Kind
+        ruleKey:
+          anyOf:
+          - type: string
+          - type: 'null'
           title: Rulekey
         ruleVersion:
-          type: integer
+          anyOf:
+          - type: integer
+          - type: 'null'
           title: Ruleversion
         severity:
           type: string
@@ -2114,9 +2127,7 @@ components:
       type: object
       required:
       - id
-      - resource
-      - ruleKey
-      - ruleVersion
+      - kind
       - severity
       - status
       - openedAt
@@ -2761,6 +2772,19 @@ components:
       - ownerEmail
       - tagValues
       title: SdaCreate
+    SdaSummary:
+      properties:
+        id:
+          type: string
+          title: Id
+        name:
+          type: string
+          title: Name
+      type: object
+      required:
+      - id
+      - name
+      title: SdaSummary
     SdaUpdate:
       properties:
         ownerEmail:

@@ -28,6 +28,7 @@ from app.models.core import AppUser, Resource
 from app.models.core import Finding as FindingRow
 from app.models.core import Notification as NotificationRow
 from app.models.core import Rule as RuleRow
+from app.models.core import Sda as SdaRow
 from app.models.enums import FindingStatus
 
 router = APIRouter(prefix="/findings", tags=["findings"])
@@ -51,11 +52,23 @@ class ResourceSummary(BaseModel):
     model_config = {"populate_by_name": True}
 
 
+class SdaSummary(BaseModel):
+    id: str
+    name: str
+
+    model_config = {"populate_by_name": True}
+
+
 class Finding(BaseModel):
     id: str
-    resource: ResourceSummary
-    rule_key: str = Field(alias="ruleKey")
-    rule_version: int = Field(alias="ruleVersion")
+    # spec 005, R-508: nullable now. A budget_overrun finding attaches to a
+    # project, not a resource, and `ck_finding_kind_shape` guarantees exactly one
+    # of `resource`/`sda` is populated for any given kind.
+    resource: ResourceSummary | None = None
+    sda: SdaSummary | None = None
+    kind: str
+    rule_key: str | None = Field(default=None, alias="ruleKey")
+    rule_version: int | None = Field(default=None, alias="ruleVersion")
     severity: str
     status: str
     opened_at: datetime = Field(alias="openedAt")
@@ -162,11 +175,16 @@ async def list_findings(
 ) -> FindingsList:
     """FR-014. Any role may view (FR-030). Most recently opened first."""
     with tenant_session(principal.tenant_id) as session:
+        # R-508: LEFT joins, not inner ones. The previous unconditional
+        # `JOIN Resource`/`JOIN Rule` silently dropped every budget_overrun
+        # finding, whose resource_id and rule_id are both NULL by construction --
+        # they would have been invisible in the list rather than merely
+        # unformatted.
         stmt = (
             session.scoped(select(FindingRow), FindingRow)
-            .join(Resource, FindingRow.resource_id == Resource.id)
-            .join(RuleRow, FindingRow.rule_id == RuleRow.id)
-            .where(Resource.tenant_id == session.tenant_id, RuleRow.tenant_id == session.tenant_id)
+            .outerjoin(Resource, FindingRow.resource_id == Resource.id)
+            .outerjoin(RuleRow, FindingRow.rule_id == RuleRow.id)
+            .outerjoin(SdaRow, FindingRow.sda_id == SdaRow.id)
             .order_by(FindingRow.opened_at.desc())
         )
         if account_id is not None:
@@ -179,20 +197,26 @@ async def list_findings(
         rows = session.raw.execute(stmt).scalars().all()
         findings: list[Finding] = []
         for row in rows:
-            resource = session.raw.get(Resource, row.resource_id)
-            rule = session.raw.get(RuleRow, row.rule_id)
-            assert resource is not None and rule is not None  # FK guarantees this
+            resource = session.raw.get(Resource, row.resource_id) if row.resource_id else None
+            rule = session.raw.get(RuleRow, row.rule_id) if row.rule_id else None
+            sda = session.raw.get(SdaRow, row.sda_id) if row.sda_id else None
             findings.append(
                 Finding(
                     id=str(row.id),
-                    resource=ResourceSummary(
-                        id=str(resource.id),
-                        arn=resource.arn,
-                        resource_type=resource.resource_type,
-                        region=resource.region,
-                        account_id=str(resource.cloud_account_id),
+                    resource=(
+                        ResourceSummary(
+                            id=str(resource.id),
+                            arn=resource.arn,
+                            resource_type=resource.resource_type,
+                            region=resource.region,
+                            account_id=str(resource.cloud_account_id),
+                        )
+                        if resource is not None
+                        else None
                     ),
-                    rule_key=rule.key,
+                    sda=SdaSummary(id=str(sda.id), name=sda.name) if sda is not None else None,
+                    kind=row.kind.value,
+                    rule_key=rule.key if rule is not None else None,
                     rule_version=row.rule_version,
                     severity=row.severity.value,
                     status=row.status.value,

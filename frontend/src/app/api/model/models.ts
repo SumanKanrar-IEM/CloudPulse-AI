@@ -42,6 +42,7 @@ export * from './scan-summary';
 export * from './scans-list';
 export * from './sda';
 export * from './sda-create';
+export * from './sda-summary';
 export * from './sda-update';
 export * from './sdas-list';
 export * from './spend-by-project';

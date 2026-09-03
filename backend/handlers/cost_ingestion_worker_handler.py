@@ -13,10 +13,13 @@ import uuid
 from datetime import UTC, date, timedelta
 from typing import Any
 
+from sqlalchemy import select
+
 from app.core.config import get_settings
-from app.core.db import tenant_session
+from app.core.db import TenantSession, tenant_session
 from app.core.logging import logger
-from app.governance import spend
+from app.governance import budgets, spend
+from app.models.core import Budget as BudgetRow
 from app.models.enums import ConnectionMode
 from connectors.aws import get_daily_spend, read_external_id
 from connectors.base import ConnectorAccount
@@ -82,13 +85,38 @@ def _handle_trigger_daily(_event: dict[str, Any]) -> dict[str, Any]:
                 rows = _fetch_with_retries(connector_account, tag_key, day)
                 spend.ingest_spend_rows(session, account, day, rows)
                 ingested.append(str(account.id))
+                # research.md R-505: the threshold check runs here, in the same
+                # transaction as the spend that triggers it -- not in a second
+                # worker that would have to either re-derive the day's total or
+                # trust this one already committed. Budgets are tenant-wide, not
+                # per-account, so this runs once after the account loop rather
+                # than once per account.
             except Exception:
                 # One account's failure must not block another's (T008) --
                 # logged, not raised.
                 logger.exception(
                     "cost ingestion failed for account", extra={"cloud_account_id": str(account.id)}
                 )
-    return {"ingested": ingested, "spend_date": day.isoformat()}
+        overruns = _check_all_budgets(session, day)
+    return {"ingested": ingested, "spend_date": day.isoformat(), "budgets_checked": overruns}
+
+
+def _check_all_budgets(session: TenantSession, day: date) -> int:
+    """FR-015-FR-017 for every project with a budget, after the day's spend has
+    landed.
+
+    One budget's failure is logged and skipped rather than raised: an overrun
+    check that blew up on a single malformed budget must not discard the whole
+    run's ingestion, which has already succeeded by this point.
+    """
+    checked = 0
+    for budget in session.raw.execute(session.scoped(select(BudgetRow), BudgetRow)).scalars().all():
+        try:
+            budgets.check_thresholds(session, budget, as_of=day)
+            checked += 1
+        except Exception:
+            logger.exception("budget threshold check failed", extra={"budget_id": str(budget.id)})
+    return checked
 
 
 def _yesterday_utc() -> date:

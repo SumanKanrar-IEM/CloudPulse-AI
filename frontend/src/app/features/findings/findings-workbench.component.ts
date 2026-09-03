@@ -44,8 +44,17 @@ import { FindingsFilters, FindingsService } from './findings.service';
           @for (finding of findings.findings(); track finding.id) {
             <li>
               <div class="finding-row">
-                <span>{{ finding.resource.arn }}</span>
-                <span>{{ finding.ruleKey }}</span>
+                <!-- R-508: a budget_overrun finding has no resource at all -- it
+                     attaches to a project. Rendering the SDA name in the resource
+                     column (with its own badge) keeps one scannable list instead of
+                     a blank cell the reader has to interpret. -->
+                @if (finding.kind === 'budget_overrun') {
+                  <span class="badge badge-overrun" data-testid="overrun-badge">Budget</span>
+                  <span>{{ finding.sda?.name ?? 'Unknown project' }}</span>
+                } @else {
+                  <span>{{ finding.resource?.arn }}</span>
+                }
+                <span>{{ finding.ruleKey ?? 'Budget exceeded' }}</span>
                 <span>{{ finding.severity }}</span>
                 <span>{{ finding.status }}</span>
                 <!-- FR-009: escalated must read as distinct from both plain-open and
@@ -151,6 +160,10 @@ import { FindingsFilters, FindingsService } from './findings.service';
       .badge-acknowledged {
         background: #e4e4e4;
         color: #333333;
+      }
+      .badge-overrun {
+        background: #1f4f7a;
+        color: #ffffff;
       }
     `,
   ],

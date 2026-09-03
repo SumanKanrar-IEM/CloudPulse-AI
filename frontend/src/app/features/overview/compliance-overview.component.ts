@@ -169,7 +169,13 @@ export class ComplianceOverviewComponent implements OnInit {
     return `${((this.overallCompliantCount() / total) * 100).toFixed(0)}%`;
   });
 
-  protected readonly byTypeChartData = computed(() => this.groupedChartData((f) => f.ruleKey));
+  // spec 005, R-508: a budget_overrun finding has no rule, so it groups under its
+  // kind instead. Grouping it under a blank key would collapse every overrun into
+  // one unlabelled bar; filtering it out would make this chart's total disagree
+  // with the severity chart beside it, which does count them.
+  protected readonly byTypeChartData = computed(() =>
+    this.groupedChartData((f) => f.ruleKey ?? f.kind),
+  );
   protected readonly bySeverityChartData = computed(() =>
     this.groupedChartData((f) => f.severity),
   );
@@ -179,7 +185,7 @@ export class ComplianceOverviewComponent implements OnInit {
   }
 
   private groupedChartData(
-    keyOf: (finding: { ruleKey: string; severity: string }) => string,
+    keyOf: (finding: { ruleKey?: string | null; kind: string; severity: string }) => string,
   ): ChartConfiguration<'bar'>['data'] {
     const counts = new Map<string, number>();
     for (const finding of this.overview.findings()) {
