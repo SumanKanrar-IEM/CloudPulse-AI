@@ -48,8 +48,19 @@ import { FindingsFilters, FindingsService } from './findings.service';
                 <span>{{ finding.ruleKey }}</span>
                 <span>{{ finding.severity }}</span>
                 <span>{{ finding.status }}</span>
+                <!-- FR-009: escalated must read as distinct from both plain-open and
+                     acknowledged. The API returns escalatedAt only while the state is
+                     actually active, so there is no "escalated but acknowledged" case
+                     to disambiguate here. -->
+                @if (finding.escalatedAt) {
+                  <span class="badge badge-escalated" data-testid="escalated-badge">
+                    Escalated
+                  </span>
+                }
                 @if (finding.acknowledgedAt) {
-                  <span data-testid="acknowledged-badge">Acknowledged</span>
+                  <span class="badge badge-acknowledged" data-testid="acknowledged-badge">
+                    Acknowledged
+                  </span>
                 } @else if (canAcknowledge()) {
                   <button type="button" (click)="acknowledge(finding.id)">Acknowledge</button>
                 }
@@ -123,6 +134,23 @@ import { FindingsFilters, FindingsService } from './findings.service';
       .suggestion-panel {
         padding: 0.5rem 1rem 1rem;
         background: #f7f7f7;
+      }
+      /* The label carries the meaning; colour only reinforces it, so the two
+         badges stay distinguishable without relying on colour vision. */
+      .badge {
+        border-radius: 0.75rem;
+        padding: 0.1rem 0.6rem;
+        font-size: 0.85rem;
+        font-weight: 600;
+        white-space: nowrap;
+      }
+      .badge-escalated {
+        background: #7a1f1f;
+        color: #ffffff;
+      }
+      .badge-acknowledged {
+        background: #e4e4e4;
+        color: #333333;
       }
     `,
   ],

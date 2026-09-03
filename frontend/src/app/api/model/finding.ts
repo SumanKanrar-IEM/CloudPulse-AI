@@ -21,5 +21,6 @@ export interface Finding {
     resolvedAt?: string | null;
     acknowledgedAt?: string | null;
     acknowledgedBy?: string | null;
+    escalatedAt?: string | null;
 }
 

@@ -1,5 +1,5 @@
-"""Owner notification: the day-0 email for a newly-opened finding
-(spec 005, FR-004, FR-005, FR-010, FR-012, FR-014).
+"""Owner notification: the day-0 email, the day-2/day-4 reminders, and the
+day-4 escalation flag (spec 005, FR-004-FR-014).
 
 No AWS SDK import here, deliberately. The actual send is passed in as a
 callable by `handlers/notification_worker_handler.py`, which owns the SES
@@ -19,6 +19,7 @@ import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from sqlalchemy import select
 
@@ -74,8 +75,9 @@ def deep_link(frontend_url: str, finding_id: uuid.UUID) -> str:
     return f"{frontend_url.rstrip('/')}/findings/{finding_id}"
 
 
-def build_day0_email(
+def build_notification_email(
     *,
+    cadence_point: NotificationCadencePoint,
     sender: str,
     recipient: str,
     frontend_url: str,
@@ -83,14 +85,28 @@ def build_day0_email(
     resource_arn: str,
     violation: str,
 ) -> NotificationEmail:
-    """FR-004: names the resource and the specific violation. FR-005: deep link."""
+    """FR-004: names the resource and the specific violation. FR-005: deep link.
+
+    A day-2/day-4 reminder (FR-006) says so in its subject and opening line. The
+    resource, violation and link are identical to the day-0 email on purpose --
+    a reminder that made the recipient go find the original would be a worse
+    reminder, and FR-006 asks for a reminder, not a digest.
+    """
     link = deep_link(frontend_url, finding_id)
+    is_reminder = cadence_point is not NotificationCadencePoint.DAY_0
+    opening = (
+        "This compliance finding against a resource you own is still open."
+        if is_reminder
+        else "A compliance finding was opened against a resource you own."
+    )
     return NotificationEmail(
         sender=sender,
         recipient=recipient,
-        subject=f"Action needed: {violation} on {resource_arn}",
+        subject=(
+            f"{'Reminder: ' if is_reminder else 'Action needed: '}{violation} on {resource_arn}"
+        ),
         body=(
-            f"A compliance finding was opened against a resource you own.\n\n"
+            f"{opening}\n\n"
             f"Resource: {resource_arn}\n"
             f"Violation: {violation}\n\n"
             f"Open the finding: {link}\n"
@@ -186,51 +202,224 @@ def send_due_day0_notifications(
     isolation, in place of SQS retry machinery).
     """
     outcomes: list[NotificationOutcome] = []
-
     for finding in due_day0_findings(session, now=now):
-        owner_email = _owner_email_of(session, finding)
-        resource_arn = _resource_arn_of(session, finding)
-
-        if not owner_email:
-            outcomes.append(
-                _record(session, finding, NotificationOutcome.WITHHELD_NO_OWNER_EMAIL, None)
-            )
-            logger.info(
-                "day-0 notification withheld: no owner email",
-                extra={"finding_id": str(finding.id)},
-            )
-            continue
-
-        email = build_day0_email(
+        outcome = _attempt(
+            session,
+            finding,
+            NotificationCadencePoint.DAY_0,
+            send,
             sender=sender,
-            recipient=owner_email,
             frontend_url=frontend_url,
-            finding_id=finding.id,
-            resource_arn=resource_arn or str(finding.sda_id or finding.id),
-            violation=_violation_of(session, finding),
         )
-        try:
-            send(email)
-        except Exception:
-            # Logged, not raised, and deliberately NOT recorded as an attempt: no
-            # Notification row means the next daily pass retries it, which is the
-            # right behaviour for a transient send failure. FR-010's "never
-            # retried forever" is about an unnotifiable *address*, not a
-            # transport error.
-            logger.exception(
-                "day-0 notification send failed", extra={"finding_id": str(finding.id)}
-            )
-            continue
-
-        outcomes.append(_record(session, finding, NotificationOutcome.SENT, owner_email))
+        if outcome is not None:
+            outcomes.append(outcome)
 
     session.raw.flush()
     return outcomes
 
 
+def _attempt(
+    session: TenantSession,
+    finding: FindingRow,
+    cadence_point: NotificationCadencePoint,
+    send: Callable[[NotificationEmail], None],
+    *,
+    sender: str,
+    frontend_url: str,
+) -> NotificationOutcome | None:
+    """One finding, one cadence point: resolve, send, record.
+
+    `None` means *nothing was recorded* -- the send raised. That is deliberately
+    distinct from a recorded withheld outcome: with no row, the next daily pass
+    retries the finding, which is right for a transport failure. FR-010's "never
+    retried forever" is about an unnotifiable *address*, not a transport error.
+    """
+    owner_email = _owner_email_of(session, finding)
+    if not owner_email:
+        logger.info(
+            "notification withheld: no owner email",
+            extra={"finding_id": str(finding.id), "cadence_point": cadence_point.value},
+        )
+        return _record(
+            session, finding, cadence_point, NotificationOutcome.WITHHELD_NO_OWNER_EMAIL, None
+        )
+
+    email = build_notification_email(
+        cadence_point=cadence_point,
+        sender=sender,
+        recipient=owner_email,
+        frontend_url=frontend_url,
+        finding_id=finding.id,
+        resource_arn=_resource_arn_of(session, finding) or str(finding.sda_id or finding.id),
+        violation=_violation_of(session, finding),
+    )
+    try:
+        send(email)
+    except Exception:
+        logger.exception(
+            "notification send failed",
+            extra={"finding_id": str(finding.id), "cadence_point": cadence_point.value},
+        )
+        return None
+
+    return _record(session, finding, cadence_point, NotificationOutcome.SENT, owner_email)
+
+
+# FR-006: both reminders are measured from the day-0 *attempt*, not from when the
+# finding opened. Those differ whenever the worker was down or the finding opened
+# just after a daily pass, and anchoring on the attempt is what keeps the gap
+# between emails the two and four days a recipient is being promised.
+_REMINDER_OFFSETS: dict[NotificationCadencePoint, timedelta] = {
+    NotificationCadencePoint.DAY_2: timedelta(days=2),
+    NotificationCadencePoint.DAY_4: timedelta(days=4),
+}
+
+
+def _day0_attempted_at(session: TenantSession) -> Any:
+    """Correlated subquery: when this finding's day-0 attempt was recorded."""
+    return (
+        select(NotificationRow.attempted_at)
+        .where(
+            NotificationRow.finding_id == FindingRow.id,
+            NotificationRow.tenant_id == session.tenant_id,
+            NotificationRow.cadence_point == NotificationCadencePoint.DAY_0,
+        )
+        .scalar_subquery()
+    )
+
+
+def due_reminder_findings(
+    session: TenantSession,
+    cadence_point: NotificationCadencePoint,
+    *,
+    now: datetime | None = None,
+) -> list[FindingRow]:
+    """Findings whose day-0 attempt is old enough for this reminder, and which
+    carry no row at this cadence point yet.
+
+    Deliberately *not* filtered by status here. FR-007's "do not send a reminder
+    for a finding already dealt with" is recorded as a `suppressed_finding_closed`
+    row by the caller, not as an absence -- an admin auditing this feature needs
+    to see that the reminder came due and was withheld, which a missing row
+    cannot express (R-501: a row per attempt, sent, withheld or suppressed).
+    """
+    now = now or datetime.now(UTC)
+    already_attempted = select(NotificationRow.finding_id).where(
+        NotificationRow.finding_id == FindingRow.id,
+        NotificationRow.tenant_id == session.tenant_id,
+        NotificationRow.cadence_point == cadence_point,
+    )
+    statement = (
+        session.scoped(select(FindingRow), FindingRow)
+        .where(
+            _day0_attempted_at(session) <= now - _REMINDER_OFFSETS[cadence_point],
+            ~already_attempted.exists(),
+        )
+        .order_by(FindingRow.opened_at)
+    )
+    return list(session.raw.execute(statement).scalars().all())
+
+
+def _still_needs_chasing(finding: FindingRow) -> bool:
+    """FR-007's three states, as one predicate.
+
+    `acknowledged_at` is orthogonal to `status` (spec 004, FR-017) -- an
+    acknowledged finding is still `open` -- so checking status alone would keep
+    emailing someone who has already said "seen it", which is precisely the case
+    FR-007 names first.
+    """
+    return finding.status is FindingStatus.OPEN and finding.acknowledged_at is None
+
+
+def displayed_escalated_at(finding: FindingRow) -> datetime | None:
+    """FR-009's display rule, in the one place both readers and writers agree on.
+
+    An escalated finding stops *displaying* as escalated once it is
+    acknowledged, resolved, or suppressed -- the same three states that stop
+    FR-007's reminders, which is why this shares `_still_needs_chasing` rather
+    than restating the list and risking the two drifting apart. The stored
+    `escalated_at` is never cleared; see `models/core.py` for why deriving this
+    beats nulling the column in every state transition.
+    """
+    return finding.escalated_at if _still_needs_chasing(finding) else None
+
+
+def send_due_reminders(
+    session: TenantSession,
+    send: Callable[[NotificationEmail], None],
+    *,
+    sender: str,
+    frontend_url: str,
+    now: datetime | None = None,
+) -> list[NotificationOutcome]:
+    """FR-006's day-2 and day-4 reminders, with FR-007's suppression recorded.
+
+    Day-2 runs before day-4 so that a finding which somehow became due for both
+    in one pass gets them in cadence order rather than out of it.
+    """
+    outcomes: list[NotificationOutcome] = []
+    for cadence_point in (NotificationCadencePoint.DAY_2, NotificationCadencePoint.DAY_4):
+        for finding in due_reminder_findings(session, cadence_point, now=now):
+            if not _still_needs_chasing(finding):
+                outcomes.append(
+                    _record(
+                        session,
+                        finding,
+                        cadence_point,
+                        NotificationOutcome.SUPPRESSED_FINDING_CLOSED,
+                        None,
+                    )
+                )
+                continue
+            outcome = _attempt(
+                session,
+                finding,
+                cadence_point,
+                send,
+                sender=sender,
+                frontend_url=frontend_url,
+            )
+            if outcome is not None:
+                outcomes.append(outcome)
+
+    session.raw.flush()
+    return outcomes
+
+
+def flag_stale_escalations(session: TenantSession, *, now: datetime | None = None) -> int:
+    """FR-008: flag a finding still open once its day-4 row has been written.
+
+    A separate pass rather than a side effect of the day-4 send, for two
+    reasons: it is idempotent, so re-running it flags nothing twice; and it
+    self-heals a finding whose day-4 row was written before this function
+    existed. The flag is the *only* automated consequence -- FR-008 is explicit
+    that nothing else happens, no further emails and no external escalation.
+
+    Returns how many findings were newly flagged.
+    """
+    now = now or datetime.now(UTC)
+    day4_written = select(NotificationRow.finding_id).where(
+        NotificationRow.finding_id == FindingRow.id,
+        NotificationRow.tenant_id == session.tenant_id,
+        NotificationRow.cadence_point == NotificationCadencePoint.DAY_4,
+    )
+    statement = session.scoped(select(FindingRow), FindingRow).where(
+        FindingRow.status == FindingStatus.OPEN,
+        FindingRow.escalated_at.is_(None),
+        day4_written.exists(),
+    )
+    flagged = 0
+    for finding in session.raw.execute(statement).scalars().all():
+        finding.escalated_at = now
+        flagged += 1
+    session.raw.flush()
+    return flagged
+
+
 def _record(
     session: TenantSession,
     finding: FindingRow,
+    cadence_point: NotificationCadencePoint,
     outcome: NotificationOutcome,
     recipient_email: str | None,
 ) -> NotificationOutcome:
@@ -238,7 +427,7 @@ def _record(
     session.add(
         NotificationRow(
             finding_id=finding.id,
-            cadence_point=NotificationCadencePoint.DAY_0,
+            cadence_point=cadence_point,
             outcome=outcome,
             recipient_email=recipient_email,
         )
@@ -248,8 +437,12 @@ def _record(
 
 __all__ = [
     "NotificationEmail",
-    "build_day0_email",
+    "build_notification_email",
     "deep_link",
+    "displayed_escalated_at",
     "due_day0_findings",
+    "due_reminder_findings",
+    "flag_stale_escalations",
     "send_due_day0_notifications",
+    "send_due_reminders",
 ]

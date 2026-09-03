@@ -1,11 +1,14 @@
 """Lambda entrypoint EventBridge Scheduler invokes daily for owner
 notifications (spec 005, T015; FR-004, FR-005, FR-014, research.md R-501).
 
-One daily pass, not three separate triggers. Day-0 is all this handler does
-today; Phase 5's day-2/day-4 reminders and the day-4 escalation (T021) join
-this same `trigger_daily` action rather than getting schedules of their own,
-because "what is due today" is one question about one findings table -- three
-schedules would race each other for the same rows.
+One daily pass, not three separate triggers: day-0, then the day-2/day-4
+reminders, then the escalation flag. They share the action rather than getting
+schedules of their own because "what is due today" is one question about one
+findings table -- three schedules would race each other for the same rows.
+
+Order matters. Escalation runs last because it keys on the day-4 row the
+reminder pass may have just written, so a finding reaching day 4 today is
+flagged today rather than a day late.
 
 This module owns the SES client, and `app.governance.notifications` owns the
 rules -- the same boundary `ownership_attribution_worker_handler.py`
@@ -29,7 +32,13 @@ from sqlalchemy import text
 from app.core.config import get_settings
 from app.core.db import get_engine, tenant_session
 from app.core.logging import logger
-from app.governance.notifications import NotificationEmail, send_due_day0_notifications
+from app.governance.notifications import (
+    NotificationEmail,
+    flag_stale_escalations,
+    send_due_day0_notifications,
+    send_due_reminders,
+)
+from app.models.enums import NotificationOutcome
 
 
 def _ses_sender(region: str) -> Any:
@@ -75,19 +84,27 @@ def _handle_trigger_daily(_event: dict[str, Any]) -> dict[str, Any]:
         )
 
     send = _ses_sender(settings.aws_region)
+    sender = settings.notification_sender_email
+    frontend_url = settings.frontend_url
     with tenant_session(tenant_id) as session:
-        outcomes = send_due_day0_notifications(
-            session,
-            send,
-            sender=settings.notification_sender_email,
-            frontend_url=settings.frontend_url,
-        )
+        day0 = send_due_day0_notifications(session, send, sender=sender, frontend_url=frontend_url)
+        reminders = send_due_reminders(session, send, sender=sender, frontend_url=frontend_url)
+        escalated = flag_stale_escalations(session)
 
+    result = {
+        "day_0": _counts(day0),
+        "reminders": _counts(reminders),
+        "newly_escalated": escalated,
+    }
+    logger.info("notification worker completed", extra=result)
+    return result
+
+
+def _counts(outcomes: list[NotificationOutcome]) -> dict[str, int]:
     counts: dict[str, int] = {}
     for outcome in outcomes:
         counts[outcome.value] = counts.get(outcome.value, 0) + 1
-    logger.info("notification worker completed", extra={"day_0": counts})
-    return {"day_0": counts}
+    return counts
 
 
 def handler(event: dict[str, Any], _context: Any = None) -> dict[str, Any]:

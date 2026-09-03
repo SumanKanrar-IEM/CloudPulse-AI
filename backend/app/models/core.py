@@ -345,9 +345,18 @@ class Finding(UUIDPrimaryKey, Timestamps, TenantScoped, Base):
         PgUUID(as_uuid=True), ForeignKey("app_user.id", ondelete="SET NULL")
     )
     # migration 0012 (spec 005, FR-008/FR-009). Set the first time a still-open
-    # finding's day-4 reminder is sent; cleared (NULL) the moment the finding
-    # leaves `open` by any means. Orthogonal to `status`, the same discipline
+    # finding's day-4 row is written, by `governance.notifications
+    # .flag_stale_escalations`. Orthogonal to `status`, the same discipline
     # `acknowledged_at` already established above -- never a stand-in for it.
+    #
+    # Never cleared. An earlier draft of this comment said it was cleared the
+    # moment the finding left `open`, which would have meant every present and
+    # future state transition -- resolve, acknowledge, suppress -- remembering to
+    # null it, and any one of them forgetting is a finding stuck showing as
+    # escalated. FR-009 is a *display* rule ("MUST no longer display as
+    # escalated once it is acknowledged, resolved, or suppressed"), so the API
+    # derives it at read time in one place instead. The column keeps its honest
+    # meaning: when this finding was escalated, whether or not it still is.
     escalated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     __table_args__ = (

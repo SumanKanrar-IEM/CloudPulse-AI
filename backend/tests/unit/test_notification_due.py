@@ -31,12 +31,17 @@ import pytest
 from app.governance import notifications
 from app.governance.notifications import (
     NotificationEmail,
-    build_day0_email,
+    build_notification_email,
     deep_link,
     send_due_day0_notifications,
 )
 from app.models.core import Finding as FindingRow
-from app.models.enums import FindingKind, FindingSeverity, NotificationOutcome
+from app.models.enums import (
+    FindingKind,
+    FindingSeverity,
+    NotificationCadencePoint,
+    NotificationOutcome,
+)
 
 FRONTEND_URL = "https://app.example.com"
 ARN = "arn:aws:ec2:us-east-1:123456789012:instance/i-0abc"
@@ -95,7 +100,8 @@ def test_deep_link_does_not_double_the_slash_on_a_trailing_slash_base() -> None:
 def test_the_email_names_the_resource_the_violation_and_the_link() -> None:
     """FR-004's three required contents, in one assertion each."""
     finding_id = uuid.uuid4()
-    email = build_day0_email(
+    email = build_notification_email(
+        cadence_point=NotificationCadencePoint.DAY_0,
         sender=SENDER,
         recipient=OWNER,
         frontend_url=FRONTEND_URL,
