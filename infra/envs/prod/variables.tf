@@ -124,3 +124,9 @@ variable "enable_cognito_auth" {
   description = "Attach the JWT authorizer (FR-034). False only for a bootstrap apply."
   default     = true
 }
+
+variable "notification_sender_email" {
+  type        = string
+  description = "FR-014: the fixed SES sending identity for owner notifications. Must be verified in this account before any email sends. Empty deploys the worker without letting it send (T015 refuses to run), rather than sending from an unverified address."
+  default     = ""
+}

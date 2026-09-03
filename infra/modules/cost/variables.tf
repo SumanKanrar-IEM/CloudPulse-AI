@@ -43,3 +43,21 @@ variable "cost_ingestion_schedule_expression" {
   description = "FR-001: the daily spend-ingestion schedule. One hour after scan's own default (research.md), not because ingestion depends on that day's scan completing -- it doesn't -- but so a fresh SDA registration from earlier the same run window is available for attribution."
   default     = "cron(0 7 * * ? *)"
 }
+
+variable "frontend_url" {
+  type        = string
+  description = "FR-005: the base the notification worker builds its /findings/{id} deep link on. The same CloudFront domain the API already receives as its single allowed CORS origin."
+  default     = ""
+}
+
+variable "notification_sender_email" {
+  type        = string
+  description = "FR-014: the fixed, per-environment SES sending identity. A verified identity in the platform's own account, never a per-tenant address. Empty leaves the worker deployed but refusing to run (T015), rather than silently sending from an unverified address."
+  default     = ""
+}
+
+variable "notification_schedule_expression" {
+  type        = string
+  description = "research.md R-501: one daily pass answering 'what is due today' for every cadence point. After cost ingestion, so a budget_overrun finding opened by that run is notifiable the same day."
+  default     = "cron(0 8 * * ? *)"
+}

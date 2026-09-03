@@ -86,6 +86,27 @@ class Settings(BaseSettings):
     # SDA matching already keys project attribution on).
     project_tag_key: str = Field(default="project_id")
 
+    # --- notifications (spec 005, FR-005, FR-014)
+    #
+    # Both optional for the same reason cognito_* above are: this one Settings model
+    # is shared by every Lambda, and the API/migration/scan Lambdas have no
+    # notification configuration in their environment. Making these required would
+    # stop those from resolving settings at all. The notification worker validates
+    # their presence itself, at the point of use, where a missing value is a real
+    # error rather than a hypothetical one.
+    #
+    # frontend_url is also read directly from os.environ by app/api/main.py for CORS
+    # (see the comment there); this field is the same value, declared for the worker
+    # that builds FR-005's deep link.
+    frontend_url: str | None = None
+    notification_sender_email: str | None = Field(
+        default=None,
+        description=(
+            "FR-014's fixed, per-environment sending identity. A verified SES "
+            "identity in the platform's own account, never a per-tenant address."
+        ),
+    )
+
     @field_validator("db_secret_arn")
     @classmethod
     def _must_be_an_arn_not_a_secret(cls, v: str) -> str:

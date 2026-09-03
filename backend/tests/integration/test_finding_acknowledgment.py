@@ -21,9 +21,16 @@ import app.core.db as db_module
 from app.api.errors import register_exception_handlers
 from app.api.middleware import CorrelationIdMiddleware
 from app.api.routers import findings as findings_router
-from app.models.core import AuditEvent, CloudAccount, Finding, Resource
+from app.models.core import AuditEvent, CloudAccount, Finding, Notification, Resource
 from app.models.core import Rule as RuleRow
-from app.models.enums import AccountStatus, ConnectionMode, FindingSeverity, FindingStatus
+from app.models.enums import (
+    AccountStatus,
+    ConnectionMode,
+    FindingSeverity,
+    FindingStatus,
+    NotificationCadencePoint,
+    NotificationOutcome,
+)
 
 pytestmark = pytest.mark.integration
 
@@ -182,3 +189,53 @@ def test_acknowledging_writes_exactly_one_audit_event(
     )
     session.close()
     assert count == 2  # each POST is audited even when the second is a DB no-op
+
+
+# --- GET /findings/{findingId}/notifications (T017, spec 005 FR-013) --------------
+
+
+def test_a_finding_with_no_attempts_is_an_empty_list_not_a_404(findings_app, seed) -> None:  # type: ignore[no-untyped-def]
+    """The same distinction `getFindingSuggestion` draws: nothing recorded yet
+    is a normal 200; only a missing finding is a 404."""
+    client, *_ = findings_app
+    response = client.get(f"/findings/{seed['finding_id']}/notifications")
+    assert response.status_code == 200, response.text
+    assert response.json() == {"findingId": seed["finding_id"], "notifications": []}
+
+
+def test_every_attempt_is_listed_whatever_its_outcome(  # type: ignore[no-untyped-def]
+    findings_app, seed, clean_database
+) -> None:
+    """FR-013: a withheld attempt is part of the audit trail, not an absence."""
+    client, _, tenant_id = findings_app
+    session: Session = sessionmaker(bind=clean_database)()
+    session.add(
+        Notification(
+            tenant_id=tenant_id,
+            finding_id=uuid.UUID(seed["finding_id"]),
+            cadence_point=NotificationCadencePoint.DAY_0,
+            outcome=NotificationOutcome.WITHHELD_NO_OWNER_EMAIL,
+        )
+    )
+    session.commit()
+    session.close()
+
+    body = client.get(f"/findings/{seed['finding_id']}/notifications").json()
+
+    assert len(body["notifications"]) == 1
+    attempt = body["notifications"][0]
+    assert attempt["cadencePoint"] == "day_0"
+    assert attempt["outcome"] == "withheld_no_owner_email"
+    assert attempt["recipientEmail"] is None
+
+
+def test_the_notification_trail_is_readable_by_every_role(findings_app, seed) -> None:  # type: ignore[no-untyped-def]
+    client, stager, tenant_id = findings_app
+    for groups in (ADMIN, OPERATOR, VIEWER):
+        _stage(stager, tenant_id, groups)
+        assert client.get(f"/findings/{seed['finding_id']}/notifications").status_code == 200
+
+
+def test_notifications_for_a_nonexistent_finding_is_a_404(findings_app, seed) -> None:  # type: ignore[no-untyped-def]
+    client, *_ = findings_app
+    assert client.get(f"/findings/{uuid.uuid4()}/notifications").status_code == 404

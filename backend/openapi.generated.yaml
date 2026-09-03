@@ -1072,6 +1072,61 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /findings/{finding_id}/notifications:
+    get:
+      tags:
+      - findings
+      summary: Every notification attempt recorded for a finding
+      description: 'FR-013''s auditable trail. Any role may view, matching this router''s
+
+        other read endpoints. A finding nothing has been attempted for is a normal
+
+        200 with an empty list -- only a missing finding is a 404, the same
+
+        distinction `getFindingSuggestion` already draws.'
+      operationId: listFindingNotifications
+      parameters:
+      - name: finding_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Finding Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationAttempts'
+        '401':
+          description: No valid identity presented.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Valid identity, but the caller's role does not permit the action
+            -- or the caller maps to zero or multiple directory groups and therefore
+            has no resolvable role (FR-032a, FR-034).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '404':
+          description: Target record does not exist, or the caller is not entitled
+            to know that it does.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /resources:
     get:
       tags:
@@ -2083,6 +2138,54 @@ components:
       - tagStatus
       - ownerStatus
       title: InventoryResourceSummary
+    NotificationAttempt:
+      properties:
+        id:
+          type: string
+          title: Id
+        cadencePoint:
+          type: string
+          title: Cadencepoint
+        outcome:
+          type: string
+          title: Outcome
+        recipientEmail:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Recipientemail
+        attemptedAt:
+          type: string
+          format: date-time
+          title: Attemptedat
+      type: object
+      required:
+      - id
+      - cadencePoint
+      - outcome
+      - attemptedAt
+      title: NotificationAttempt
+      description: 'One recorded attempt, whatever its outcome (spec 005, FR-013).
+
+
+        `recipientEmail` is null for every non-`sent` outcome -- there was no
+
+        recipient, which is the point of recording the attempt at all.'
+    NotificationAttempts:
+      properties:
+        findingId:
+          type: string
+          title: Findingid
+        notifications:
+          items:
+            $ref: '#/components/schemas/NotificationAttempt'
+          type: array
+          title: Notifications
+      type: object
+      required:
+      - findingId
+      - notifications
+      title: NotificationAttempts
     OwnerIdentityOverrideBody:
       properties:
         principalId:
@@ -2730,4 +2833,3 @@ components:
         then re-validated for role cardinality by the application (research.md R-004).
 security:
 - cognitoJwt: []
-

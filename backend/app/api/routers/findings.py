@@ -25,6 +25,7 @@ from app.core.security import Principal, require_admin, require_operator, requir
 from app.governance import suggestions as suggestions_governance
 from app.models.core import AppUser, Resource
 from app.models.core import Finding as FindingRow
+from app.models.core import Notification as NotificationRow
 from app.models.core import Rule as RuleRow
 from app.models.enums import FindingStatus
 
@@ -81,6 +82,29 @@ class RemediationSuggestion(BaseModel):
     suggestion_text: str | None = Field(default=None, alias="suggestionText")
     blast_radius_note: str | None = Field(default=None, alias="blastRadiusNote")
     source: str | None = None
+
+    model_config = {"populate_by_name": True}
+
+
+class NotificationAttempt(BaseModel):
+    """One recorded attempt, whatever its outcome (spec 005, FR-013).
+
+    `recipientEmail` is null for every non-`sent` outcome -- there was no
+    recipient, which is the point of recording the attempt at all.
+    """
+
+    id: str
+    cadence_point: str = Field(alias="cadencePoint")
+    outcome: str
+    recipient_email: str | None = Field(default=None, alias="recipientEmail")
+    attempted_at: datetime = Field(alias="attemptedAt")
+
+    model_config = {"populate_by_name": True}
+
+
+class NotificationAttempts(BaseModel):
+    finding_id: str = Field(alias="findingId")
+    notifications: list[NotificationAttempt]
 
     model_config = {"populate_by_name": True}
 
@@ -290,6 +314,51 @@ async def set_finding_suggestion_seed(
             suggestion_text=suggestion.suggestion_text,
             blast_radius_note=suggestion.blast_radius_note,
             source=suggestion.source.value,
+        )
+
+
+@router.get(
+    "/{finding_id}/notifications",
+    operation_id="listFindingNotifications",
+    summary="Every notification attempt recorded for a finding",
+    response_model=NotificationAttempts,
+    response_model_by_alias=True,
+    responses={
+        401: ERROR_RESPONSES[401],
+        403: ERROR_RESPONSES[403],
+        404: ERROR_RESPONSES[404],
+    },
+)
+async def list_finding_notifications(
+    finding_id: uuid.UUID, principal: ViewerPrincipal
+) -> NotificationAttempts:
+    """FR-013's auditable trail. Any role may view, matching this router's
+    other read endpoints. A finding nothing has been attempted for is a normal
+    200 with an empty list -- only a missing finding is a 404, the same
+    distinction `getFindingSuggestion` already draws."""
+    with tenant_session(principal.tenant_id) as session:
+        _get_finding_or_404(session, finding_id)
+        rows = (
+            session.raw.execute(
+                session.scoped(select(NotificationRow), NotificationRow)
+                .where(NotificationRow.finding_id == finding_id)
+                .order_by(NotificationRow.attempted_at)
+            )
+            .scalars()
+            .all()
+        )
+        return NotificationAttempts(
+            finding_id=str(finding_id),
+            notifications=[
+                NotificationAttempt(
+                    id=str(row.id),
+                    cadence_point=row.cadence_point.value,
+                    outcome=row.outcome.value,
+                    recipient_email=row.recipient_email,
+                    attempted_at=row.attempted_at,
+                )
+                for row in rows
+            ],
         )
 
 
