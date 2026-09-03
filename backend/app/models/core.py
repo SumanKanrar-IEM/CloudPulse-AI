@@ -458,7 +458,11 @@ class SpendRecord(UUIDPrimaryKey, TenantScoped, Base):
     sda_id: Mapped[uuid.UUID | None] = mapped_column(
         PgUUID(as_uuid=True), ForeignKey("sda.id", ondelete="SET NULL")
     )
-    service: Mapped[str] = mapped_column(String(100), nullable=False)
+    # migration 0013. Nullable, not the whole-day-gap row's own placeholder value
+    # -- a gap has no per-service breakdown at all, so there is nothing honest to
+    # put here (same "never a guessed value" discipline amount_usd already
+    # follows, applied to this column too).
+    service: Mapped[str | None] = mapped_column(String(100))
     spend_date: Mapped[date] = mapped_column(Date, nullable=False)
     # NULL exactly when is_gap is true (FR-002a) -- never a guessed or zeroed
     # value for a day ingestion never actually produced.
@@ -469,16 +473,45 @@ class SpendRecord(UUIDPrimaryKey, TenantScoped, Base):
     )
 
     __table_args__ = (
-        UniqueConstraint(
+        # migration 0013 (found while implementing T007, T003a): three partial
+        # indexes, not one plain UniqueConstraint -- a plain constraint including
+        # a nullable column (sda_id) silently allows duplicate "No SDA" rows for
+        # the same account/service/day, since Postgres never treats two NULLs as
+        # equal for uniqueness purposes. A day's correction MUST hit the same
+        # existing row via ON CONFLICT regardless of whether that day's spend
+        # happens to be attributed to a real SDA or the "No SDA" bucket, so the
+        # NULL case needs its own index that doesn't include the NULL-valued
+        # column in its key at all.
+        Index(
+            "uq_spend_record_tenant_account_service_date_sda",
             "tenant_id",
             "cloud_account_id",
             "service",
             "spend_date",
             "sda_id",
-            name="uq_spend_record_tenant_account_service_date_sda",
+            unique=True,
+            postgresql_where=text("is_gap = false AND sda_id IS NOT NULL"),
+        ),
+        Index(
+            "uq_spend_record_tenant_account_service_date_no_sda",
+            "tenant_id",
+            "cloud_account_id",
+            "service",
+            "spend_date",
+            unique=True,
+            postgresql_where=text("is_gap = false AND sda_id IS NULL"),
+        ),
+        Index(
+            "uq_spend_record_gap_per_account_date",
+            "tenant_id",
+            "cloud_account_id",
+            "spend_date",
+            unique=True,
+            postgresql_where=text("is_gap = true"),
         ),
         CheckConstraint(
-            "is_gap = true OR amount_usd IS NOT NULL", name="amount_required_unless_gap"
+            "is_gap = true OR (service IS NOT NULL AND amount_usd IS NOT NULL)",
+            name="amount_and_service_required_unless_gap",
         ),
     )
 
