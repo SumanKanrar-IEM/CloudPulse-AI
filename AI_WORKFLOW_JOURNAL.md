@@ -855,3 +855,90 @@ mismatch between `specs/003-tag-compliance-and-ownership/contracts/openapi.yaml`
 (`{rule_key}`) checked and confirmed cosmetic — a naming-convention difference, not
 drift; all 11 spec-003 paths present in both. Spec 003's analyze run is now clean; per
 Principle VII's testable clause, spec 004 may begin.
+
+---
+
+## Spec 005 — Cost, Utilization, and Notifications
+
+### P1 implementation, Phases 1–5 (2026-09-03/04)
+
+[#106](https://github.com/SumanKanrar-IEM/CloudPulse-AI/pull/106) setup and foundational —
+schema migration · [#107](https://github.com/SumanKanrar-IEM/CloudPulse-AI/pull/107) spend
+ingestion and the cost dashboard (US1) ·
+[#108](https://github.com/SumanKanrar-IEM/CloudPulse-AI/pull/108) day-0 owner notification (US2) ·
+[#109](https://github.com/SumanKanrar-IEM/CloudPulse-AI/pull/109) FR-010 amendment ·
+[#110](https://github.com/SumanKanrar-IEM/CloudPulse-AI/pull/110) day-2/4 reminders and the
+escalation flag (US3).
+
+**A requirement cited a feature that did not exist.** FR-010 and its Edge Case both deferred to
+"spec 003's bounce flagging" as an existing capability to integrate with. It is not there —
+verified by grep across the whole repository: zero mentions of bounce, undeliverable, or
+deliverability anywhere in `specs/003-*/`, and no deliverability column or table in the schema.
+The only artifacts were spec 005's own `NotificationOutcome.WITHHELD_BOUNCED` and the migration
+that created it, so nothing could ever write that outcome. Recorded as **T017a** with the
+evidence and escalated as a decision rather than resolved unilaterally — building it meant real
+unplanned scope (an SES configuration set, an SNS topic, a bounce-event handler, a suppression
+table, a migration), and a hardcoded `False` "has this bounced" predicate would have made the
+requirement look satisfied while changing nothing. The maintainer chose to amend FR-010; **T017b**
+carried it out, including migration 0014 to drop the unreachable enum value via the
+rename-create-recast-drop route Postgres requires. The lesson generalises: a spec that cites a
+prior spec's feature is citing a claim, not a fact, and the claim is worth grepping for before
+building on it.
+
+**A model comment described a design that would not have survived contact.** Migration 0012's
+`escalated_at` comment said the column was cleared the moment a finding left `open`. That would
+require every present *and future* state transition — resolve, acknowledge, suppress — to
+remember to null it, with any single omission leaving a finding permanently displaying as
+escalated. FR-009 is a display rule ("MUST no longer display as escalated once it is
+acknowledged, resolved, or suppressed"), so the API derives it at read time in one place instead
+of relying on three-plus writers. Recorded as **T022a** and the comment corrected, rather than
+implemented as written and left as a latent bug.
+
+**Two smaller deviations, both recorded rather than silently taken.** **T014a**: self-review of
+the day-0 due query found its correlated `NOT EXISTS` built with a bare `select()` instead of
+`session.scoped` — not a live leak, since a finding's notifications can only belong to that
+finding's own tenant, but FR-030's rule is that a tenant-scoped model is never queried unscoped
+and a subquery is still a query. **T019a**: T019 asked for assertions against
+`GET /findings/{findingId}`, which does not exist — spec 004 shipped a findings list plus two
+`/{findingId}/...` sub-resources — so FR-009's visibility is asserted against `GET /findings`
+rather than inventing a third endpoint shape no requirement asks for.
+
+**A tooling failure that looked like a code failure.** `npm run generate:api` failed with its
+real cause — `Unable to locate a Java Runtime` — buried six lines past a 55 KB minified bundle in
+its own log. brew's `openjdk` was installed but unlinked. Scoped `JAVA_HOME` to the command
+rather than altering system symlinks.
+
+**`suppressed_finding_closed` finally got a writer.** Recording FR-007's suppression as a row
+rather than an absence is what made it reachable — an admin auditing this feature needs to see
+that a reminder came due and was withheld, which a missing row cannot express. It was the last
+enum value in the schema without one.
+
+### Live verification and teardown (2026-09-04)
+
+`Deploy dev` dispatched manually on trunk `f0de0e4`; succeeded. Health check `healthy` with the
+database check healthy, and the returned version matched trunk HEAD exactly. Migrations at head
+through 0014. Both this spec's workers deployed with the intended shape (arm64, 512 MB,
+VPC-attached) and both EventBridge schedules ENABLED. `CLOUDPULSE_NOTIFICATION_SENDER_EMAIL` was
+empty, so T015's own guard would have refused the run rather than sending from an unverified
+identity — observed, not inferred.
+
+**R-511 was re-confirmed before attempting anything, and neither AWS-call-dependent scenario was
+attempted.** Cost Explorer and IAM have no VPC PrivateLink support at all — a platform
+limitation, not a funding gap that could have quietly resolved itself — and R-504's SES interface
+endpoint was priced at roughly $14.40/month across two AZs and explicitly declined. SC-001–SC-004
+are therefore proven at the mocked-test level only, the same honest outcome specs 002, 003 and
+004 each landed on for their own R-407-bounded stories. This was known *before* the attempt this
+time rather than discovered mid-attempt, which is the whole point of R-511 existing.
+
+**Teardown ran immediately after, with nothing between the two.** `ops/teardown.sh dev` reported
+`Destroy complete! Resources: 99 destroyed.` A baseline sweep had been taken *before* deploying —
+all zeros — so the post-teardown sweep is a genuine before/after rather than a guess, and the
+script's exit code was not trusted on its own. The full §0.5.3 sweep afterwards returned zero
+across every category, including zero CloudWatch log groups with `retentionInDays == null`, the
+orphan class that outlives the Lambda that created it. Only the two Terraform state buckets
+remain, which the teardown script documents itself as deliberately never touching.
+
+**This section exists because the task list had no task asking for it.** Spec 003's second
+`/speckit-analyze` pass raised exactly that omission as its **H1 CRITICAL** finding — a direct
+Principle I violation — and spec 002's own H1 had caught it once before that. Recorded as
+**T026a** and written now rather than left for a third analyze pass to find.

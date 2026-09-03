@@ -465,13 +465,21 @@ AWS account, the way specs 001–004 did — honestly bounded this time by a con
 before the attempt (research.md R-511), not discovered mid-attempt the way spec 002/003's own
 first tries were.
 
-- [ ] T024 Write `backend/tests/integration/test_role_matrix_cost_and_notifications.py` — the
+- [X] T024 Write `backend/tests/integration/test_role_matrix_cost_and_notifications.py` — the
       full role matrix across this spec's P1 read surfaces (`GET /spend`, `GET /spend/summary`,
       `GET /findings/{findingId}/notifications`): all three roles can read (spec 003/004's
       established "governance data is visible to every role" pattern, no write endpoint exists
       in P1 scope to test refusal against — noted explicitly, not silently assumed) — S24, S25,
       S39, S42, FR-003, FR-013
-- [ ] T025 **Live-verification.** Deploy this spec's P1 work to dev (dispatch `Deploy dev`
+      **Done.** Every cell asserted explicitly, admin included — R-205's non-hierarchical-roles
+      point means admin is never inferred from viewer working. The "no write endpoint to refuse
+      against" claim is stated in the file's docstring with its reason: every write in this spec
+      is performed by a worker Lambda under its own IAM role, not by a signed-in principal
+      through the API. Two refusal cells do exist and are asserted — an unauthenticated caller
+      (401) and an authenticated caller with no recognised group (403, since FR-032a's
+      cardinality rule means an empty group claim is no role, not viewer-by-default). Each read
+      cell asserts the response *body*, so an empty result cannot pass as success.
+- [X] T025 **Live-verification.** Deploy this spec's P1 work to dev (dispatch `Deploy dev`
       manually, per specs 002–004's precedent). **Before attempting any AWS-call-dependent
       scenario, re-confirm research.md R-511's status has not changed** — Cost Explorer and IAM
       have no VPC PrivateLink support at all (a platform limitation, not a funding gap that could
@@ -479,13 +487,52 @@ first tries were.
       and explicitly declined. Unless a new signal from the user has arrived since this task was
       written, do not re-attempt either call blind — confirm the deploy itself succeeds (health
       check, version match) and that no existing spec 001–004 flow regressed, and record
-      SC-001–SC-004 as proven at the mocked-test level only, the same honest-outcome pattern
+      SC-001–SC-004
+      **Done, 2026-09-04.** `Deploy dev` dispatched manually on trunk `f0de0e4`
+      ([run 33801426633](https://github.com/SumanKanrar-IEM/CloudPulse-AI/actions/runs/33801426633)),
+      succeeded. Health check reported `healthy` with the database check healthy, and the
+      returned `version` was `f0de0e4359952a2a055fe5ea946cf739b1346b0a` — trunk HEAD exactly, so
+      version match is confirmed rather than assumed. Migrations applied to head (0014 included).
+      The workflow's own dashboard smoke test passed against the real CloudFront origin, and the
+      deployment record closed `succeeded`; no spec 001–004 flow regressed.
+      This spec's resources confirmed present: `cloudpulse-dev-notification-worker` (arm64,
+      512 MB, VPC-attached across both private subnets, handler
+      `handlers.notification_worker_handler.handler`), `cloudpulse-dev-cost-ingestion-worker`,
+      and both EventBridge schedules ENABLED. `CLOUDPULSE_FRONTEND_URL` resolved to the live
+      CloudFront domain; `CLOUDPULSE_NOTIFICATION_SENDER_EMAIL` was empty, so T015's guard would
+      have refused the run rather than sending from an unverified identity — the intended
+      behaviour, observed rather than inferred.
+      **R-511 re-confirmed before attempting anything, as this task requires**, and unchanged:
+      Cost Explorer and IAM have no VPC PrivateLink support at all, and R-504's SES endpoint was
+      priced and declined. Neither call was attempted. SC-001–SC-004 remain proven at the
+      mocked-test level only — the same honest outcome specs 002/003/004 each landed on. as proven at the mocked-test level only, the same honest-outcome pattern
       specs 002/003/004 all landed on for their own R-407-bounded stories — S24, S25, S39, S42,
       SC-001–SC-004
-- [ ] T026 **Teardown and cost sweep**, immediately following T025, never separated from it by
+- [X] T026 **Teardown and cost sweep**, immediately following T025, never separated from it by
       other work: run the full playbook §0.5.3 sweep, extended per research.md R-510 to confirm
       `cost-ingestion-worker` and `notification-worker` (their Lambdas, EventBridge Scheduler
       rules, and CloudWatch log groups) are gone — S24, S25, S39, S42, playbook §0.5.3
+      **Done, 2026-09-04, immediately after T025 with no other work between them.**
+      `ops/teardown.sh dev` reported `Destroy complete! Resources: 99 destroyed.` Unlike spec
+      002's T054 and spec 003's own teardown, the frontend S3 bucket emptied cleanly and no
+      second destroy pass was needed.
+      The exit code was not trusted on its own. A baseline sweep was taken *before* deploying
+      (all zeros), so the post-teardown sweep is a real before/after rather than a guess. Full
+      §0.5.3 sweep afterwards: RDS clusters/instances/manual snapshots, Lambdas, non-default
+      VPCs, NAT gateways, EC2, load balancers, Elastic IPs, CloudFront, Cognito, API Gateway,
+      Step Functions, SQS, SNS, EventBridge rules, EventBridge Scheduler schedules, and
+      CloudWatch alarms — **all zero**. Per R-510, both this spec's workers, both their
+      schedules, and both their log groups are gone. CloudWatch log groups: zero in total, and
+      specifically zero with `retentionInDays == null`, which is the orphan class §0.5.3 warns
+      outlives the Lambda that created it. Only the two Terraform state buckets remain, which
+      `ops/teardown.sh` documents itself as deliberately never touching.
+
+- [X] T026a Add spec 005's section to `AI_WORKFLOW_JOURNAL.md`. The file had zero entries for
+      this spec, and this task list carried no task to write any — the identical omission spec
+      003's second `/speckit-analyze` pass raised as its **H1 CRITICAL** finding (a direct
+      Principle I violation), which spec 002's own H1 had already caught once before that.
+      Added here rather than left for the analyze pass to find a third time — S24, S25, S39,
+      S42, Principle I
 
 **Checkpoint**: 🏁 **P1 complete at the mocked-test level (CI); live-verification (T025/T026)
 honestly bounded by research.md R-511, not silently skipped.**
