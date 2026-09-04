@@ -10,7 +10,7 @@ import { authGuard, roleGuard } from './core/auth.guard';
 import { AuthService } from './core/auth.service';
 
 // Feature routes: accounts (spec 002), sdas (spec 003), overview/inventory/findings/
-// scans (spec 004), cost (spec 005). sign-in/auth/callback (spec 004) are the two
+// scans (spec 004), cost/utilization (spec 005). sign-in/auth/callback (spec 004) are the two
 // unauthenticated routes everything else depends on reaching.
 export const routes: Routes = [
   // FR-006 default landing route after sign-in.
@@ -67,6 +67,12 @@ export const routes: Routes = [
     canActivate: [authGuard, roleGuard('admin', 'operator', 'viewer')],
     loadComponent: () =>
       import('./features/sdas/sdas-list.component').then((m) => m.SdasListComponent),
+  },
+  {
+    path: 'utilization',
+    canActivate: [authGuard, roleGuard('admin', 'operator', 'viewer')],
+    loadComponent: () =>
+      import('./features/utilization/utilization.component').then((m) => m.UtilizationComponent),
   },
   {
     path: 'cost',

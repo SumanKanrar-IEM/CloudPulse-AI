@@ -1779,6 +1779,39 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /utilization:
+    get:
+      tags:
+      - utilization
+      summary: Utilization overall, per account, and per project
+      description: 'FR-018. One response carries all three levels, which is what makes
+        the
+
+        account-to-project-to-resource drill-down reachable in three steps without
+
+        a request per expansion.'
+      operationId: getUtilization
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UtilizationReport'
+        '401':
+          description: No valid identity presented.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Valid identity, but the caller's role does not permit the action
+            -- or the caller maps to zero or multiple directory groups and therefore
+            has no resolvable role (FR-032a, FR-034).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
 components:
   schemas:
     Account:
@@ -1876,6 +1909,22 @@ components:
       required:
       - scanRegions
       title: AccountUpdate
+    AccountUtilization:
+      properties:
+        accountId:
+          type: string
+          title: Accountid
+        alias:
+          type: string
+          title: Alias
+        utilization:
+          $ref: '#/components/schemas/UtilizationFigure'
+      type: object
+      required:
+      - accountId
+      - alias
+      - utilization
+      title: AccountUtilization
     AccountsList:
       properties:
         accounts:
@@ -2466,6 +2515,26 @@ components:
       required:
       - kind
       title: OwnershipEvidence
+    ProjectUtilization:
+      properties:
+        sdaId:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Sdaid
+        sdaName:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Sdaname
+        utilization:
+          $ref: '#/components/schemas/UtilizationFigure'
+      type: object
+      required:
+      - sdaId
+      - sdaName
+      - utilization
+      title: ProjectUtilization
     RemediationSuggestion:
       properties:
         findingId:
@@ -3026,6 +3095,55 @@ components:
       required:
       - resources
       title: UnmatchedResourcesList
+    UtilizationFigure:
+      properties:
+        used:
+          type: integer
+          title: Used
+        provisioned:
+          type: integer
+          title: Provisioned
+        percent:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Percent
+      type: object
+      required:
+      - used
+      - provisioned
+      - percent
+      title: UtilizationFigure
+      description: 'A utilization percentage and the population it was measured over.
+
+
+        `percent` is null, never 0 or 100, when nothing measurable exists -- and
+
+        `used`/`provisioned` are always present so a caller can state the scope
+
+        ("2 of 4 enriched resources") rather than implying a claim over the whole
+
+        inventory (R-509).'
+    UtilizationReport:
+      properties:
+        overall:
+          $ref: '#/components/schemas/UtilizationFigure'
+        byAccount:
+          items:
+            $ref: '#/components/schemas/AccountUtilization'
+          type: array
+          title: Byaccount
+        byProject:
+          items:
+            $ref: '#/components/schemas/ProjectUtilization'
+          type: array
+          title: Byproject
+      type: object
+      required:
+      - overall
+      - byAccount
+      - byProject
+      title: UtilizationReport
     ValidationError:
       properties:
         loc:
