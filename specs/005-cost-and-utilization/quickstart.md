@@ -86,7 +86,12 @@ wait, for this scenario's day-2/day-4 legs.
 
 ## V6 — Utilization matches a hand calculation and drills down in ≤3 clicks (SC-007)
 
-No AWS call involved (research.md R-509) — runnable regardless of R-407/R-511's status.
+**Blocked by R-407, despite what R-511 originally claimed — see that decision's 2026-09-04
+correction.** The utilization *computation* makes no AWS call, but its input does: `resource.state`
+is only populated by a scan, a scan needs a registered account, and `register_account` calls STS
+and the Resource Groups Tagging API with no route out of the VPC. Steps 1–3 below cannot be run
+against real data until R-407 is funded. What can be confirmed live, and was: the endpoint
+deploys, responds, and is correctly role-gated.
 
 1. Pick a test account with a known, hand-countable mix of active and stopped/idle resources
    (only counting types where `state` is populated, per R-509's explicit scope).

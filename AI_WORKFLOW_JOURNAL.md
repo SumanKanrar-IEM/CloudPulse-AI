@@ -942,3 +942,81 @@ remain, which the teardown script documents itself as deliberately never touchin
 `/speckit-analyze` pass raised exactly that omission as its **H1 CRITICAL** finding — a direct
 Principle I violation — and spec 002's own H1 had caught it once before that. Recorded as
 **T026a** and written now rather than left for a third analyze pass to find.
+
+### P2 implementation, Phases 7–10 (2026-09-04)
+
+[#112](https://github.com/SumanKanrar-IEM/CloudPulse-AI/pull/112) auto-created project budgets
+(US4) · [#113](https://github.com/SumanKanrar-IEM/CloudPulse-AI/pull/113) budget overruns as
+findings (US5) · [#114](https://github.com/SumanKanrar-IEM/CloudPulse-AI/pull/114) utilization
+(US6) · [#115](https://github.com/SumanKanrar-IEM/CloudPulse-AI/pull/115) flag-only IAM hygiene
+(US7) · [#116](https://github.com/SumanKanrar-IEM/CloudPulse-AI/pull/116) READMEs and the drifts
+`/speckit-analyze` found.
+
+**A required CI gate rejected the prescribed design twice, and was right both times.** R-508
+prescribes making `findings.py` kind-aware so a budget-overrun finding — which attaches to a
+project and has no resource — can appear in `GET /findings`. But that endpoint's response
+requires `resource`. Making it optional gave `response-property-became-optional`; making it
+required-but-nullable emits `anyOf: [ResourceSummary, null]` and gave
+`response-required-property-removed` on each of `ResourceSummary`'s own five properties. There
+is no way to express "the resource may be absent" in that schema that is not a breaking response
+change under FR-048b. Rather than guess a third time, the options were put to the maintainer —
+separate endpoint, the runbook's three-PR deprecation, or amending FR-048a — who chose the
+separate endpoint. `GET /budget-overruns` made the change purely additive: the `Finding` schema
+is now byte-identical to trunk. FR-016's substance is untouched, since an overrun is the same
+`Finding` row acknowledged through the same endpoint, and a test asserts exactly that, because
+the acknowledge path is the part a separate read endpoint could plausibly have broken.
+
+**Two bugs that every passing test would have missed.** A budget-overrun finding has no
+resource, so `_owner_email_of` found nothing and every overrun would have resolved to
+`withheld_no_owner_email` — FR-016's "notified the same way any other finding is" silently unmet
+while the suite stayed green (T036a). And `POST /sdas` gained its first-ever `get_settings()`
+call, which broke 11 existing spec-003 tests; backing it out to a direct `os.environ` read
+(the precedent `app/api/main.py` already sets for `frontend_url`) fixed all eleven unmodified
+rather than teaching every future SDA-registration test to construct a Settings environment
+(T029a).
+
+**`ng build` caught what `tsc` and `eslint` did not**, twice: a missing `DatePipe` import in a
+template, and a generated-client signature that gained a leading `accountId` parameter, leaving a
+service passing `includeCleared` positionally into it — which would have been sent as an account
+id and silently filtered everything out.
+
+### Live verification, and a research decision disproven by attempting it (2026-09-04)
+
+The second live-verification pair (T051/T052) was authorised for utilization specifically,
+because research.md R-511 named User Story 6 "the one genuine exception… fully live-verifiable
+today, independent of R-407's status."
+
+**That claim is false, and running it is how we found out.** R-511 reasons correctly about the
+*computation* — `compute_utilization` makes no AWS call — and misses its *input*.
+`Resource.state` is "already-persisted" only if a scan has ever run; a scan needs a registered
+account; and `register_account` calls STS and the Resource Groups Tagging API, which is exactly
+the hang spec 003's own live verification stopped at. Confirmed against the running environment
+rather than inferred from this journal: zero NAT gateways, and the only VPC endpoints present
+are S3 and Secrets Manager — nothing for `sts`, `tagging`, `ce`, `iam`, or `email`.
+
+So this spec has **no** live-provable success criterion after all; SC-007 joins the other seven
+at the mocked-test level. The claim had propagated to four places (R-511, quickstart V6,
+tasks.md's Tier Summary, and Phase 9's checkpoint), which is why it read as settled rather than
+as an assumption worth testing — the same propagation failure §0.5.5 records for a constitution
+amendment, in a different artifact. All four are corrected (T051a).
+
+The generalisable lesson: **"makes no AWS call" is a claim about a function, not about a
+feature.** A feature is live-verifiable only if every input it needs can also be produced live.
+
+What *was* verified live: the deploy of trunk `1089bf8` reached `healthy` with a healthy database
+check and a version string matching trunk HEAD exactly; `GET /utilization` deployed and correctly
+role-gated; all four EventBridge schedules ENABLED including the new weekly IAM one; and
+`iam-hygiene-worker` deployed at the intended arm64/512MB shape.
+
+Teardown destroyed 106 resources and the §0.5.3 sweep found one survivor:
+`/aws/rds/cluster/cloudpulse-dev/postgresql`, with no retention policy. RDS creates that log
+group itself, so Terraform never managed it and `destroy` had no reason to remove it — the exact
+orphan class §0.5.3 names. It held 0 bytes and its cluster was already gone; deleted, re-sweep
+clean. The first teardown (T026) did not surface it, so "the last sweep was clean" is not
+evidence the next one will be.
+
+One operational note worth keeping: the `Deploy dev` run is labelled **cancelled**, having hit
+the job's 30-minute timeout during the Playwright smoke step — but `terraform apply` had already
+completed and the environment was fully up and billing. A cancelled deploy is not a deploy that
+did not happen. AWS was checked directly rather than trusting the label, which is the only reason
+teardown started promptly.

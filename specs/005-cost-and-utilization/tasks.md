@@ -28,9 +28,9 @@ capabilities stays mocked-only until R-407 is funded.
 
 **P2 (stretch)**: Phases 7–10, T027–T049. Every P2 task is marked **[P2]** in its description.
 Dropping all four P2 stories leaves every P1 story and SC-001–SC-004 intact — only SC-005–SC-008
-and FR-015–FR-020 go with them. User Story 6 (utilization, T038–T041) is the one P2 capability
-that makes no AWS call at all (research.md R-509) and is fully live-verifiable regardless of
-R-407's status — its own live-verify/teardown pair lives in the Final Phase (T051/T052), separate
+and FR-015–FR-020 go with them. User Story 6 (utilization, T038–T041) makes no AWS call at all
+(research.md R-509), which was expected to make it live-verifiable regardless of R-407 — it is
+not; see T051a — its own live-verify/teardown pair lives in the Final Phase (T051/T052), separate
 from P1's, because it's the only genuinely new thing to prove live once P2 exists.
 
 ## Phase 1: Setup
@@ -801,8 +801,9 @@ mix; confirm the API's number matches a hand calculation using the same document
       that the data cannot support. "Not enough data" is displayed as itself rather than as 0%.
 
 **Checkpoint**: Utilization is computed and drillable, with zero new AWS dependency. SC-007
-provable — and, uniquely among this spec's P2 stories, provable **live**, not just at the
-mocked-test level (research.md R-509/R-511; see T051).
+provable at the mocked-test level. ~~and, uniquely among this spec's P2 stories, provable
+**live**~~ — that claim was **disproven by attempting it**; see T051a and research.md R-511's
+2026-09-04 correction.
 
 ---
 
@@ -909,14 +910,38 @@ T051/T052).
       API at runtime, which belongs in the infra README rather than only in research.md; and
       `iam-hygiene-worker`'s IAM policy is where FR-019's flag-only rule is actually enforced
       rather than merely intended.
-- [ ] T051 **Live-verify User Story 6 (utilization) only** — the one capability this spec adds
+- [X] T051 **Live-verify User Story 6 (utilization) only** — the one capability this spec adds
       that makes no AWS call at all (research.md R-509) and is therefore fully live-verifiable
       regardless of R-407/R-511's status. Deploy (or reuse T025's dev deployment if still up),
       run quickstart.md's V6 against a real scanned account with a known active/idle resource
       mix, confirm SC-007 — S54, S55, SC-007
-- [ ] T052 **Teardown and cost sweep**, immediately following T051, never separated from it by
+      **Done, 2026-09-04, with an honest partial outcome.** Deployed trunk `1089bf8`. The
+      `Deploy dev` run is labelled *cancelled* — it hit the job's 30-minute timeout during the
+      Playwright smoke step — but `terraform apply` had already completed, so AWS was checked
+      directly rather than trusting the label: the whole environment was up and billing.
+      **Verified live**: health `healthy` with a healthy database check and version
+      `1089bf8949c8a09a273cdd21e5244bb7c12ab328`, trunk HEAD exactly; `GET /utilization`
+      deployed and correctly role-gated (401 with the standard error envelope); all four
+      EventBridge schedules ENABLED, including `cloudpulse-dev-iam-hygiene-weekly`;
+      `iam-hygiene-worker` at arm64/512MB/300s with the right handler.
+      **Not verified, and cannot be**: V6's hand-calculation against real scanned data. See
+      T051a — the premise this task rests on turned out to be false.
+- [X] T052 **Teardown and cost sweep**, immediately following T051, never separated from it by
       other work: full playbook §0.5.3 sweep, confirming every Lambda/schedule/log-group this
       spec added across all three workers is gone — playbook §0.5.3
+      **Done, 2026-09-04**, started immediately after T051's evidence was gathered and with
+      nothing else in between. `Destroy complete! Resources: 106 destroyed.` A baseline sweep
+      taken before the deploy returned all zeros, so the post-teardown sweep is a real
+      before/after rather than a guess.
+      **The exit code was not trusted, and that mattered this time.** The full §0.5.3 sweep found
+      every category at zero except one: `/aws/rds/cluster/cloudpulse-dev/postgresql` survived
+      with `retentionInDays: null` — exactly the orphan class §0.5.3 warns about by name ("a
+      stray CloudWatch log group with no retention policy will outlive the Lambda that created
+      it"). RDS creates that group itself, so Terraform never managed it and `destroy` had no
+      reason to remove it. It held 0 bytes and belonged to a cluster that no longer existed;
+      deleted, and the re-sweep is clean. Note for future teardowns: T026's sweep did **not**
+      surface this, so it is not reliably reproducible — check `retentionInDays==null`
+      specifically every time rather than assuming a previous clean sweep generalises.
 - [X] T053a Fix the four API drifts `/speckit-analyze` found between `quickstart.md` and the
       shipped endpoints, before T051 runs the verification that would have hit them. All four
       were the *doc* describing an interface that changed during implementation, which is the
@@ -935,7 +960,26 @@ T051/T052).
       `includeCleared` first, which would have silently filtered by it as an account id — S54,
       S55, S56, FR-018, FR-019
 
-- [ ] T053 Re-run `/speckit-analyze` on spec 005 (playbook §8's second-run note) and resolve any
+- [X] T051a **research.md R-511's "User Story 6 is the one genuine exception" is wrong, and
+      T051 is how it was found.** R-511 stated utilization "is fully live-verifiable today,
+      independent of R-407's status." That reasoning is correct about the *computation* —
+      `compute_utilization` makes no AWS call — and wrong about its *input*. `Resource.state` is
+      "already-persisted" only if a scan has ever run; a scan needs a registered account; and
+      `register_account` calls STS and the Resource Groups Tagging API, which is exactly the
+      R-407 hang spec 003's own live verification stopped at.
+      Confirmed against the live environment rather than inferred from the journal: **zero NAT
+      gateways, and the only VPC endpoints present are S3 and Secrets Manager** — nothing for
+      `sts`, `tagging`, `ce`, `iam`, or `email`. There is no route by which any resource acquires
+      a `state` for utilization to count.
+      Consequence: **this spec has no live-provable success criterion after all.** SC-007 joins
+      SC-001–SC-006 and SC-008 at the mocked-test level. R-511, quickstart.md V6, this file's
+      Tier Summary, and Phase 9's checkpoint are all corrected — the claim appeared in four
+      places, which is why it read as settled rather than as an assumption worth testing.
+      The lesson generalises past this spec: "makes no AWS call" is a claim about a function,
+      not about a feature. A feature is live-verifiable only if every input it needs can also be
+      produced live — S54, S55, SC-007, research.md R-511
+
+- [X] T053 Re-run `/speckit-analyze` on spec 005 (playbook §8's second-run note) and resolve any
       finding before spec 6 begins — Governance
 
 **Checkpoint**: 🏁 **P1 and P2 complete at the mocked-test level (CI). Utilization (User Story 6)
