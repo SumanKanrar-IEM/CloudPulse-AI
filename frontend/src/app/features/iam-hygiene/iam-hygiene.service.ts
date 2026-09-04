@@ -28,7 +28,11 @@ export class IamHygieneStateService {
     this.loadingState.set(true);
     this.errorState.set(null);
     try {
-      const result = await firstValueFrom(this.api.listIamHygieneFlags(includeCleared));
+      // The generated signature is (accountId, includeCleared) -- passing
+      // includeCleared positionally would silently filter by it as an account.
+      const result = await firstValueFrom(
+        this.api.listIamHygieneFlags(undefined, includeCleared),
+      );
       this.flagsState.set(result.flags);
     } catch {
       this.errorState.set('Could not load IAM hygiene flags. Try again.');

@@ -298,3 +298,29 @@ def test_every_role_can_read_the_flags(
     for groups in (ADMIN, OPERATOR, VIEWER):
         stager.claims["cognito:groups"] = groups
         assert client.get("/iam-hygiene").status_code == 200, groups
+
+
+def test_an_account_filter_scopes_the_flags(
+    db: Session, session: _RawSession, tenant_id: uuid.UUID, account: CloudAccount, api: Any
+) -> None:
+    other = CloudAccount(
+        tenant_id=tenant_id,
+        aws_account_id="210987654321",
+        alias="other",
+        connection_mode=ConnectionMode.LOCAL,
+        scan_regions=["us-east-1"],
+        status=AccountStatus.VERIFIED,
+    )
+    db.add(other)
+    db.flush()
+    reconcile_flags(session, account.id, [_unused()], now=NOW)
+    reconcile_flags(
+        session, other.id, [_unused("arn:aws:iam::210987654321:role/elsewhere")], now=NOW
+    )
+    db.commit()
+
+    client, _ = api
+    assert len(client.get("/iam-hygiene").json()["flags"]) == 2
+    scoped = client.get("/iam-hygiene", params={"accountId": str(account.id)}).json()["flags"]
+    assert len(scoped) == 1
+    assert scoped[0]["principalIdentifier"] == ROLE_ARN

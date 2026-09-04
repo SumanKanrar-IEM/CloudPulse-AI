@@ -12,6 +12,7 @@ import { HttpHeaders }                                       from '@angular/comm
 import { Observable }                                        from 'rxjs';
 
 import { ErrorEnvelope } from '../model/models';
+import { HTTPValidationError } from '../model/models';
 import { UtilizationReport } from '../model/models';
 
 
@@ -25,9 +26,10 @@ export interface UtilizationServiceInterface {
 
     /**
      * Utilization overall, per account, and per project
-     * FR-018. One response carries all three levels, which is what makes the account-to-project-to-resource drill-down reachable in three steps without a request per expansion.
+     * FR-018. One response carries all three levels, which is what makes the account-to-project-to-resource drill-down reachable in three steps without a request per expansion.  &#x60;accountId&#x60; narrows every level to that account -- &#x60;overall&#x60; included, so the headline figure and the account row agree rather than the headline silently staying tenant-wide.
      * @endpoint get /utilization
+     * @param accountId 
      */
-    getUtilization(extraHttpRequestParams?: any): Observable<UtilizationReport>;
+    getUtilization(accountId?: string, extraHttpRequestParams?: any): Observable<UtilizationReport>;
 
 }

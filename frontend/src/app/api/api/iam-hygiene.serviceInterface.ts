@@ -28,8 +28,9 @@ export interface IamHygieneServiceInterface {
      * Roles, users, and keys that appear unused
      * FR-019. Active flags by default; &#x60;includeCleared&#x3D;true&#x60; returns the history too, so an admin can see that a principal was flagged and later became active again rather than wondering where a flag went.
      * @endpoint get /iam-hygiene
+     * @param accountId 
      * @param includeCleared 
      */
-    listIamHygieneFlags(includeCleared?: boolean, extraHttpRequestParams?: any): Observable<IamHygieneFlags>;
+    listIamHygieneFlags(accountId?: string, includeCleared?: boolean, extraHttpRequestParams?: any): Observable<IamHygieneFlags>;
 
 }

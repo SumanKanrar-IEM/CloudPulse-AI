@@ -1789,8 +1789,25 @@ paths:
 
         account-to-project-to-resource drill-down reachable in three steps without
 
-        a request per expansion.'
+        a request per expansion.
+
+
+        `accountId` narrows every level to that account -- `overall` included, so
+
+        the headline figure and the account row agree rather than the headline
+
+        silently staying tenant-wide.'
       operationId: getUtilization
+      parameters:
+      - name: accountId
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Accountid
       responses:
         '200':
           description: Successful Response
@@ -1812,6 +1829,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /iam-hygiene:
     get:
       tags:
@@ -1825,6 +1848,15 @@ paths:
         became active again rather than wondering where a flag went.'
       operationId: listIamHygieneFlags
       parameters:
+      - name: accountId
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Accountid
       - name: includeCleared
         in: query
         required: false

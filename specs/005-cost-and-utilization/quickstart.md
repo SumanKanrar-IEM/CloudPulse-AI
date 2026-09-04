@@ -61,8 +61,10 @@ wait, for this scenario's day-2/day-4 legs.
 2. Acknowledge the finding. Advance to day 4, run `notification-worker`. Confirm the `day_4` row's
    `outcome` is `suppressed_finding_closed`, not `sent`.
 3. On a second, unacknowledged finding, advance past day 4 and run `notification-worker`. Confirm
-   `GET /findings/{findingId}` shows `escalatedAt` populated (SC-004), and that acknowledging it
-   afterward clears `escalatedAt` on the next read.
+   `GET /findings` shows that finding with `escalatedAt` populated (SC-004), and that
+   acknowledging it afterward clears `escalatedAt` on the next read. (There is no
+   single-finding GET endpoint — spec 004 shipped a list plus the two `/{findingId}/...`
+   sub-resources; see tasks.md T019a.)
 
 ## V4 — A newly-registered project gets a budget automatically (SC-005)
 
@@ -73,9 +75,11 @@ wait, for this scenario's day-2/day-4 legs.
 ## V5 — A budget overrun becomes a finding, visible and notified like any other (SC-006)
 
 1. Push a test project's ingested spend (V1) past its budget's 100% threshold.
-2. Run `cost-ingestion-worker`. Confirm `GET /findings?...` returns a new row with
-   `kind: "budget_overrun"` and a populated `sda` field (not `resource`), and that
-   `GET /budgets` shows `actual100CrossedAt` populated (SC-006).
+2. Run `cost-ingestion-worker`. Confirm `GET /budget-overruns` returns a new row naming the
+   project, and that `GET /budgets` shows `actual100CrossedAt` populated (SC-006). Overruns are
+   served from their own endpoint rather than appearing in `GET /findings`: an overrun finding
+   has no resource, and `GET /findings`'s response requires one — see tasks.md T036d. They are
+   the same `Finding` rows with the same lifecycle, so step 3 below still applies unchanged.
 3. Confirm this finding is notified exactly like V2's (same day-0 email, same cadence).
 4. Bring the project's spend back under threshold and re-run the worker. Confirm the finding
    resolves the same way a fixed tag violation does.
@@ -86,8 +90,10 @@ No AWS call involved (research.md R-509) — runnable regardless of R-407/R-511'
 
 1. Pick a test account with a known, hand-countable mix of active and stopped/idle resources
    (only counting types where `state` is populated, per R-509's explicit scope).
-2. `GET /utilization?accountId=...`. Confirm `percentage` matches `usedCount / provisionedCount`
-   computed by hand from the same resource set.
+2. `GET /utilization?accountId=...`. Confirm `overall.percent` matches `overall.used /
+   overall.provisioned` computed by hand from the same resource set — counting only resources
+   whose `state` is populated, since R-509 excludes unknown-state resources from both halves.
+   An account with no enriched resources returns `percent: null` ("not enough data"), never 0.
 3. On the dashboard, drill from the account-level utilization view to a project to a single
    resource. Confirm the resource-level view is reached in 3 clicks or fewer.
 

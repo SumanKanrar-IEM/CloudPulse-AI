@@ -899,10 +899,16 @@ T051/T052).
 
 ## Final Phase: Polish & Cross-Cutting Concerns
 
-- [ ] T050 [P] Update `backend/README.md`, `frontend/src/app/features/README.md`, and
+- [X] T050 [P] Update `backend/README.md`, `frontend/src/app/features/README.md`, and
       `infra/README.md` — describe this spec's new `app/governance/{spend,budgets,notifications,
       utilization,iam_hygiene}.py`, the three new worker handlers, `infra/modules/cost/`, and the
       five new frontend feature areas — Principle I
+      **Done.** Three points recorded because they are what a reader would otherwise get wrong:
+      `app/workers/` stays unused (it was reserved for this spec, which put its workers in
+      `handlers/` like every spec before it); none of the three new Lambdas can reach its AWS
+      API at runtime, which belongs in the infra README rather than only in research.md; and
+      `iam-hygiene-worker`'s IAM policy is where FR-019's flag-only rule is actually enforced
+      rather than merely intended.
 - [ ] T051 **Live-verify User Story 6 (utilization) only** — the one capability this spec adds
       that makes no AWS call at all (research.md R-509) and is therefore fully live-verifiable
       regardless of R-407/R-511's status. Deploy (or reuse T025's dev deployment if still up),
@@ -911,6 +917,24 @@ T051/T052).
 - [ ] T052 **Teardown and cost sweep**, immediately following T051, never separated from it by
       other work: full playbook §0.5.3 sweep, confirming every Lambda/schedule/log-group this
       spec added across all three workers is gone — playbook §0.5.3
+- [X] T053a Fix the four API drifts `/speckit-analyze` found between `quickstart.md` and the
+      shipped endpoints, before T051 runs the verification that would have hit them. All four
+      were the *doc* describing an interface that changed during implementation, which is the
+      finding shape playbook §0.5.5 warns about by name.
+      Two were fixed in **code**, because the quickstart's assumption was reasonable and the
+      capability was genuinely missing: `GET /utilization` and `GET /iam-hygiene` gained the
+      `accountId` filter V6 and V7 both assume. On `/utilization` the filter narrows `overall`
+      too, not just the account row — a filter that left the headline tenant-wide would put two
+      disagreeing numbers on one screen.
+      Two were fixed in the **doc**, because the shipped shape is the deliberate one: V6's field
+      names (`overall.percent`/`used`/`provisioned`, not `percentage`/`usedCount`/
+      `provisionedCount`), and V3/V6's `GET /findings/{findingId}`, which does not exist
+      (T019a). V5 was also corrected to read overruns from `GET /budget-overruns` per T036d.
+      A frontend call broke on the new parameter and was caught by `ng build`: the generated
+      signature became `(accountId, includeCleared)` and the service was still passing
+      `includeCleared` first, which would have silently filtered by it as an account id — S54,
+      S55, S56, FR-018, FR-019
+
 - [ ] T053 Re-run `/speckit-analyze` on spec 005 (playbook §8's second-run note) and resolve any
       finding before spec 6 begins — Governance
 
