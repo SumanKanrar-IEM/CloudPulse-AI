@@ -28,7 +28,7 @@ from app.models.core import AppUser, Resource
 from app.models.core import Finding as FindingRow
 from app.models.core import Notification as NotificationRow
 from app.models.core import Rule as RuleRow
-from app.models.enums import FindingStatus
+from app.models.enums import FindingKind, FindingStatus
 
 router = APIRouter(prefix="/findings", tags=["findings"])
 
@@ -162,11 +162,20 @@ async def list_findings(
 ) -> FindingsList:
     """FR-014. Any role may view (FR-030). Most recently opened first."""
     with tenant_session(principal.tenant_id) as session:
+        # spec 005: filtered to tag violations explicitly, not left to the inner
+        # JOINs to exclude budget-overrun findings as a side effect of their NULL
+        # resource_id. This endpoint's response schema requires `resource`, so a
+        # resource-less finding cannot be represented here at all -- it is served
+        # by `GET /budget-overruns` instead (see that router for why).
         stmt = (
             session.scoped(select(FindingRow), FindingRow)
             .join(Resource, FindingRow.resource_id == Resource.id)
             .join(RuleRow, FindingRow.rule_id == RuleRow.id)
-            .where(Resource.tenant_id == session.tenant_id, RuleRow.tenant_id == session.tenant_id)
+            .where(
+                Resource.tenant_id == session.tenant_id,
+                RuleRow.tenant_id == session.tenant_id,
+                FindingRow.kind == FindingKind.TAG_VIOLATION,
+            )
             .order_by(FindingRow.opened_at.desc())
         )
         if account_id is not None:

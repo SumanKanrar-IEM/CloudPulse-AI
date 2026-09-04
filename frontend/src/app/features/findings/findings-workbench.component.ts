@@ -37,6 +37,33 @@ import { FindingsFilters, FindingsService } from './findings.service';
     }
 
     @if (!findings.loading() && !findings.error()) {
+      @if (findings.overruns().length > 0) {
+        <section aria-label="Budget overruns">
+          <h2>Budget overruns</h2>
+          <ul class="findings-list">
+            @for (overrun of findings.overruns(); track overrun.id) {
+              <li>
+                <div class="finding-row">
+                  <span class="badge badge-overrun">Budget</span>
+                  <span>{{ overrun.sdaName }}</span>
+                  <span>over {{ overrun.budgetUsd ?? 'budget' }}</span>
+                  <span>{{ overrun.severity }}</span>
+                  <span>{{ overrun.status }}</span>
+                  @if (overrun.escalatedAt) {
+                    <span class="badge badge-escalated">Escalated</span>
+                  }
+                  @if (overrun.acknowledgedAt) {
+                    <span class="badge badge-acknowledged">Acknowledged</span>
+                  } @else if (canAcknowledge()) {
+                    <button type="button" (click)="acknowledge(overrun.id)">Acknowledge</button>
+                  }
+                </div>
+              </li>
+            }
+          </ul>
+        </section>
+      }
+
       @if (findings.findings().length === 0) {
         <p>No matching findings.</p>
       } @else {
@@ -151,6 +178,10 @@ import { FindingsFilters, FindingsService } from './findings.service';
       .badge-acknowledged {
         background: #e4e4e4;
         color: #333333;
+      }
+      .badge-overrun {
+        background: #1f4f7a;
+        color: #ffffff;
       }
     `,
   ],

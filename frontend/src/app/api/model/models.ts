@@ -4,6 +4,8 @@ export * from './account-update';
 export * from './account-utilization';
 export * from './accounts-list';
 export * from './budget';
+export * from './budget-overrun';
+export * from './budget-overruns-list';
 export * from './budgets-list';
 export * from './compliance-score';
 export * from './connection-mode';

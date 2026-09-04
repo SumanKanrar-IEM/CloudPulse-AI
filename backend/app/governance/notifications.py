@@ -30,6 +30,7 @@ from app.models.core import Notification as NotificationRow
 from app.models.core import Resource as ResourceRow
 from app.models.core import ResourceOwner as ResourceOwnerRow
 from app.models.core import Rule as RuleRow
+from app.models.core import Sda as SdaRow
 from app.models.enums import FindingStatus, NotificationCadencePoint, NotificationOutcome
 
 # How far back a day-0 pass will look for a finding it has never notified on.
@@ -166,8 +167,28 @@ def _resource_arn_of(session: TenantSession, finding: FindingRow) -> str | None:
     ).scalar_one_or_none()
 
 
+def _subject_of(session: TenantSession, finding: FindingRow) -> str:
+    """What the email names as the thing at fault.
+
+    A resource ARN for a tag violation; the project's name for a budget
+    overrun, which has no resource. Falling through to a bare UUID would give
+    the recipient nothing actionable to recognise.
+    """
+    arn = _resource_arn_of(session, finding)
+    if arn:
+        return arn
+    if finding.sda_id is not None:
+        name = session.raw.execute(
+            session.scoped(select(SdaRow.name), SdaRow).where(SdaRow.id == finding.sda_id)
+        ).scalar_one_or_none()
+        if name:
+            return f"project {name}"
+    return str(finding.id)
+
+
 def _owner_email_of(session: TenantSession, finding: FindingRow) -> str | None:
-    """Spec 003's attribution result, unchanged.
+    """Spec 003's attribution result for a resource; the SDA's own owner for a
+    project-level finding.
 
     Reads the `resource_owner` row spec 003's ownership-attribution worker
     already wrote, rather than re-running `resolve_owner_email` here: that
@@ -175,6 +196,16 @@ def _owner_email_of(session: TenantSession, finding: FindingRow) -> str | None:
     the attribution pass, and re-deriving them at send time could disagree
     with what the dashboard shows for the same finding.
     """
+    if finding.sda_id is not None:
+        # A budget_overrun finding (spec 005, R-508) has no resource at all, so
+        # the resource_owner chain has nothing to look up. FR-016 requires it to
+        # be notified "the same way any other finding is", and the SDA registry
+        # already carries the project's owner -- without this branch every
+        # overrun finding would resolve to `withheld_no_owner_email` and FR-016's
+        # notification requirement would be silently unmet.
+        return session.raw.execute(
+            session.scoped(select(SdaRow.owner_email), SdaRow).where(SdaRow.id == finding.sda_id)
+        ).scalar_one_or_none()
     if finding.resource_id is None:
         return None
     return session.raw.execute(
@@ -250,7 +281,7 @@ def _attempt(
         recipient=owner_email,
         frontend_url=frontend_url,
         finding_id=finding.id,
-        resource_arn=_resource_arn_of(session, finding) or str(finding.sda_id or finding.id),
+        resource_arn=_subject_of(session, finding),
         violation=_violation_of(session, finding),
     )
     try:

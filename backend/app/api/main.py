@@ -27,6 +27,7 @@ from app.api.errors import register_exception_handlers
 from app.api.middleware import CorrelationIdMiddleware
 from app.api.routers import (
     accounts,
+    budget_overruns,
     budgets,
     compliance,
     findings,
@@ -105,6 +106,7 @@ def create_app() -> FastAPI:
     app.include_router(ownership.router)
     app.include_router(spend.router)
     app.include_router(budgets.router)
+    app.include_router(budget_overruns.router)
     app.include_router(utilization.router)
     # Routers added by later specs: dashboard reads (004), cost (005),
     # agent-facing reads (006, FR-056).

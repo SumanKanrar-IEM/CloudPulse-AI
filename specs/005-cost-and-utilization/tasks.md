@@ -624,35 +624,121 @@ threshold.
 
 ### Tests for User Story 5
 
-- [ ] T032 [P] [US5] **[P2]** Write `backend/tests/unit/test_budget_thresholds.py` — the
+- [X] T032 [P] [US5] **[P2]** Write `backend/tests/unit/test_budget_thresholds.py` — the
       80%/100% actual-crossing detection; the forecast calculation (research.md R-506's simple
       7-day-average × days-remaining trend, not a second Cost Explorer call); only actual-100%
       crossing (not forecast-100%, not either 80%) returns "open a finding" (research.md R-507)
       — S41, FR-015, FR-016
-- [ ] T033 [P] [US5] **[P2]** Write `backend/tests/integration/test_budget_overrun_finding.py` —
+      **Done.** All pure, which is R-506's own argument for using our own ingested spend over
+      `ce:GetCostForecast` — the forecast is fully testable without any live AWS call. Month
+      arithmetic is calendar-aware and tested against February, a leap February, a 30-day month
+      and a month-end: a 30-day approximation would overstate February by roughly 7%, enough to
+      trip an 80% flag that should not have fired. The averaging-versus-last-day case is tested
+      directly, since R-506 rejected the naive form by name.
+- [X] T033 [P] [US5] **[P2]** Write `backend/tests/integration/test_budget_overrun_finding.py` —
       crossing actual-100% opens a `kind: "budget_overrun"` finding attached to the SDA (not a
       resource); it is notified exactly as User Story 2 describes; it resolves when spend drops
       back under threshold; a second overrun for the same SDA while one is already open does not
       create a duplicate (the new partial unique index, T003) — S41, FR-016, FR-017
+      **Done**, 9 tests. Beyond the four the task names: a gap day contributes nothing rather
+      than a false zero (FR-002a), last month's crossings reset at a month boundary, an 80%
+      crossing opens nothing (R-507), and the aggregates are confirmed tenant-scoped. The
+      notification test is what caught T036a.
 
 ### Implementation for User Story 5
 
-- [ ] T034 [US5] **[P2]** New `backend/app/governance/budgets.py` — `check_thresholds(session,
+- [X] T034 [US5] **[P2]** New `backend/app/governance/budgets.py` — `check_thresholds(session,
       sda, spend_record)`: T032's tested actual/forecast crossing detection, updates `Budget`'s
       four crossed-timestamp fields, opens/resolves the `budget_overrun` `Finding` per
       research.md R-507's "actual-100% only" rule — S41, FR-015–FR-017
-- [ ] T035 [US5] **[P2]** Extend `backend/handlers/cost_ingestion_worker_handler.py` — call
+      **Done.** Three decisions worth recording. (1) Crossed-timestamps are set on the way up
+      and *cleared* on the way back down — FR-015's thresholds describe the current state, so a
+      project that dropped back under 80% must stop showing as over it; the finding trigger
+      reads the actual-100 transition captured before any of that. (2) A timestamp is never
+      re-stamped while still crossed: "when did this project first pass 80% this month" is the
+      useful fact and overwriting it daily would destroy it. (3) Gap days are excluded from the
+      forecast window entirely rather than zeroed — a gap means "we do not know what this day
+      cost", and averaging a false zero in would systematically understate the forecast.
+- [X] T035 [US5] **[P2]** Extend `backend/handlers/cost_ingestion_worker_handler.py` — call
       T034's `check_thresholds` immediately after each account's spend ingestion, same
       transaction (research.md R-505 — no separate worker, no ordering race) — S41, FR-016,
       research.md R-505
-- [ ] T036 [US5] **[P2]** Extend `backend/app/api/routers/findings.py` — the `Finding` response
+      **Done.** Runs once after the account loop, not once per account: budgets are tenant-wide
+      and per-project, not per-account, so checking inside the loop would evaluate the same
+      budget once per registered account. One budget's failure is logged and skipped rather
+      than raised — an overrun check that blew up must not discard ingestion that already
+      succeeded.
+- [X] T036 [US5] **[P2]** Extend `backend/app/api/routers/findings.py` — the `Finding` response
       model gains `kind` (required) and `sda` (optional, populated for `budget_overrun`); the
       list/detail queries change their `JOIN Resource` to a `LEFT JOIN` and add an equivalent
       `Sda` join (research.md R-508). Regenerate `backend/openapi.generated.yaml` and the
       frontend client — S41, FR-016, research.md R-508
-- [ ] T037 [P] [US5] **[P2]** Extend `frontend/src/app/features/findings/findings-workbench.
+      **Superseded by T036d — this task as written cannot be done without breaking the API
+      contract.** Attempted twice and rejected twice by `contract-compat`; see T036d for the
+      evidence and the decision taken. `GET /findings` keeps its existing response shape
+      unchanged, and now filters to `tag_violation` explicitly rather than relying on its inner
+      JOINs to drop overruns as a side effect. Spec 004's compliance score needs no change
+      either way — `scoring.py` filters on `Finding.resource_id.in_(...)`, which a NULL
+      `resource_id` never satisfies, so overruns are excluded from the compliance percentage by
+      construction rather than by a new rule.
+- [X] T037 [P] [US5] **[P2]** Extend `frontend/src/app/features/findings/findings-workbench.
       component.ts` — a `budget_overrun` finding renders its SDA name in place of a resource
       link, distinguishable at a glance from a tag-violation finding — S41, FR-016
+      **Done**, with a badge as well as the name so the distinction survives a project named
+      like a resource. The overview's "by type" chart groups an overrun under its kind (see
+      T036b) rather than dropping it.
+
+- [X] T036a [US5] **[P2]** Resolve a `budget_overrun` finding's recipient from its SDA's
+      `owner_email`, and name the project in the email subject
+      (`app/governance/notifications.py`). Found by T033's notification test. FR-016 requires an
+      overrun to be "notified the same way any other finding is", but `_owner_email_of` reads
+      the `resource_owner` row — and an overrun finding has no resource at all (R-508). Every
+      overrun would have resolved to `withheld_no_owner_email`, leaving FR-016's notification
+      requirement silently unmet while every test that did not check the outcome still passed.
+      The subject line falls back to `project <name>` rather than a bare finding UUID, which is
+      what the recipient can actually recognise as theirs — S41, FR-016
+
+- [X] T036c [US5] **[P2]** ~~Keep `resource`/`ruleKey`/`ruleVersion` **required but nullable**
+      on the `Finding` response~~ **Also rejected by the gate; superseded by T036d.** Kept
+      because the second failure is the informative one — see T036d. Caught by CI, not by review: `contract-compat
+      (oasdiff)` failed PR #113 with "the response property `findings/items/resource` became
+      optional for the status `200`" (and the same for the other two). Giving them `= None`
+      defaults in Pydantic dropped them out of the schema's `required` list, which FR-048b
+      correctly treats as a breaking response change — an existing consumer could no longer rely
+      on the key being present. Dropping the defaults keeps them required while widening the type
+      to allow `null`, which `ops/runbooks/contract-changes.md` lists as additive. Same runtime
+      behaviour, no spec amendment, no three-PR deprecation dance — S41, FR-016, FR-048a, FR-048b
+
+- [X] T036b [US5] **[P2]** ~~Group a rule-less finding under its `kind` in the overview's
+      "by type" chart~~ **Reverted, no longer needed** — T036d keeps `Finding.ruleKey` required,
+      so the chart never sees a rule-less finding. Kept as a record of why the change existed (`frontend/src/app/features/overview/compliance-overview.component.ts`).
+      Surfaced by making `ruleKey` optional in T036: the chart grouped on it unconditionally.
+      Grouping every overrun under a blank key would collapse them into one unlabelled bar;
+      filtering them out would make this chart's total disagree with the severity chart beside
+      it, which does count them — S41, FR-016
+
+- [X] T036d [US5] **[P2]** Serve budget-overrun findings from a new `GET /budget-overruns`
+      (`backend/app/api/routers/budget_overruns.py`) and leave `GET /findings`'s response shape
+      untouched. **Decision taken by the maintainer after the `contract-compat` gate rejected two
+      attempts at the shape R-508 prescribes.**
+      An overrun finding attaches to a project and has no resource at all, but `GET /findings`'s
+      response requires `resource`. Attempt 1 made the field optional —
+      `response-property-became-optional`. Attempt 2 made it required-but-nullable, which emits
+      `anyOf: [ResourceSummary, null]` — `response-required-property-removed` on each of
+      `ResourceSummary`'s own five properties, because they are no longer unconditionally
+      present. There is no way to express "the resource may be absent" in that schema that is
+      not a breaking response change under FR-048b.
+      The options put to the maintainer were: a separate endpoint (chosen), the runbook's
+      three-PR deprecation, or amending FR-048a to permit the loosening. The separate endpoint
+      is purely additive — the `Finding` schema is now byte-identical to trunk and the only
+      contract change is one new path.
+      **FR-016 is unaffected in substance**: an overrun is the same `Finding` row, opened and
+      resolved by `governance.budgets`, acknowledged through the same
+      `POST /findings/{findingId}/acknowledge`, and notified and escalated by the same machinery.
+      Only the *read* surface is separate, because the two kinds genuinely have different shapes.
+      A test asserts the acknowledge path specifically, since that is the part of "same
+      lifecycle" a separate read endpoint could plausibly have broken — S41, FR-016, FR-048a,
+      FR-048b, research.md R-508
 
 **Checkpoint**: A budget overrun is visible, notified, and resolvable exactly like any other
 finding. SC-006 provable at the mocked-test level.
