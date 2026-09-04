@@ -27,6 +27,7 @@ data "aws_iam_policy_document" "scheduler_runtime" {
     resources = [
       aws_lambda_function.cost_ingestion_worker.arn,
       aws_lambda_function.notification_worker.arn,
+      aws_lambda_function.iam_hygiene_worker.arn,
     ]
   }
 }
@@ -75,6 +76,30 @@ resource "aws_scheduler_schedule" "notification_daily" {
     arn      = aws_lambda_function.notification_worker.arn
     role_arn = aws_iam_role.scheduler.arn
     input    = jsonencode({ action = "trigger_daily" })
+
+    retry_policy {
+      maximum_retry_attempts = 2
+    }
+  }
+}
+
+# T047. Weekly, not daily: IAM last-used data changes slowly and the analysis window
+# is 90 days, so a daily run would spend seven times the invocations to move a flag at
+# most a day sooner (research.md R-510).
+resource "aws_scheduler_schedule" "iam_hygiene_weekly" {
+  name       = "${local.name}-iam-hygiene-weekly"
+  group_name = "default"
+
+  flexible_time_window {
+    mode = "OFF"
+  }
+
+  schedule_expression = var.iam_hygiene_schedule_expression
+
+  target {
+    arn      = aws_lambda_function.iam_hygiene_worker.arn
+    role_arn = aws_iam_role.scheduler.arn
+    input    = jsonencode({ action = "trigger_weekly" })
 
     retry_policy {
       maximum_retry_attempts = 2

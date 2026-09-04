@@ -763,3 +763,85 @@ __all__ = [
     "delete_external_id",
     "get_daily_spend",
 ]
+
+
+def iam_unused_analysis(account: ConnectorAccount) -> list[dict[str, Any]]:
+    """Raw last-used evidence for every role, user, and access key in an
+    account (spec 005, FR-019, T044, research.md R-503).
+
+    IAM is global, so this takes no region -- unlike every other sweep in this
+    module. Returns raw evidence only; the "is this unused" judgement is
+    `app.governance.iam_hygiene`'s, not this connector's (Principle V), which
+    is what lets FR-020's no-false-flag rule be tested without any AWS client.
+
+    A principal whose last-used data is genuinely absent is returned with
+    `last_used_at: None` and a `reason`, rather than omitted: "never used" and
+    "we could not determine usage" are different facts, and only the caller
+    can decide what to do with the second.
+    """
+    from botocore.exceptions import BotoCoreError, ClientError
+
+    session = _build_session(account, session_name="cloudpulse-iam-hygiene")
+    client = session.client("iam")
+    principals: list[dict[str, Any]] = []
+
+    try:
+        for page in client.get_paginator("list_roles").paginate():
+            for role in page.get("Roles", []):
+                # ListRoles does not populate RoleLastUsed; only GetRole does.
+                # Reading it from the list page would report every role as
+                # never-used, which is precisely FR-020's false-flag failure.
+                detail = client.get_role(RoleName=role["RoleName"])["Role"]
+                last_used = (detail.get("RoleLastUsed") or {}).get("LastUsedDate")
+                principals.append(
+                    {
+                        "principal_type": "role",
+                        "identifier": role["Arn"],
+                        "name": role["RoleName"],
+                        "created_at": role.get("CreateDate"),
+                        "last_used_at": last_used,
+                        "reason": None if last_used else "no recorded use",
+                    }
+                )
+
+        for page in client.get_paginator("list_users").paginate():
+            for user in page.get("Users", []):
+                principals.append(
+                    {
+                        "principal_type": "user",
+                        "identifier": user["Arn"],
+                        "name": user["UserName"],
+                        "created_at": user.get("CreateDate"),
+                        # PasswordLastUsed is absent for a user who has never
+                        # signed in to the console -- which is normal for a
+                        # programmatic-only user, whose real activity shows up
+                        # on its access keys below.
+                        "last_used_at": user.get("PasswordLastUsed"),
+                        "reason": None if user.get("PasswordLastUsed") else "no console sign-in",
+                    }
+                )
+                for key_page in client.get_paginator("list_access_keys").paginate(
+                    UserName=user["UserName"]
+                ):
+                    for key in key_page.get("AccessKeyMetadata", []):
+                        used = client.get_access_key_last_used(AccessKeyId=key["AccessKeyId"]).get(
+                            "AccessKeyLastUsed", {}
+                        )
+                        principals.append(
+                            {
+                                "principal_type": "access_key",
+                                "identifier": key["AccessKeyId"],
+                                "name": f"{user['UserName']}/{key['AccessKeyId']}",
+                                "created_at": key.get("CreateDate"),
+                                "last_used_at": used.get("LastUsedDate"),
+                                "status": key.get("Status"),
+                                "reason": None if used.get("LastUsedDate") else "never used",
+                            }
+                        )
+    except (BotoCoreError, ClientError) as exc:
+        # Partial results are worse than none here: a truncated list would make
+        # every principal this call never reached look absent, and the caller
+        # clears flags for principals it does not see.
+        raise RuntimeError(f"iam hygiene analysis failed: {exc}") from exc
+
+    return principals

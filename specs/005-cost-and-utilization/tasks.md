@@ -818,38 +818,79 @@ genuinely-unused role; confirm only the unused one is flagged.
 
 ### Tests for User Story 7
 
-- [ ] T042 [P] [US7] **[P2]** Write `backend/tests/unit/test_iam_hygiene.py` — the pure
+- [X] T042 [P] [US7] **[P2]** Write `backend/tests/unit/test_iam_hygiene.py` — the pure
       classification logic: a role/user/key with no recent last-used evidence is flagged; one
       with recent activity is never flagged, regardless of how the evidence is shaped — S56,
       FR-019, FR-020
-- [ ] T043 [P] [US7] **[P2]** Write `backend/tests/integration/test_iam_hygiene_api.py` —
+      **Done**, 13 tests. FR-020 gets the most surface because it is the failure that matters: a
+      false flag asks a human to delete something in use. Every rule fails toward *not* flagging,
+      and each escape hatch has its own test — a principal younger than the window is never
+      flagged however little evidence there is; one with no creation date is not flagged at all,
+      because the age test cannot be applied and guessing would risk exactly the false positive
+      FR-020 forbids; and the used-recently check runs first so no later rule can promote an
+      active principal to unused.
+- [X] T043 [P] [US7] **[P2]** Write `backend/tests/integration/test_iam_hygiene_api.py` —
       `GET /iam-hygiene` returns active flags with evidence; re-running the analysis after a
       flagged principal becomes active again clears it (`cleared_at` set), and re-running after
       it goes unused again re-flags it with a fresh `flagged_at` — S56, FR-019, FR-020
+      **Done**, 8 tests. Two behaviours beyond the task's list are asserted: a repeat run does
+      **not** re-stamp `flagged_at` (that field answers "how long has this been flagged", and
+      re-stamping it weekly would destroy the only fact the flag carries about its own age), and
+      a principal that has disappeared from the account entirely is cleared — a standing "this
+      is unused, delete it" pointing at nothing is worse than no recommendation.
 
 ### Implementation for User Story 7
 
-- [ ] T044 [US7] **[P2]** Extend `backend/connectors/aws.py` — `iam_unused_analysis(account)`:
+- [X] T044 [US7] **[P2]** Extend `backend/connectors/aws.py` — `iam_unused_analysis(account)`:
       `iam:ListRoles`/`GetRole`/`ListUsers`/`ListAccessKeys`/`GetAccessKeyLastUsed` through the
       existing `_build_session`, returning raw last-used data per principal — S56, FR-019,
       research.md R-503
-- [ ] T045 [US7] **[P2]** New `backend/app/governance/iam_hygiene.py` — T042's tested
+      **Done.** Two things worth recording. `ListRoles` does not populate `RoleLastUsed` — only
+      `GetRole` does — so the per-role `GetRole` call is not redundant: reading last-used from
+      the list page would report every role as never-used, which is precisely FR-020's
+      false-flag failure. And a partial result is raised rather than returned, because the
+      caller clears flags for principals it does not see: a truncated list would look like
+      "these principals are gone" and clear flags that should have stood.
+- [X] T045 [US7] **[P2]** New `backend/app/governance/iam_hygiene.py` — T042's tested
       classification logic, plus the clear/re-flag upsert against `iam_hygiene_flag`'s partial
       unique index (T003) — S56, FR-019, FR-020
-- [ ] T046 [US7] **[P2]** New `backend/handlers/iam_hygiene_worker_handler.py` — **weekly**
+      **Done.** A principal that becomes unused again gets a **new** row, never a revived
+      cleared one — the partial index (`WHERE cleared_at IS NULL`) allows exactly one active
+      flag per principal while keeping every earlier cleared row as history. The 90-day window
+      deliberately matches spec 003's own CloudTrail lookback, so "unused" means the same span
+      of quiet across both features rather than two definitions a reader has to hold at once.
+- [X] T046 [US7] **[P2]** New `backend/handlers/iam_hygiene_worker_handler.py` — **weekly**
       EventBridge entrypoint (not daily — research.md R-510: IAM last-used data changes slowly,
       weekly is the cheapest cadence that still meets the flag-only bar) — S56, research.md R-510
-- [ ] T047 [US7] **[P2]** Extend `infra/modules/cost/{main.tf,scheduler.tf}` — the
+      **Done.** One account's failure never clears that account's flags: `reconcile_flags` is
+      simply not reached when its analysis raises, so existing flags stand rather than being
+      cleared on no evidence. Same VPC/no-endpoint limitation as the other two workers (R-503,
+      R-511), stated in the module docstring rather than left to be discovered at runtime.
+- [X] T047 [US7] **[P2]** Extend `infra/modules/cost/{main.tf,scheduler.tf}` — the
       `iam-hygiene-worker` Lambda (arm64, 512MB, VPC-attached, `sts:AssumeRole` on
       `cloudpulse-scanner` reused, the `iam:*` read actions T044 needs) and its weekly
       EventBridge Scheduler rule — S56, research.md R-503, R-510
       `terraform fmt -check -recursive infra/` and `terraform validate` must pass.
-- [ ] T048 [US7] **[P2]** New `backend/app/api/routers/iam_hygiene.py` — `GET /iam-hygiene`,
+      **Done**, both clean, dev and prod. The IAM policy grants exactly the five read calls the
+      analysis makes and no `iam:Delete*`/`Update*`/`Put*` of any kind — FR-019 forbids
+      automatic deletion or deactivation, and the IAM policy is where that is actually enforced
+      rather than merely intended. Pulled the latest trunk before editing, per this file's own
+      shared-file note for `infra/modules/cost/`.
+- [X] T048 [US7] **[P2]** New `backend/app/api/routers/iam_hygiene.py` — `GET /iam-hygiene`,
       `require_viewer`-gated. Regenerate `backend/openapi.generated.yaml` and the frontend
       client — S56, FR-019, FR-020
-- [ ] T049 [P] [US7] **[P2]** New `frontend/src/app/features/iam-hygiene/{iam-hygiene.service.ts,
+      **Done**, both regenerated. `includeCleared=true` returns the history as well, so an admin
+      can see that a principal was flagged and later became active again rather than wondering
+      where a flag went. Read-only by requirement, not omission: there is deliberately no
+      endpoint that acts on a flag.
+- [X] T049 [P] [US7] **[P2]** New `frontend/src/app/features/iam-hygiene/{iam-hygiene.service.ts,
       iam-hygiene.component.ts}` — flag list with evidence detail; wire the `/iam-hygiene` route
       into `app.config.ts` — S56, FR-019, FR-020
+      **Done.** Evidence is shown inline rather than behind an expander — this view asks a human
+      to delete something, and a recommendation without its basis is a guess presented as a
+      fact. The page states the flag-only rule in prose too, so the absence of a delete button
+      reads as a deliberate policy rather than a missing feature. "Never used" and "used a long
+      time ago" render as different strings rather than collapsing into one blank cell.
 
 **Checkpoint**: P2 stretch scope complete; SC-005–SC-008 now provable (SC-007 also live —
 T051/T052).

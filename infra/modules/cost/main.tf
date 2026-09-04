@@ -264,3 +264,132 @@ resource "aws_lambda_function" "notification_worker" {
 
   depends_on = [aws_cloudwatch_log_group.notification_worker]
 }
+
+# --- iam-hygiene-worker Lambda (T047; FR-019, research.md R-503, R-510) -------------
+#
+# Same VPC/no-endpoint position as the other two workers: the `iam:*` read calls this
+# makes have no VPC interface endpoint at all -- an AWS platform limitation, not a
+# configuration choice (R-503) -- so like cost-ingestion-worker it deploys correctly
+# and cannot reach IAM at runtime until R-407 is funded. Stated here rather than
+# discovered at runtime.
+
+resource "aws_security_group" "iam_hygiene_worker" {
+  name        = "${local.name}-iam-hygiene-worker"
+  description = "IAM hygiene worker Lambda"
+  vpc_id      = var.vpc_id
+
+  egress {
+    description = "To Aurora, cross-account scanner roles, and the IAM API."
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+resource "aws_iam_role" "iam_hygiene_worker" {
+  name               = "${local.name}-iam-hygiene-worker"
+  assume_role_policy = data.aws_iam_policy_document.cost_ingestion_worker_assume.json
+}
+
+resource "aws_iam_role_policy_attachment" "iam_hygiene_worker_vpc" {
+  role       = aws_iam_role.iam_hygiene_worker.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
+}
+
+resource "aws_cloudwatch_log_group" "iam_hygiene_worker" {
+  name              = "/aws/lambda/${local.name}-iam-hygiene-worker"
+  retention_in_days = var.log_retention_days
+}
+
+data "aws_iam_policy_document" "iam_hygiene_worker_runtime" {
+  statement {
+    sid       = "ReadDatabaseCredential"
+    effect    = "Allow"
+    actions   = ["secretsmanager:GetSecretValue", "secretsmanager:DescribeSecret"]
+    resources = [var.db_secret_arn]
+  }
+
+  statement {
+    sid       = "ReadExternalIdSecrets"
+    effect    = "Allow"
+    actions   = ["secretsmanager:GetSecretValue"]
+    resources = ["arn:aws:secretsmanager:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:secret:cloudpulse/external-id/*"]
+  }
+
+  # research.md R-503: the same scanner role every other worker already assumes,
+  # not a new one.
+  statement {
+    sid       = "AssumeScannerRole"
+    effect    = "Allow"
+    actions   = ["sts:AssumeRole"]
+    resources = ["arn:aws:iam::*:role/cloudpulse-scanner"]
+  }
+
+  # FR-019/FR-020: read-only, and only the five calls the analysis actually makes.
+  # No iam:Delete*, iam:Update*, or iam:Put* of any kind -- FR-019 forbids automatic
+  # deletion or deactivation, and the IAM policy is where that is actually enforced
+  # rather than merely intended. IAM is global, so these carry no resource scoping
+  # beyond the account this role lives in.
+  statement {
+    sid    = "ReadIamLastUsed"
+    effect = "Allow"
+    actions = [
+      "iam:ListRoles",
+      "iam:GetRole",
+      "iam:ListUsers",
+      "iam:ListAccessKeys",
+      "iam:GetAccessKeyLastUsed",
+    ]
+    resources = ["*"]
+  }
+
+  statement {
+    sid    = "WriteOwnLogs"
+    effect = "Allow"
+    actions = [
+      "logs:CreateLogStream",
+      "logs:PutLogEvents",
+    ]
+    resources = ["${aws_cloudwatch_log_group.iam_hygiene_worker.arn}:*"]
+  }
+}
+
+resource "aws_iam_role_policy" "iam_hygiene_worker_runtime" {
+  name   = "runtime"
+  role   = aws_iam_role.iam_hygiene_worker.id
+  policy = data.aws_iam_policy_document.iam_hygiene_worker_runtime.json
+}
+
+resource "aws_lambda_function" "iam_hygiene_worker" {
+  function_name = "${local.name}-iam-hygiene-worker"
+  role          = aws_iam_role.iam_hygiene_worker.arn
+  handler       = "handlers.iam_hygiene_worker_handler.handler"
+  runtime       = "python3.12"
+  architectures = ["arm64"] # research.md R-510.
+  timeout       = 300       # one paginated IAM sweep per registered account, sequential.
+  memory_size   = 512
+
+  filename         = var.package_path
+  source_code_hash = var.package_hash
+
+  vpc_config {
+    subnet_ids         = var.private_subnet_ids
+    security_group_ids = [aws_security_group.iam_hygiene_worker.id]
+  }
+
+  environment {
+    variables = {
+      CLOUDPULSE_ENVIRONMENT   = var.environment
+      CLOUDPULSE_AWS_REGION    = data.aws_region.current.name
+      CLOUDPULSE_DB_HOST       = var.db_host
+      CLOUDPULSE_DB_NAME       = var.db_name
+      CLOUDPULSE_DB_USER       = var.db_user
+      CLOUDPULSE_DB_SECRET_ARN = var.db_secret_arn
+      POWERTOOLS_SERVICE_NAME  = "cloudpulse-iam-hygiene-worker"
+      POWERTOOLS_LOG_LEVEL     = "INFO"
+    }
+  }
+
+  depends_on = [aws_cloudwatch_log_group.iam_hygiene_worker]
+}
