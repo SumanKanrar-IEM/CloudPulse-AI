@@ -672,24 +672,47 @@ mix; confirm the API's number matches a hand calculation using the same document
 
 ### Tests for User Story 6
 
-- [ ] T038 [P] [US6] **[P2]** Write `backend/tests/unit/test_utilization.py` — the active/idle
+- [X] T038 [P] [US6] **[P2]** Write `backend/tests/unit/test_utilization.py` — the active/idle
       state-string classification (a data dict, not an `if/elif` chain, per research.md R-509);
       resources with `state IS NULL` excluded from both numerator and denominator; an account
       with zero provisioned (state-known) resources returns the explicit "not enough data" state,
       not a divide-by-zero or a misleading 0%/100% — S54, S55, FR-018
+      **Done**, 18 tests, all pure — which is R-509's own point: this capability makes no AWS
+      call, so its whole classification is provable without a fixture. Two cases beyond the
+      task's list are worth naming. Classification is case-insensitive, because AWS is not
+      consistent about casing across services and a state string that failed to match would
+      silently count an idle resource as used. And an EBS volume in state `available` is
+      classified **idle**, not used — see T039's note.
 
 ### Implementation for User Story 6
 
-- [ ] T039 [US6] **[P2]** New `backend/app/governance/utilization.py` — the known-idle/known-
+- [X] T039 [US6] **[P2]** New `backend/app/governance/utilization.py` — the known-idle/known-
       active state-string sets (data, matching `coverage_definitions.json`'s existing precedent)
       and `compute_utilization(session, account_id, sda_id=None)` (live aggregate query, T038's
       tested classification and edge cases) — S54, S55, FR-018, research.md R-509
-- [ ] T040 [US6] **[P2]** New `backend/app/api/routers/utilization.py` — `GET /utilization`,
+      **Done.** R-509 specifies the idle set "per service" and gives EC2/RDS-shaped examples;
+      this implements it as a per-service table with a documented fallback. The one entry that
+      inverts the intuitive reading is EBS: a volume in state `available` is attached to
+      nothing, so it is idle. Reading "available" as healthy would count every orphaned volume —
+      exactly the waste this feature exists to surface — as utilized, so it is called out in a
+      comment as well as tested. Soft-deleted resources are excluded: spec 002 marks
+      `deleted_at` rather than deleting the row, and counting one as provisioned would keep
+      dragging utilization down for something that no longer exists.
+- [X] T040 [US6] **[P2]** New `backend/app/api/routers/utilization.py` — `GET /utilization`,
       `require_viewer`-gated. Regenerate `backend/openapi.generated.yaml` and the frontend
       client — S54, S55, FR-018
-- [ ] T041 [P] [US6] **[P2]** New `frontend/src/app/features/utilization/{utilization.service.ts,
+      **Done**, both regenerated, with an integration test (`test_utilization_api.py`) covering
+      what the unit tests cannot: that the per-account and per-project figures partition the
+      same resources the overall figure counts, and that the "No SDA" bucket appears as its own
+      project row rather than vanishing. One response carries all three levels, which is what
+      keeps FR-018's drill-down inside three navigation steps without a request per expansion.
+- [X] T041 [P] [US6] **[P2]** New `frontend/src/app/features/utilization/{utilization.service.ts,
       utilization.component.ts}` — account → project → resource drill-down in ≤3 clicks; wire the
       `/utilization` route into `app.config.ts` — S54, S55, FR-018
+      **Done.** Every figure is rendered with the population it was measured over ("2 of 4
+      enriched resources"), never a bare percentage: R-509 excludes unknown-state resources from
+      both halves of the ratio, so a lone number would imply a claim over the whole inventory
+      that the data cannot support. "Not enough data" is displayed as itself rather than as 0%.
 
 **Checkpoint**: Utilization is computed and drillable, with zero new AWS dependency. SC-007
 provable — and, uniquely among this spec's P2 stories, provable **live**, not just at the
