@@ -31,4 +31,7 @@ export * from './spend.serviceInterface';
 export * from './system.service';
 import { SystemService } from './system.service';
 export * from './system.serviceInterface';
-export const APIS = [AccountsService, BudgetsService, ComplianceService, FindingsService, IdentityService, OwnershipService, ResourcesService, RulesService, SdasService, SpendService, SystemService];
+export * from './utilization.service';
+import { UtilizationService } from './utilization.service';
+export * from './utilization.serviceInterface';
+export const APIS = [AccountsService, BudgetsService, ComplianceService, FindingsService, IdentityService, OwnershipService, ResourcesService, RulesService, SdasService, SpendService, SystemService, UtilizationService];
