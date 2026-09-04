@@ -17,6 +17,8 @@ from typing import Any
 
 import pytest
 from alembic import command
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
 from sqlalchemy import Engine, func, select, text
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -302,3 +304,110 @@ def test_only_this_tenants_budgets_are_counted(
         ).scalar_one()
         == 1
     )
+
+
+# --- GET /budget-overruns (T036d) --------------------------------------------------
+
+
+def _overruns_api(
+    clean_database: Engine, tenant_id: uuid.UUID, monkeypatch: pytest.MonkeyPatch
+) -> TestClient:
+    import app.core.db as db_module
+    from app.api.errors import register_exception_handlers
+    from app.api.middleware import CorrelationIdMiddleware
+    from app.api.routers import budget_overruns as overruns_router
+    from app.api.routers import findings as findings_router
+
+    monkeypatch.setattr(db_module, "get_engine", lambda: clean_database)
+    app = FastAPI()
+    app.add_middleware(CorrelationIdMiddleware)
+    register_exception_handlers(app)
+    app.include_router(overruns_router.router)
+    app.include_router(findings_router.router)
+
+    class _Stager:
+        def __init__(self, inner: Any) -> None:
+            self.inner = inner
+            self.claims: dict[str, Any] = {
+                "sub": "s",
+                "email": "e@example.com",
+                "cognito:groups": ["cloudpulse-viewers"],
+                "custom:tenant_id": str(tenant_id),
+            }
+
+        async def __call__(self, scope, receive, send):  # type: ignore[no-untyped-def]
+            if scope["type"] == "http":
+                scope["state"] = dict(scope.get("state") or {})
+                scope["state"]["claims"] = self.claims
+            await self.inner(scope, receive, send)
+
+    return TestClient(_Stager(app), raise_server_exceptions=False)
+
+
+def test_the_overruns_endpoint_returns_the_finding_with_its_project(
+    db: Session,
+    session: _RawSession,
+    tenant_id: uuid.UUID,
+    account: CloudAccount,
+    budget: Budget,
+    clean_database: Engine,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _spend(db, tenant_id, account, budget, date(2026, 4, 2), "1200.00")
+    check_thresholds(session, budget, as_of=AS_OF)
+    db.commit()
+
+    body = _overruns_api(clean_database, tenant_id, monkeypatch).get("/budget-overruns").json()
+
+    assert len(body["overruns"]) == 1
+    assert body["overruns"][0]["sdaName"] == "platform"
+    assert body["overruns"][0]["status"] == "open"
+    assert body["overruns"][0]["budgetUsd"] == "1000.00"
+
+
+def test_an_overrun_never_appears_in_the_findings_list(
+    db: Session,
+    session: _RawSession,
+    tenant_id: uuid.UUID,
+    account: CloudAccount,
+    budget: Budget,
+    clean_database: Engine,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`GET /findings`'s response schema requires `resource`, which an overrun
+    finding does not have. Keeping it out is what lets that contract stay
+    unchanged (T036d) -- and it is filtered explicitly rather than left to the
+    inner JOIN to drop it as a side effect."""
+    _spend(db, tenant_id, account, budget, date(2026, 4, 2), "1200.00")
+    check_thresholds(session, budget, as_of=AS_OF)
+    db.commit()
+
+    client = _overruns_api(clean_database, tenant_id, monkeypatch)
+    assert client.get("/findings").json()["findings"] == []
+    assert len(client.get("/budget-overruns").json()["overruns"]) == 1
+
+
+def test_an_overrun_is_acknowledgeable_through_the_normal_findings_route(
+    db: Session,
+    session: _RawSession,
+    tenant_id: uuid.UUID,
+    account: CloudAccount,
+    budget: Budget,
+    clean_database: Engine,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """FR-016's "same lifecycle" is what actually matters, and it is unaffected
+    by serving the read on a separate path: this is one `Finding` row, moving
+    through the same acknowledge endpoint as any other."""
+    _spend(db, tenant_id, account, budget, date(2026, 4, 2), "1200.00")
+    check_thresholds(session, budget, as_of=AS_OF)
+    db.commit()
+
+    client = _overruns_api(clean_database, tenant_id, monkeypatch)
+    finding_id = client.get("/budget-overruns").json()["overruns"][0]["id"]
+    client.app.claims["cognito:groups"] = ["cloudpulse-operators"]  # type: ignore[attr-defined]
+
+    response = client.post(f"/findings/{finding_id}/acknowledge")
+
+    assert response.status_code == 200, response.text
+    assert client.get("/budget-overruns").json()["overruns"][0]["acknowledgedAt"] is not None

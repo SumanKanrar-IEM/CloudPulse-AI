@@ -7,20 +7,21 @@
  * https://openapi-generator.tech
  * Do not edit the class manually.
  */
-import { ResourceSummary } from './resource-summary';
 
 
-export interface Finding { 
+/**
+ * One overrun finding, carrying the project it is about.  The same lifecycle fields a tag-violation finding exposes -- this is one `Finding` row, not a parallel entity, and it moves through exactly the same open/acknowledge/resolve/suppress states.
+ */
+export interface BudgetOverrun { 
     id: string;
-    resource: ResourceSummary;
-    ruleKey: string;
-    ruleVersion: number;
+    sdaId: string;
+    sdaName: string;
+    budgetUsd?: string | null;
     severity: string;
     status: string;
     openedAt: string;
     resolvedAt?: string | null;
     acknowledgedAt?: string | null;
-    acknowledgedBy?: string | null;
     escalatedAt?: string | null;
 }
 

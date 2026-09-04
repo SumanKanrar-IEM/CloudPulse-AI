@@ -673,13 +673,14 @@ threshold.
       list/detail queries change their `JOIN Resource` to a `LEFT JOIN` and add an equivalent
       `Sda` join (research.md R-508). Regenerate `backend/openapi.generated.yaml` and the
       frontend client — S41, FR-016, research.md R-508
-      **Done**, both regenerated. The `JOIN`-to-`LEFT JOIN` change is not cosmetic: the previous
-      unconditional inner joins would have made every `budget_overrun` finding *invisible* in
-      the list, not merely unformatted, since its `resource_id` and `rule_id` are both NULL by
-      construction. `ruleKey` and `ruleVersion` become optional on the wire to match. Spec 004's
-      compliance score needs no change — `scoring.py` filters on `Finding.resource_id.in_(...)`,
-      which a NULL `resource_id` never satisfies, so overruns are excluded from the compliance
-      percentage by construction rather than by a new rule.
+      **Superseded by T036d — this task as written cannot be done without breaking the API
+      contract.** Attempted twice and rejected twice by `contract-compat`; see T036d for the
+      evidence and the decision taken. `GET /findings` keeps its existing response shape
+      unchanged, and now filters to `tag_violation` explicitly rather than relying on its inner
+      JOINs to drop overruns as a side effect. Spec 004's compliance score needs no change
+      either way — `scoring.py` filters on `Finding.resource_id.in_(...)`, which a NULL
+      `resource_id` never satisfies, so overruns are excluded from the compliance percentage by
+      construction rather than by a new rule.
 - [X] T037 [P] [US5] **[P2]** Extend `frontend/src/app/features/findings/findings-workbench.
       component.ts` — a `budget_overrun` finding renders its SDA name in place of a resource
       link, distinguishable at a glance from a tag-violation finding — S41, FR-016
@@ -697,8 +698,9 @@ threshold.
       The subject line falls back to `project <name>` rather than a bare finding UUID, which is
       what the recipient can actually recognise as theirs — S41, FR-016
 
-- [X] T036c [US5] **[P2]** Keep `resource`/`ruleKey`/`ruleVersion` **required but nullable** on
-      the `Finding` response, rather than optional. Caught by CI, not by review: `contract-compat
+- [X] T036c [US5] **[P2]** ~~Keep `resource`/`ruleKey`/`ruleVersion` **required but nullable**
+      on the `Finding` response~~ **Also rejected by the gate; superseded by T036d.** Kept
+      because the second failure is the informative one — see T036d. Caught by CI, not by review: `contract-compat
       (oasdiff)` failed PR #113 with "the response property `findings/items/resource` became
       optional for the status `200`" (and the same for the other two). Giving them `= None`
       defaults in Pydantic dropped them out of the schema's `required` list, which FR-048b
@@ -707,12 +709,36 @@ threshold.
       to allow `null`, which `ops/runbooks/contract-changes.md` lists as additive. Same runtime
       behaviour, no spec amendment, no three-PR deprecation dance — S41, FR-016, FR-048a, FR-048b
 
-- [X] T036b [US5] **[P2]** Group a rule-less finding under its `kind` in the overview's "by
-      type" chart (`frontend/src/app/features/overview/compliance-overview.component.ts`).
+- [X] T036b [US5] **[P2]** ~~Group a rule-less finding under its `kind` in the overview's
+      "by type" chart~~ **Reverted, no longer needed** — T036d keeps `Finding.ruleKey` required,
+      so the chart never sees a rule-less finding. Kept as a record of why the change existed (`frontend/src/app/features/overview/compliance-overview.component.ts`).
       Surfaced by making `ruleKey` optional in T036: the chart grouped on it unconditionally.
       Grouping every overrun under a blank key would collapse them into one unlabelled bar;
       filtering them out would make this chart's total disagree with the severity chart beside
       it, which does count them — S41, FR-016
+
+- [X] T036d [US5] **[P2]** Serve budget-overrun findings from a new `GET /budget-overruns`
+      (`backend/app/api/routers/budget_overruns.py`) and leave `GET /findings`'s response shape
+      untouched. **Decision taken by the maintainer after the `contract-compat` gate rejected two
+      attempts at the shape R-508 prescribes.**
+      An overrun finding attaches to a project and has no resource at all, but `GET /findings`'s
+      response requires `resource`. Attempt 1 made the field optional —
+      `response-property-became-optional`. Attempt 2 made it required-but-nullable, which emits
+      `anyOf: [ResourceSummary, null]` — `response-required-property-removed` on each of
+      `ResourceSummary`'s own five properties, because they are no longer unconditionally
+      present. There is no way to express "the resource may be absent" in that schema that is
+      not a breaking response change under FR-048b.
+      The options put to the maintainer were: a separate endpoint (chosen), the runbook's
+      three-PR deprecation, or amending FR-048a to permit the loosening. The separate endpoint
+      is purely additive — the `Finding` schema is now byte-identical to trunk and the only
+      contract change is one new path.
+      **FR-016 is unaffected in substance**: an overrun is the same `Finding` row, opened and
+      resolved by `governance.budgets`, acknowledged through the same
+      `POST /findings/{findingId}/acknowledge`, and notified and escalated by the same machinery.
+      Only the *read* surface is separate, because the two kinds genuinely have different shapes.
+      A test asserts the acknowledge path specifically, since that is the part of "same
+      lifecycle" a separate read endpoint could plausibly have broken — S41, FR-016, FR-048a,
+      FR-048b, research.md R-508
 
 **Checkpoint**: A budget overrun is visible, notified, and resolvable exactly like any other
 finding. SC-006 provable at the mocked-test level.

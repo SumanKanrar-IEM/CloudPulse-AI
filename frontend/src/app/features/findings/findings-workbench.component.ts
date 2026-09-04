@@ -37,6 +37,33 @@ import { FindingsFilters, FindingsService } from './findings.service';
     }
 
     @if (!findings.loading() && !findings.error()) {
+      @if (findings.overruns().length > 0) {
+        <section aria-label="Budget overruns">
+          <h2>Budget overruns</h2>
+          <ul class="findings-list">
+            @for (overrun of findings.overruns(); track overrun.id) {
+              <li>
+                <div class="finding-row">
+                  <span class="badge badge-overrun">Budget</span>
+                  <span>{{ overrun.sdaName }}</span>
+                  <span>over {{ overrun.budgetUsd ?? 'budget' }}</span>
+                  <span>{{ overrun.severity }}</span>
+                  <span>{{ overrun.status }}</span>
+                  @if (overrun.escalatedAt) {
+                    <span class="badge badge-escalated">Escalated</span>
+                  }
+                  @if (overrun.acknowledgedAt) {
+                    <span class="badge badge-acknowledged">Acknowledged</span>
+                  } @else if (canAcknowledge()) {
+                    <button type="button" (click)="acknowledge(overrun.id)">Acknowledge</button>
+                  }
+                </div>
+              </li>
+            }
+          </ul>
+        </section>
+      }
+
       @if (findings.findings().length === 0) {
         <p>No matching findings.</p>
       } @else {
@@ -44,17 +71,8 @@ import { FindingsFilters, FindingsService } from './findings.service';
           @for (finding of findings.findings(); track finding.id) {
             <li>
               <div class="finding-row">
-                <!-- R-508: a budget_overrun finding has no resource at all -- it
-                     attaches to a project. Rendering the SDA name in the resource
-                     column (with its own badge) keeps one scannable list instead of
-                     a blank cell the reader has to interpret. -->
-                @if (finding.kind === 'budget_overrun') {
-                  <span class="badge badge-overrun" data-testid="overrun-badge">Budget</span>
-                  <span>{{ finding.sda?.name ?? 'Unknown project' }}</span>
-                } @else {
-                  <span>{{ finding.resource?.arn }}</span>
-                }
-                <span>{{ finding.ruleKey ?? 'Budget exceeded' }}</span>
+                <span>{{ finding.resource.arn }}</span>
+                <span>{{ finding.ruleKey }}</span>
                 <span>{{ finding.severity }}</span>
                 <span>{{ finding.status }}</span>
                 <!-- FR-009: escalated must read as distinct from both plain-open and

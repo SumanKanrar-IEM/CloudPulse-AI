@@ -28,8 +28,7 @@ from app.models.core import AppUser, Resource
 from app.models.core import Finding as FindingRow
 from app.models.core import Notification as NotificationRow
 from app.models.core import Rule as RuleRow
-from app.models.core import Sda as SdaRow
-from app.models.enums import FindingStatus
+from app.models.enums import FindingKind, FindingStatus
 
 router = APIRouter(prefix="/findings", tags=["findings"])
 
@@ -52,29 +51,11 @@ class ResourceSummary(BaseModel):
     model_config = {"populate_by_name": True}
 
 
-class SdaSummary(BaseModel):
-    id: str
-    name: str
-
-    model_config = {"populate_by_name": True}
-
-
 class Finding(BaseModel):
     id: str
-    # spec 005, R-508: nullable, but deliberately still *required* -- no default.
-    #
-    # A budget_overrun finding attaches to a project, not a resource, and
-    # `ck_finding_kind_shape` guarantees exactly one of `resource`/`sda` is
-    # populated for any given kind. Giving these `= None` would drop them out of
-    # the schema's `required` list, which oasdiff correctly rejects as a breaking
-    # response change (FR-048b: "the response property became optional"). Keeping
-    # them required while widening the type to allow null is additive instead --
-    # every existing consumer still finds the key present on every finding.
-    resource: ResourceSummary | None
-    sda: SdaSummary | None
-    kind: str
-    rule_key: str | None = Field(alias="ruleKey")
-    rule_version: int | None = Field(alias="ruleVersion")
+    resource: ResourceSummary
+    rule_key: str = Field(alias="ruleKey")
+    rule_version: int = Field(alias="ruleVersion")
     severity: str
     status: str
     opened_at: datetime = Field(alias="openedAt")
@@ -181,16 +162,20 @@ async def list_findings(
 ) -> FindingsList:
     """FR-014. Any role may view (FR-030). Most recently opened first."""
     with tenant_session(principal.tenant_id) as session:
-        # R-508: LEFT joins, not inner ones. The previous unconditional
-        # `JOIN Resource`/`JOIN Rule` silently dropped every budget_overrun
-        # finding, whose resource_id and rule_id are both NULL by construction --
-        # they would have been invisible in the list rather than merely
-        # unformatted.
+        # spec 005: filtered to tag violations explicitly, not left to the inner
+        # JOINs to exclude budget-overrun findings as a side effect of their NULL
+        # resource_id. This endpoint's response schema requires `resource`, so a
+        # resource-less finding cannot be represented here at all -- it is served
+        # by `GET /budget-overruns` instead (see that router for why).
         stmt = (
             session.scoped(select(FindingRow), FindingRow)
-            .outerjoin(Resource, FindingRow.resource_id == Resource.id)
-            .outerjoin(RuleRow, FindingRow.rule_id == RuleRow.id)
-            .outerjoin(SdaRow, FindingRow.sda_id == SdaRow.id)
+            .join(Resource, FindingRow.resource_id == Resource.id)
+            .join(RuleRow, FindingRow.rule_id == RuleRow.id)
+            .where(
+                Resource.tenant_id == session.tenant_id,
+                RuleRow.tenant_id == session.tenant_id,
+                FindingRow.kind == FindingKind.TAG_VIOLATION,
+            )
             .order_by(FindingRow.opened_at.desc())
         )
         if account_id is not None:
@@ -203,26 +188,20 @@ async def list_findings(
         rows = session.raw.execute(stmt).scalars().all()
         findings: list[Finding] = []
         for row in rows:
-            resource = session.raw.get(Resource, row.resource_id) if row.resource_id else None
-            rule = session.raw.get(RuleRow, row.rule_id) if row.rule_id else None
-            sda = session.raw.get(SdaRow, row.sda_id) if row.sda_id else None
+            resource = session.raw.get(Resource, row.resource_id)
+            rule = session.raw.get(RuleRow, row.rule_id)
+            assert resource is not None and rule is not None  # FK guarantees this
             findings.append(
                 Finding(
                     id=str(row.id),
-                    resource=(
-                        ResourceSummary(
-                            id=str(resource.id),
-                            arn=resource.arn,
-                            resource_type=resource.resource_type,
-                            region=resource.region,
-                            account_id=str(resource.cloud_account_id),
-                        )
-                        if resource is not None
-                        else None
+                    resource=ResourceSummary(
+                        id=str(resource.id),
+                        arn=resource.arn,
+                        resource_type=resource.resource_type,
+                        region=resource.region,
+                        account_id=str(resource.cloud_account_id),
                     ),
-                    sda=SdaSummary(id=str(sda.id), name=sda.name) if sda is not None else None,
-                    kind=row.kind.value,
-                    rule_key=rule.key if rule is not None else None,
+                    rule_key=rule.key,
                     rule_version=row.rule_version,
                     severity=row.severity.value,
                     status=row.status.value,

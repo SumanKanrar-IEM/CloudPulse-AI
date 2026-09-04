@@ -1733,6 +1733,52 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
+  /budget-overruns:
+    get:
+      tags:
+      - budget-overruns
+      summary: Findings opened by a project exceeding its budget
+      description: 'FR-016. Most recently opened first, matching `GET /findings`''s
+        ordering
+
+        so the two lists read as one workbench rather than two conventions.'
+      operationId: listBudgetOverruns
+      parameters:
+      - name: status
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - $ref: '#/components/schemas/FindingStatus'
+          - type: 'null'
+          title: Status
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BudgetOverrunsList'
+        '401':
+          description: No valid identity presented.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Valid identity, but the caller's role does not permit the action
+            -- or the caller maps to zero or multiple directory groups and therefore
+            has no resolvable role (FR-032a, FR-034).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
 components:
   schemas:
     Account:
@@ -1897,6 +1943,78 @@ components:
         notification, so hiding it here would leave the only warning signal with
 
         nowhere to appear.'
+    BudgetOverrun:
+      properties:
+        id:
+          type: string
+          title: Id
+        sdaId:
+          type: string
+          title: Sdaid
+        sdaName:
+          type: string
+          title: Sdaname
+        budgetUsd:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Budgetusd
+        severity:
+          type: string
+          title: Severity
+        status:
+          type: string
+          title: Status
+        openedAt:
+          type: string
+          format: date-time
+          title: Openedat
+        resolvedAt:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Resolvedat
+        acknowledgedAt:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Acknowledgedat
+        escalatedAt:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Escalatedat
+      type: object
+      required:
+      - id
+      - sdaId
+      - sdaName
+      - severity
+      - status
+      - openedAt
+      title: BudgetOverrun
+      description: 'One overrun finding, carrying the project it is about.
+
+
+        The same lifecycle fields a tag-violation finding exposes -- this is one
+
+        `Finding` row, not a parallel entity, and it moves through exactly the same
+
+        open/acknowledge/resolve/suppress states.'
+    BudgetOverrunsList:
+      properties:
+        overruns:
+          items:
+            $ref: '#/components/schemas/BudgetOverrun'
+          type: array
+          title: Overruns
+      type: object
+      required:
+      - overruns
+      title: BudgetOverrunsList
     BudgetsList:
       properties:
         budgets:
@@ -2071,25 +2189,12 @@ components:
           type: string
           title: Id
         resource:
-          anyOf:
-          - $ref: '#/components/schemas/ResourceSummary'
-          - type: 'null'
-        sda:
-          anyOf:
-          - $ref: '#/components/schemas/SdaSummary'
-          - type: 'null'
-        kind:
-          type: string
-          title: Kind
+          $ref: '#/components/schemas/ResourceSummary'
         ruleKey:
-          anyOf:
-          - type: string
-          - type: 'null'
+          type: string
           title: Rulekey
         ruleVersion:
-          anyOf:
-          - type: integer
-          - type: 'null'
+          type: integer
           title: Ruleversion
         severity:
           type: string
@@ -2128,8 +2233,6 @@ components:
       required:
       - id
       - resource
-      - sda
-      - kind
       - ruleKey
       - ruleVersion
       - severity
@@ -2776,19 +2879,6 @@ components:
       - ownerEmail
       - tagValues
       title: SdaCreate
-    SdaSummary:
-      properties:
-        id:
-          type: string
-          title: Id
-        name:
-          type: string
-          title: Name
-      type: object
-      required:
-      - id
-      - name
-      title: SdaSummary
     SdaUpdate:
       properties:
         ownerEmail:
