@@ -14,7 +14,7 @@ from __future__ import annotations
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 
@@ -94,24 +94,35 @@ def _sda_names(session: TenantSession) -> dict[uuid.UUID, str]:
     response_model_by_alias=True,
     responses={401: ERROR_RESPONSES[401], 403: ERROR_RESPONSES[403]},
 )
-async def get_utilization(principal: ViewerPrincipal) -> UtilizationReport:
+async def get_utilization(
+    principal: ViewerPrincipal,
+    account_id: Annotated[uuid.UUID | None, Query(alias="accountId")] = None,
+) -> UtilizationReport:
     """FR-018. One response carries all three levels, which is what makes the
     account-to-project-to-resource drill-down reachable in three steps without
-    a request per expansion."""
+    a request per expansion.
+
+    `accountId` narrows every level to that account -- `overall` included, so
+    the headline figure and the account row agree rather than the headline
+    silently staying tenant-wide.
+    """
     with tenant_session(principal.tenant_id) as session:
         accounts = _account_names(session)
         sdas = _sda_names(session)
         return UtilizationReport(
-            overall=_figure(utilization_governance.compute_utilization(session)),
+            overall=_figure(
+                utilization_governance.compute_utilization(session, account_id=account_id)
+            ),
             by_account=[
                 AccountUtilization(
-                    account_id=str(account_id),
-                    alias=accounts.get(account_id, "unknown"),
+                    account_id=str(row_account_id),
+                    alias=accounts.get(row_account_id, "unknown"),
                     utilization=_figure(value),
                 )
-                for account_id, value in utilization_governance.utilization_by_account(
+                for row_account_id, value in utilization_governance.utilization_by_account(
                     session
                 ).items()
+                if account_id is None or row_account_id == account_id
             ],
             by_project=[
                 ProjectUtilization(
@@ -122,7 +133,9 @@ async def get_utilization(principal: ViewerPrincipal) -> UtilizationReport:
                     sda_name=sdas.get(sda_id) if sda_id else None,
                     utilization=_figure(value),
                 )
-                for sda_id, value in utilization_governance.utilization_by_sda(session).items()
+                for sda_id, value in utilization_governance.utilization_by_sda(
+                    session, account_id=account_id
+                ).items()
             ],
         )
 

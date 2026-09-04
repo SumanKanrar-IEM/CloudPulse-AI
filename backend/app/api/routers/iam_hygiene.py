@@ -9,6 +9,7 @@ Any role may read, matching this spec's other read surfaces.
 
 from __future__ import annotations
 
+import uuid
 from datetime import datetime
 from typing import Annotated, Any
 
@@ -59,6 +60,7 @@ class IamHygieneFlags(BaseModel):
 )
 async def list_iam_hygiene_flags(
     principal: ViewerPrincipal,
+    account_id: Annotated[uuid.UUID | None, Query(alias="accountId")] = None,
     include_cleared: Annotated[bool, Query(alias="includeCleared")] = False,
 ) -> IamHygieneFlags:
     """FR-019. Active flags by default; `includeCleared=true` returns the
@@ -66,6 +68,8 @@ async def list_iam_hygiene_flags(
     became active again rather than wondering where a flag went."""
     with tenant_session(principal.tenant_id) as session:
         statement = session.scoped(select(FlagRow), FlagRow).order_by(FlagRow.flagged_at.desc())
+        if account_id is not None:
+            statement = statement.where(FlagRow.cloud_account_id == account_id)
         if not include_cleared:
             statement = statement.where(FlagRow.cleared_at.is_(None))
         return IamHygieneFlags(

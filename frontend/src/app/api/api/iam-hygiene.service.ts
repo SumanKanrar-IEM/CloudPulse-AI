@@ -46,17 +46,27 @@ export class IamHygieneService extends BaseService implements IamHygieneServiceI
      * Roles, users, and keys that appear unused
      * FR-019. Active flags by default; &#x60;includeCleared&#x3D;true&#x60; returns the history too, so an admin can see that a principal was flagged and later became active again rather than wondering where a flag went.
      * @endpoint get /iam-hygiene
+     * @param accountId 
      * @param includeCleared 
      * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
      * @param reportProgress flag to report request and response progress.
      * @param options additional options
      */
-    public listIamHygieneFlags(includeCleared?: boolean, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<IamHygieneFlags>;
-    public listIamHygieneFlags(includeCleared?: boolean, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<IamHygieneFlags>>;
-    public listIamHygieneFlags(includeCleared?: boolean, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<IamHygieneFlags>>;
-    public listIamHygieneFlags(includeCleared?: boolean, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
+    public listIamHygieneFlags(accountId?: string, includeCleared?: boolean, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<IamHygieneFlags>;
+    public listIamHygieneFlags(accountId?: string, includeCleared?: boolean, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<IamHygieneFlags>>;
+    public listIamHygieneFlags(accountId?: string, includeCleared?: boolean, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<IamHygieneFlags>>;
+    public listIamHygieneFlags(accountId?: string, includeCleared?: boolean, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
 
         let localVarQueryParameters = new OpenApiHttpParams(this.encoder);
+
+        localVarQueryParameters = this.addToHttpParams(
+            localVarQueryParameters,
+            'accountId',
+            <any>accountId,
+            QueryParamStyle.Form,
+            true,
+        );
+
 
         localVarQueryParameters = this.addToHttpParams(
             localVarQueryParameters,

@@ -166,3 +166,24 @@ def test_every_role_can_read_utilization(seeded: Any) -> None:
     for groups in (ADMIN, OPERATOR, VIEWER):
         _stage(stager, tenant_id, groups)
         assert client.get("/utilization").status_code == 200, groups
+
+
+def test_an_account_filter_narrows_every_level_including_overall(
+    seeded: Any, clean_database: Engine
+) -> None:
+    """A filter that narrowed the account row but left the headline tenant-wide
+    would put two disagreeing numbers on the same screen."""
+    client, _, tenant_id = seeded
+    account_id = client.get("/utilization").json()["byAccount"][0]["accountId"]
+
+    body = client.get("/utilization", params={"accountId": account_id}).json()
+
+    assert body["overall"] == body["byAccount"][0]["utilization"]
+    assert len(body["byAccount"]) == 1
+
+
+def test_an_account_filter_matching_nothing_reports_not_enough_data(seeded: Any) -> None:
+    client, *_ = seeded
+    body = client.get("/utilization", params={"accountId": str(uuid.uuid4())}).json()
+    assert body["overall"] == {"used": 0, "provisioned": 0, "percent": None}
+    assert body["byAccount"] == []

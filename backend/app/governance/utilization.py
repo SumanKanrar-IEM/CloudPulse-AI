@@ -136,14 +136,18 @@ def utilization_by_account(session: TenantSession) -> dict[uuid.UUID, Utilizatio
     return _grouped(session, ResourceRow.cloud_account_id)
 
 
-def utilization_by_sda(session: TenantSession) -> dict[uuid.UUID | None, Utilization]:
+def utilization_by_sda(
+    session: TenantSession, *, account_id: uuid.UUID | None = None
+) -> dict[uuid.UUID | None, Utilization]:
     """One row per project, with `None` keying the "No SDA" bucket -- the same
     bucket spend and inventory already use for unattributed resources."""
-    return _grouped(session, ResourceRow.sda_id)
+    return _grouped(session, ResourceRow.sda_id, account_id=account_id)
 
 
-def _grouped(session: TenantSession, key_column: Any) -> dict[Any, Utilization]:
-    rows = session.raw.execute(
+def _grouped(
+    session: TenantSession, key_column: Any, *, account_id: uuid.UUID | None = None
+) -> dict[Any, Utilization]:
+    statement = (
         session.scoped(
             select(
                 key_column,
@@ -156,7 +160,10 @@ def _grouped(session: TenantSession, key_column: Any) -> dict[Any, Utilization]:
         )
         .where(ResourceRow.deleted_at.is_(None))
         .group_by(key_column, ResourceRow.service, ResourceRow.resource_type, ResourceRow.state)
-    ).all()
+    )
+    if account_id is not None:
+        statement = statement.where(ResourceRow.cloud_account_id == account_id)
+    rows = session.raw.execute(statement).all()
 
     buckets: dict[Any, list[tuple[str | None, str | None, str | None]]] = {}
     for key, service, resource_type, state, count in rows:

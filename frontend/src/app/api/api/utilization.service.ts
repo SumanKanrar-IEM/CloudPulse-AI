@@ -19,6 +19,8 @@ import { OpenApiHttpParams, QueryParamStyle } from '../query.params';
 // @ts-ignore
 import { ErrorEnvelope } from '../model/error-envelope';
 // @ts-ignore
+import { HTTPValidationError } from '../model/http-validation-error';
+// @ts-ignore
 import { UtilizationReport } from '../model/utilization-report';
 
 // @ts-ignore
@@ -42,16 +44,28 @@ export class UtilizationService extends BaseService implements UtilizationServic
 
     /**
      * Utilization overall, per account, and per project
-     * FR-018. One response carries all three levels, which is what makes the account-to-project-to-resource drill-down reachable in three steps without a request per expansion.
+     * FR-018. One response carries all three levels, which is what makes the account-to-project-to-resource drill-down reachable in three steps without a request per expansion.  &#x60;accountId&#x60; narrows every level to that account -- &#x60;overall&#x60; included, so the headline figure and the account row agree rather than the headline silently staying tenant-wide.
      * @endpoint get /utilization
+     * @param accountId 
      * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
      * @param reportProgress flag to report request and response progress.
      * @param options additional options
      */
-    public getUtilization(observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<UtilizationReport>;
-    public getUtilization(observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<UtilizationReport>>;
-    public getUtilization(observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<UtilizationReport>>;
-    public getUtilization(observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
+    public getUtilization(accountId?: string, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<UtilizationReport>;
+    public getUtilization(accountId?: string, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<UtilizationReport>>;
+    public getUtilization(accountId?: string, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<UtilizationReport>>;
+    public getUtilization(accountId?: string, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
+
+        let localVarQueryParameters = new OpenApiHttpParams(this.encoder);
+
+        localVarQueryParameters = this.addToHttpParams(
+            localVarQueryParameters,
+            'accountId',
+            <any>accountId,
+            QueryParamStyle.Form,
+            true,
+        );
+
 
         let localVarHeaders = this.defaultHeaders;
 
@@ -86,6 +100,7 @@ export class UtilizationService extends BaseService implements UtilizationServic
         return this.httpClient.request<UtilizationReport>('get', `${basePath}${localVarPath}`,
             {
                 context: localVarHttpContext,
+                params: localVarQueryParameters.toHttpParams(),
                 responseType: <any>responseType_,
                 ...(withCredentials ? { withCredentials } : {}),
                 headers: localVarHeaders,
