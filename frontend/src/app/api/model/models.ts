@@ -21,6 +21,8 @@ export * from './finding-status';
 export * from './findings-list';
 export * from './http-validation-error';
 export * from './health-response';
+export * from './iam-hygiene-flag';
+export * from './iam-hygiene-flags';
 export * from './inventory-resource-summary';
 export * from './location-inner';
 export * from './notification-attempt';

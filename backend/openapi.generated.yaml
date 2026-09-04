@@ -1812,6 +1812,53 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
+  /iam-hygiene:
+    get:
+      tags:
+      - iam-hygiene
+      summary: Roles, users, and keys that appear unused
+      description: 'FR-019. Active flags by default; `includeCleared=true` returns
+        the
+
+        history too, so an admin can see that a principal was flagged and later
+
+        became active again rather than wondering where a flag went.'
+      operationId: listIamHygieneFlags
+      parameters:
+      - name: includeCleared
+        in: query
+        required: false
+        schema:
+          type: boolean
+          default: false
+          title: Includecleared
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IamHygieneFlags'
+        '401':
+          description: No valid identity presented.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Valid identity, but the caller's role does not permit the action
+            -- or the caller maps to zero or multiple directory groups and therefore
+            has no resolvable role (FR-032a, FR-034).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
 components:
   schemas:
     Account:
@@ -2368,6 +2415,63 @@ components:
       - checks
       - correlationId
       title: HealthResponse
+    IamHygieneFlag:
+      properties:
+        id:
+          type: string
+          title: Id
+        accountId:
+          type: string
+          title: Accountid
+        principalType:
+          type: string
+          title: Principaltype
+        principalIdentifier:
+          type: string
+          title: Principalidentifier
+        evidence:
+          additionalProperties: true
+          type: object
+          title: Evidence
+        flaggedAt:
+          type: string
+          format: date-time
+          title: Flaggedat
+        clearedAt:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Clearedat
+      type: object
+      required:
+      - id
+      - accountId
+      - principalType
+      - principalIdentifier
+      - evidence
+      - flaggedAt
+      title: IamHygieneFlag
+      description: 'One unused-principal recommendation, with the evidence behind
+        it.
+
+
+        `evidence` travels with every flag rather than being fetched separately:
+
+        this is asking a human to delete something, and a recommendation without
+
+        its basis is a guess presented as a fact.'
+    IamHygieneFlags:
+      properties:
+        flags:
+          items:
+            $ref: '#/components/schemas/IamHygieneFlag'
+          type: array
+          title: Flags
+      type: object
+      required:
+      - flags
+      title: IamHygieneFlags
     InventoryResourceSummary:
       properties:
         id:

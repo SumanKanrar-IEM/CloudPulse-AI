@@ -13,3 +13,11 @@ output "notification_worker_function_name" {
 output "notification_worker_function_arn" {
   value = aws_lambda_function.notification_worker.arn
 }
+
+output "iam_hygiene_worker_function_name" {
+  value = aws_lambda_function.iam_hygiene_worker.function_name
+}
+
+output "iam_hygiene_worker_function_arn" {
+  value = aws_lambda_function.iam_hygiene_worker.arn
+}

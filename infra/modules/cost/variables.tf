@@ -61,3 +61,9 @@ variable "notification_schedule_expression" {
   description = "research.md R-501: one daily pass answering 'what is due today' for every cadence point. After cost ingestion, so a budget_overrun finding opened by that run is notifiable the same day."
   default     = "cron(0 8 * * ? *)"
 }
+
+variable "iam_hygiene_schedule_expression" {
+  type        = string
+  description = "research.md R-510: weekly, not daily. IAM last-used data changes slowly and the unused window is 90 days, so a daily run would cost seven times the invocations to surface a flag at most a day sooner."
+  default     = "cron(0 9 ? * SUN *)"
+}
