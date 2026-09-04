@@ -2127,7 +2127,11 @@ components:
       type: object
       required:
       - id
+      - resource
+      - sda
       - kind
+      - ruleKey
+      - ruleVersion
       - severity
       - status
       - openedAt

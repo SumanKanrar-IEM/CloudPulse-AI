@@ -13,11 +13,11 @@ import { SdaSummary } from './sda-summary';
 
 export interface Finding { 
     id: string;
-    resource?: ResourceSummary | null;
-    sda?: SdaSummary | null;
+    resource: ResourceSummary | null;
+    sda: SdaSummary | null;
     kind: string;
-    ruleKey?: string | null;
-    ruleVersion?: number | null;
+    ruleKey: string | null;
+    ruleVersion: number | null;
     severity: string;
     status: string;
     openedAt: string;

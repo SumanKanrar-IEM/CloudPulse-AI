@@ -61,14 +61,20 @@ class SdaSummary(BaseModel):
 
 class Finding(BaseModel):
     id: str
-    # spec 005, R-508: nullable now. A budget_overrun finding attaches to a
-    # project, not a resource, and `ck_finding_kind_shape` guarantees exactly one
-    # of `resource`/`sda` is populated for any given kind.
-    resource: ResourceSummary | None = None
-    sda: SdaSummary | None = None
+    # spec 005, R-508: nullable, but deliberately still *required* -- no default.
+    #
+    # A budget_overrun finding attaches to a project, not a resource, and
+    # `ck_finding_kind_shape` guarantees exactly one of `resource`/`sda` is
+    # populated for any given kind. Giving these `= None` would drop them out of
+    # the schema's `required` list, which oasdiff correctly rejects as a breaking
+    # response change (FR-048b: "the response property became optional"). Keeping
+    # them required while widening the type to allow null is additive instead --
+    # every existing consumer still finds the key present on every finding.
+    resource: ResourceSummary | None
+    sda: SdaSummary | None
     kind: str
-    rule_key: str | None = Field(default=None, alias="ruleKey")
-    rule_version: int | None = Field(default=None, alias="ruleVersion")
+    rule_key: str | None = Field(alias="ruleKey")
+    rule_version: int | None = Field(alias="ruleVersion")
     severity: str
     status: str
     opened_at: datetime = Field(alias="openedAt")
