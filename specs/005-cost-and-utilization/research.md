@@ -295,6 +295,23 @@ if the user wanted to (R-503); SES does have one, priced and presented, and the 
 cadence/escalation, overrun findings, IAM hygiene) is bounded by this exactly the way spec 004's
 own T032 was bounded for its populated-dashboard stories: provable at the mocked-test level in CI
 (moto covers `ce`, `iam`, and `ses` clients), not provable live against a real send or real
-ingested data until R-407 is funded. **User Story 6 (utilization) is the one genuine exception**
-— it makes no AWS call at all (R-509, computed entirely from already-persisted `Resource.state`)
-and is fully live-verifiable today, independent of R-407's status.
+ingested data until R-407 is funded.
+
+~~**User Story 6 (utilization) is the one genuine exception** — it makes no AWS call at all
+(R-509, computed entirely from already-persisted `Resource.state`) and is fully live-verifiable
+today, independent of R-407's status.~~
+
+**Corrected 2026-09-04, by attempting it (T051/T051a).** That exception does not hold. The
+reasoning above is right about the *computation* — `compute_utilization` makes no AWS call — and
+wrong about its *input*. `Resource.state` is "already-persisted" only if a scan has ever run;
+a scan needs a registered account; and `register_account` calls STS and the Resource Groups
+Tagging API, which is precisely the R-407 hang spec 003's own live verification stopped at.
+Confirmed against the live dev environment rather than inferred: **zero NAT gateways, and the
+only VPC endpoints present are S3 and Secrets Manager** — nothing for `sts`, `tagging`, `ce`,
+`iam`, or `email`. So there is no route by which any resource acquires a `state` for utilization
+to count.
+
+What *is* live-verifiable, and was verified: the endpoint deploys, is reachable, and is
+correctly role-gated. What is not: SC-007's hand-calculation against real scanned data. SC-007
+therefore lands exactly where SC-001–SC-006 and SC-008 do — proven at the mocked-test level,
+bounded by R-407 — and this spec has **no** live-provable success criterion after all.
