@@ -845,3 +845,69 @@ def iam_unused_analysis(account: ConnectorAccount) -> list[dict[str, Any]]:
         raise RuntimeError(f"iam hygiene analysis failed: {exc}") from exc
 
     return principals
+
+
+def invoke_agent(
+    *,
+    agent_id: str,
+    agent_alias_id: str,
+    session_id: str,
+    prompt: str,
+    region: str,
+) -> dict[str, Any]:
+    """Invoke a Bedrock Agent and return its raw output (spec 006, T011,
+    research.md R-601, R-602).
+
+    The **only** place the Bedrock SDK appears (Principle V, FR-054). This
+    returns raw text and token counts and makes no judgement about either:
+    grounding is `app/governance/grounding.py`'s decision and cost accounting is
+    `app/governance/agent_runs.py`'s. Keeping those out of here is what lets
+    both be tested without an AWS client at all, which is what makes SC-001
+    provable in CI while the model is unreachable.
+
+    Raises `RuntimeError` on any transport or service failure rather than
+    returning a partial result. FR-007a treats an unreachable model as an
+    expected state, and the caller records the run as `failed` with this
+    message -- so a swallowed error here would become a run that looks
+    successful and produced nothing.
+    """
+    import boto3
+    from botocore.exceptions import BotoCoreError, ClientError
+
+    client = boto3.client("bedrock-agent-runtime", region_name=region)
+    try:
+        response = client.invoke_agent(
+            agentId=agent_id,
+            agentAliasId=agent_alias_id,
+            sessionId=session_id,
+            inputText=prompt,
+        )
+        chunks: list[str] = []
+        input_tokens = 0
+        output_tokens = 0
+        # The completion is an event stream, not a body: iterating it is how the
+        # response is assembled, and usage arrives on trace events rather than
+        # alongside the text.
+        for event in response.get("completion", []):
+            if "chunk" in event:
+                chunks.append(event["chunk"].get("bytes", b"").decode("utf-8"))
+            usage = (
+                event.get("trace", {})
+                .get("trace", {})
+                .get("orchestrationTrace", {})
+                .get("modelInvocationOutput", {})
+                .get("metadata", {})
+                .get("usage", {})
+            )
+            input_tokens += int(usage.get("inputTokens", 0))
+            output_tokens += int(usage.get("outputTokens", 0))
+    except (BotoCoreError, ClientError) as exc:
+        raise RuntimeError(f"bedrock agent invocation failed: {exc}") from exc
+
+    return {
+        "output_text": "".join(chunks),
+        # Input and output combined is the unit FR-004's cap is expressed in,
+        # but both are returned so a caller can report which half dominates.
+        "input_tokens": input_tokens,
+        "output_tokens": output_tokens,
+    }

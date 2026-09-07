@@ -242,6 +242,25 @@ components:
             properties:
               heading: { type: string }
               body: { type: string }
+              figures:
+                type: array
+                description: |
+                  Every platform-computed quantity this section states, declared
+                  explicitly rather than left to be parsed out of `body`
+                  (FR-001a). Declaring them makes validation exact: the validator
+                  compares each against the quantities the platform actually
+                  computed, instead of guessing which numerals in prose were
+                  meant to be figures. A numeral in `body` that reads as a
+                  platform figure — currency or a percentage — and is not
+                  declared here is unresolvable and rejects the whole output.
+                items:
+                  type: object
+                  required: [label, value]
+                  properties:
+                    label: { type: string }
+                    value:
+                      type: string
+                      description: Decimal as a string, to avoid float drift.
               references:
                 type: array
                 description: |
