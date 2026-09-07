@@ -41,9 +41,17 @@ Two deliberate judgements worth recording, since both could read as checklist vi
 - **SC-006 states a MAPE target.** "MAPE" is a statistical term, not a technology, and the user's
   own input set 15% as the bar. It stays measurable and tool-agnostic.
 
-One assumption is load-bearing enough to flag for `/speckit-clarify`: **forecasting is specified
-as a deterministic calculation, with the agent narrating rather than predicting.** That reading
-comes from Principle IV's deterministic-core rule and is what makes SC-006's accuracy target
-meaningful — a model-produced number could not be backtested against a stated target in any
-useful way. If the intent was model-produced forecasts, FR-007, FR-021, FR-022 and SC-006 all
-change together.
+**Clarification session 2026-09-05 resolved five items**, all now recorded in the spec's
+Clarifications section and integrated into the requirements:
+
+1. Suggestions are per individual finding, not per finding class — this reversed the original
+   input's wording and made FR-004's cost cap load-bearing, so SC-002, FR-011, an edge case and
+   an assumption all moved together.
+2. Forecasting is a deterministic calculation the agent narrates (the assumption previously
+   flagged here — now confirmed rather than inferred).
+3. Agent runs, digests and rejections are retained 30 days; a finding's suggestion is explicitly
+   excluded, since it belongs to the finding's lifecycle rather than the run's.
+4. Accepted coverage proposals apply tenant-wide, inheriting existing coverage/rule scoping.
+5. An unreachable model is a specified, testable state rather than an outage — added FR-007a and
+   SC-009, which is what keeps the P1 stories acceptable in an environment where the standing
+   networking gap makes the model unreachable.
