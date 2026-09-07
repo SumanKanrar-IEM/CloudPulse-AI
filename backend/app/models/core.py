@@ -691,6 +691,252 @@ class Scan(UUIDPrimaryKey, Timestamps, TenantScoped, Base):
     __table_args__ = (Index("ix_scan_account_started", "cloud_account_id", "started_at"),)
 
 
+# --- spec 006: agentic insights ---------------------------------------------------
+
+
+class AgentRun(UUIDPrimaryKey, TenantScoped, Base):
+    """One execution of one agent capability (spec 006, FR-004, FR-005).
+
+    No `Timestamps` mixin: `started_at`/`finished_at` are this row's own
+    lifecycle and there is no later edit.
+    """
+
+    __tablename__ = "agent_run"
+
+    capability: Mapped[enums.AgentCapability] = mapped_column(
+        _pg_enum(enums.AgentCapability, "agent_capability"), nullable=False
+    )
+    # R-608: content hash of the prompt/definition that ran, so a change in
+    # behaviour traces to a change in definition rather than to model drift.
+    definition_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    status: Mapped[enums.AgentRunStatus] = mapped_column(
+        _pg_enum(enums.AgentRunStatus, "agent_run_status"), nullable=False
+    )
+    # Both recorded, so a reader can tell "hit the cap" from "the cap was
+    # lowered" without consulting configuration history.
+    cost_units: Mapped[Decimal] = mapped_column(Numeric(12, 4), nullable=False)
+    cost_cap_units: Mapped[Decimal] = mapped_column(Numeric(12, 4), nullable=False)
+    failure_reason: Mapped[str | None] = mapped_column(Text)
+    started_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=text("now()")
+    )
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    __table_args__ = (
+        # An unexplained failure and a reason attached to a success are both
+        # refused at the database, rather than left to every writer to remember.
+        CheckConstraint(
+            "(status = 'failed' AND failure_reason IS NOT NULL) "
+            "OR (status <> 'failed' AND failure_reason IS NULL)",
+            name="ck_agent_run_failure_reason_shape",
+        ),
+        Index("ix_agent_run_tenant_started", "tenant_id", "started_at"),
+    )
+
+
+class InsightDigest(UUIDPrimaryKey, TenantScoped, Base):
+    """One daily summary for one tenant (spec 006, FR-008-FR-010)."""
+
+    __tablename__ = "insight_digest"
+
+    agent_run_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("agent_run.id", ondelete="CASCADE"), nullable=False
+    )
+    period_date: Mapped[date] = mapped_column(Date, nullable=False)
+    # R-610: structured sections, not rendered markup -- the frontend decides
+    # presentation, and a stored blob of HTML would make that irreversible.
+    content: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    # Stored rather than derived from empty content, so "the agent found nothing
+    # notable" (FR-010) and "the agent produced nothing" stay distinguishable.
+    is_empty: Mapped[bool] = mapped_column(nullable=False, server_default=text("false"))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=text("now()")
+    )
+
+    __table_args__ = (
+        # One per tenant per day: a re-run replaces rather than appends, which is
+        # what stops two overlapping runs producing a duplicate.
+        UniqueConstraint("tenant_id", "period_date", name="uq_insight_digest_tenant_date"),
+    )
+
+
+class GroundingRejection(UUIDPrimaryKey, TenantScoped, Base):
+    """An agent output refused before display (spec 006, FR-001, FR-006).
+
+    The rejected output itself is deliberately **not** stored. It is unvalidated
+    model text, and keeping it would create a place where fabricated ARNs live
+    inside the platform -- the exact thing FR-001 exists to prevent. The
+    reference that failed is enough to diagnose the rejection.
+    """
+
+    __tablename__ = "grounding_rejection"
+
+    agent_run_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("agent_run.id", ondelete="CASCADE"), nullable=False
+    )
+    rejected_reference: Mapped[str] = mapped_column(Text, nullable=False)
+    reference_kind: Mapped[enums.GroundingReferenceKind] = mapped_column(
+        _pg_enum(enums.GroundingReferenceKind, "grounding_reference_kind"), nullable=False
+    )
+    rejected_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=text("now()")
+    )
+
+    __table_args__ = (Index("ix_grounding_rejection_tenant_rejected", "tenant_id", "rejected_at"),)
+
+
+class CoverageProposal(UUIDPrimaryKey, TenantScoped, Base):
+    """A proposed configuration extension awaiting admin review (spec 006, P2).
+
+    `proposal_kind` has exactly two values by design (R-603): a resource type
+    with no existing enricher cannot be proposed at all, because accepting it
+    could not take effect without a code change. Those gaps are advisory content
+    (FR-015a), never a row here.
+    """
+
+    __tablename__ = "coverage_proposal"
+
+    agent_run_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("agent_run.id", ondelete="CASCADE"), nullable=False
+    )
+    proposal_kind: Mapped[enums.CoverageProposalKind] = mapped_column(
+        _pg_enum(enums.CoverageProposalKind, "coverage_proposal_kind"), nullable=False
+    )
+    resource_type: Mapped[str] = mapped_column(String(200), nullable=False)
+    # Evidence, not scope: acceptance applies tenant-wide (FR-017).
+    evidence_account_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("cloud_account.id", ondelete="CASCADE"), nullable=False
+    )
+    proposed_change: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    review_state: Mapped[enums.ProposalReviewState] = mapped_column(
+        _pg_enum(enums.ProposalReviewState, "proposal_review_state"),
+        nullable=False,
+        server_default=enums.ProposalReviewState.PENDING.value,
+    )
+    decided_by: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("app_user.id", ondelete="SET NULL")
+    )
+    decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    applied_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    __table_args__ = (
+        CheckConstraint(
+            "(review_state = 'pending' AND decided_at IS NULL) "
+            "OR (review_state <> 'pending' AND decided_at IS NOT NULL)",
+            name="ck_coverage_proposal_decision_shape",
+        ),
+        # Partial: the advisor cannot raise the same pending proposal twice,
+        # while every decided one stays as history. Same shape as spec 005's
+        # active-IAM-flag index.
+        Index(
+            "uq_coverage_proposal_pending",
+            "tenant_id",
+            "resource_type",
+            "proposal_kind",
+            unique=True,
+            postgresql_where=text("review_state = 'pending'"),
+        ),
+    )
+
+
+class ResourceMetric(UUIDPrimaryKey, TenantScoped, Base):
+    """One utilization measurement for one resource over one period (P2)."""
+
+    __tablename__ = "resource_metric"
+
+    resource_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("resource.id", ondelete="CASCADE"), nullable=False
+    )
+    metric: Mapped[enums.ResourceMetricKind] = mapped_column(
+        _pg_enum(enums.ResourceMetricKind, "resource_metric_kind"), nullable=False
+    )
+    period_start: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    # FR-020: unknown, never zero. Same discipline `SpendRecord.amount_usd`/
+    # `is_gap` already uses -- a missing measurement stored as a zero would drag
+    # an average down and understate utilization.
+    value: Mapped[Decimal | None] = mapped_column(Numeric(12, 4))
+    is_unavailable: Mapped[bool] = mapped_column(nullable=False, server_default=text("false"))
+    collected_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=text("now()")
+    )
+
+    __table_args__ = (
+        UniqueConstraint(
+            "tenant_id",
+            "resource_id",
+            "metric",
+            "period_start",
+            name="uq_resource_metric_tenant_resource_metric_period",
+        ),
+        CheckConstraint(
+            "(is_unavailable AND value IS NULL) OR (NOT is_unavailable AND value IS NOT NULL)",
+            name="ck_resource_metric_unavailable_shape",
+        ),
+    )
+
+
+class Forecast(UUIDPrimaryKey, TenantScoped, Base):
+    """A projected spend or capacity figure for one project (P2).
+
+    No `agent_run_id`, deliberately: FR-021 makes forecasting a deterministic
+    calculation, not an agent output. The agent narrates a forecast; it never
+    produces or alters one. `history_days` is what makes FR-021a's
+    "not enough data" state auditable rather than a runtime-only decision.
+    """
+
+    __tablename__ = "forecast"
+
+    sda_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("sda.id", ondelete="CASCADE"), nullable=False
+    )
+    kind: Mapped[enums.ForecastKind] = mapped_column(
+        _pg_enum(enums.ForecastKind, "forecast_kind"), nullable=False
+    )
+    period_start: Mapped[date] = mapped_column(Date, nullable=False)
+    period_end: Mapped[date] = mapped_column(Date, nullable=False)
+    projected_value: Mapped[Decimal] = mapped_column(Numeric(14, 4), nullable=False)
+    history_days: Mapped[int] = mapped_column(Integer, nullable=False)
+    actual_value: Mapped[Decimal | None] = mapped_column(Numeric(14, 4))
+    absolute_percentage_error: Mapped[Decimal | None] = mapped_column(Numeric(6, 3))
+
+    __table_args__ = (
+        UniqueConstraint(
+            "tenant_id", "sda_id", "kind", "period_start", name="uq_forecast_tenant_sda_kind_period"
+        ),
+    )
+
+
+class RightsizingRecommendation(UUIDPrimaryKey, TenantScoped, Base):
+    """A proposed instance class for one resource (P2, FR-023)."""
+
+    __tablename__ = "rightsizing_recommendation"
+
+    resource_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("resource.id", ondelete="CASCADE"), nullable=False
+    )
+    current_class: Mapped[str] = mapped_column(String(100), nullable=False)
+    recommended_class: Mapped[str] = mapped_column(String(100), nullable=False)
+    # NOT NULL because FR-023 requires it: a recommendation to downsize
+    # something, without the measurements behind it, is a guess presented as a
+    # fact -- and this one asks a human to change production.
+    evidence: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    estimated_monthly_saving_usd: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    superseded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=text("now()")
+    )
+
+    __table_args__ = (
+        Index(
+            "uq_rightsizing_live_per_resource",
+            "tenant_id",
+            "resource_id",
+            unique=True,
+            postgresql_where=text("superseded_at IS NULL"),
+        ),
+    )
+
+
 __all__ = [
     "Tenant",
     "AppUser",
@@ -709,4 +955,11 @@ __all__ = [
     "ResourceOwner",
     "OwnerIdentityOverride",
     "Scan",
+    "AgentRun",
+    "InsightDigest",
+    "GroundingRejection",
+    "CoverageProposal",
+    "ResourceMetric",
+    "Forecast",
+    "RightsizingRecommendation",
 ]
