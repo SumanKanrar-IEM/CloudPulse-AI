@@ -171,11 +171,14 @@ the suggester's own compliance an accident of ordering rather than a property of
 
 No constitution violations require justification.
 
-One accepted limitation, recorded rather than resolved: **R-603 splits the coverage advisor's
-proposals into what can and cannot be applied as data.** A resource type with no existing
-enrichment function cannot be closed by an accepted proposal, because
-`coverage_definitions.json` maps a type to a Python function name. Building a declarative
-enrichment DSL would make it data-only and is real unplanned scope — rejected for a P2 story, and
-named in research.md as the thing to build if class-3 coverage is ever wanted. FR-017 and SC-003
-are satisfied for the two proposable kinds; the third is surfaced as advisory content, never as
-an acceptable proposal that could not take effect.
+**R-603's limitation is now resolved in the requirements, not merely noted.** A resource type
+with no existing enrichment function cannot be closed by an accepted proposal, because
+`coverage_definitions.json` maps a type to a Python function name. The checklist review
+(CHK034/CHK035) caught that FR-015 as originally written promised otherwise. FR-015 is now
+narrowed to the two kinds that apply as configuration, and FR-015a makes the third read-only
+advisory content that is never offered for acceptance — so FR-017 and SC-003 hold absolutely
+rather than carrying an exception.
+
+Building a declarative enrichment DSL would make class 3 data-only. That is real unplanned scope
+— a DSL, its evaluator, its validation, and its own security review — rejected for a P2 story and
+named in research.md as the thing to build if class-3 coverage is ever wanted.

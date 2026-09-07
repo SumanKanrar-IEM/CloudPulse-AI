@@ -62,6 +62,25 @@ paths:
           description: Rejections, most recent first.
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+  /coverage-proposals/advisory-gaps:
+    get:
+      operationId: listAdvisoryCoverageGaps
+      summary: Detected gaps that configuration alone cannot close (P2)
+      description: |
+        FR-015a. A resource type present in inventory for which no enrichment routine
+        exists. Deliberately a SEPARATE path from `/coverage-proposals`, and read-only:
+        there is no decision endpoint here, because accepting one could not take effect
+        without a code change (research.md R-603). Surfacing the gap is useful;
+        offering a control that cannot deliver is not.
+      tags: [coverage-proposals]
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdvisoryGapList" }
+          description: Advisory gaps, never acceptable proposals.
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
   /coverage-proposals:
     get:
       operationId: listCoverageProposals
@@ -202,6 +221,15 @@ components:
         isEmpty:
           type: boolean
           description: A run completed and found nothing notable (FR-010).
+        selectionBasis:
+          type: string
+          enum: [severity_escalation_age]
+          description: |
+            FR-008a. The deterministic order the platform used to select the findings
+            this digest covers, applied before the agent was invoked. The agent
+            explains the selection; it does not make it. A truncated digest run
+            discards its partial output entirely (FR-004a), so a digest that is
+            present is always complete.
         definitionHash:
           type: string
           nullable: true
@@ -288,6 +316,24 @@ components:
         decidedAt: { type: string, format: date-time, nullable: true }
         appliedAt: { type: string, format: date-time, nullable: true }
         createdAt: { type: string, format: date-time }
+    AdvisoryGap:
+      type: object
+      required: [resourceType, evidenceAccountAlias, reason, detectedAt]
+      properties:
+        resourceType: { type: string }
+        evidenceAccountAlias: { type: string }
+        reason:
+          type: string
+          description: Why configuration alone cannot close it.
+        resourceCount: { type: integer }
+        detectedAt: { type: string, format: date-time }
+    AdvisoryGapList:
+      type: object
+      required: [gaps]
+      properties:
+        gaps:
+          type: array
+          items: { $ref: "#/components/schemas/AdvisoryGap" }
     CoverageProposalList:
       type: object
       required: [proposals]

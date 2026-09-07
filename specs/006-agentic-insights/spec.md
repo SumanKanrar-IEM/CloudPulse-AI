@@ -17,6 +17,9 @@
 - Q: How long should the platform keep agent runs, digests, and grounding rejections before deleting them? → A: 30 days, matching the platform's existing log-retention decision
 - Q: When an admin accepts a coverage proposal, should the change apply tenant-wide or only to the account whose inventory revealed the gap? → A: Tenant-wide, matching how coverage-as-data and rules-as-data already work
 - Q: If the model is unreachable at runtime, should the P1 stories still be considered shippable? → A: Yes — an unreachable model is a recorded run failure; surfaces show the last valid output or "not enough data yet", never fabricated content
+- Q: FR-015 implied the advisor could propose coverage a resource type has no enricher for, which FR-017's "no code deployment" cannot deliver. How is that resolved? → A: Narrow FR-015 to the two kinds that apply as data; the third becomes read-only advisory content that is never an acceptable proposal
+- Q: Who decides which findings are the digest's "top" findings? → A: The platform ranks deterministically (severity, then escalated, then oldest) and selects before the agent sees them; the agent explains, it does not rank
+- Q: When a run stops at its cost cap, is already-produced output displayed or discarded? → A: Item-wise outputs keep every validated item; whole-artifact outputs (digest, narrative) discard partial output. The run is marked truncated either way
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -53,6 +56,10 @@ dashboard card, and that every resource identifier and figure it contains exists
 5. **Given** yesterday's digest is on the dashboard and today's run has not completed, **When** a
    user opens the dashboard, **Then** the digest shown is clearly labelled with the run it came
    from, so a stale digest is never mistaken for a current one.
+6. **Given** findings of differing severity, escalation state and age, **When** the digest run
+   selects which to cover, **Then** the selection follows the platform's deterministic order and
+   is reproducible from the same finding set — the agent explains the selection rather than
+   making it.
 
 ---
 
@@ -115,6 +122,9 @@ admin, and confirm the next scan enriches or governs that type without any code 
 6. **Given** a proposal raised from one account's inventory, **When** an admin accepts it,
    **Then** the change applies across every account in the tenant, and the interface makes that
    scope clear before acceptance rather than after.
+7. **Given** a resource type present in inventory for which no enrichment routine exists,
+   **When** the advisor runs, **Then** the gap is shown as advisory content with no acceptance
+   control, and it is distinguishable from a proposal an admin can act on.
 
 ---
 
@@ -222,9 +232,13 @@ figure in the prose matches the corresponding chart value exactly.
   was truncated, rather than continuing unbounded or silently producing a partial result presented
   as complete.
 - What happens when there are more open findings than the suggester's cost cap allows in one run?
-  Suggestions are produced in priority order until the cap is reached, the run records itself as
-  truncated, and the remaining findings are picked up by the next run — a finding without a
-  suggestion yet simply shows none, never a placeholder or a partial one.
+  Suggestions are produced in priority order until the cap is reached, every one that passed
+  validation is retained (FR-004a), the run records itself as truncated, and the remaining
+  findings are picked up by the next run — a finding without a suggestion yet simply shows none,
+  never a placeholder or a partial one.
+- What happens when the digest run is truncated partway? The partial digest is discarded rather
+  than displayed (FR-004a), the run is recorded as truncated, and the dashboard continues to show
+  the last complete digest or the "not enough data yet" state.
 - What happens when a finding is resolved between the suggestion being drafted and displayed? The
   suggestion is not shown for a finding that is no longer open.
 - What happens when the governance store is empty — a newly provisioned tenant? Every agent
@@ -233,6 +247,9 @@ figure in the prose matches the corresponding chart value exactly.
   a concurrent second run does not produce a duplicate or interleaved digest.
 - What happens when a coverage proposal is accepted but the underlying resource type disappears
   before the next scan? The accepted configuration applies harmlessly and governs nothing.
+- What happens when the advisor finds a gap needing a resource type nobody has written an
+  enrichment routine for? It is shown as advisory content with no acceptance control (FR-015a) —
+  an accept button that could not take effect would misrepresent what the platform can do.
 - What happens when a prompt or agent definition changes? The output records which version
   produced it, so a change in behaviour is traceable to a change in definition.
 - What happens to a displayed digest when its run record ages out at 30 days? The digest ages out
@@ -255,6 +272,12 @@ figure in the prose matches the corresponding chart value exactly.
   MUST reach platform data only through a read-only, tenant-scoped interface.
 - **FR-004** `[P1]`: Every agent run MUST enforce a cost cap, and a run reaching its cap MUST stop
   and record that it was truncated rather than continue or present partial output as complete.
+- **FR-004a** `[P1]`: What a truncated run does with the output it already produced depends on
+  the shape of that output. An **item-wise** capability (suggestions, proposals, rightsizing
+  recommendations) MUST retain every item that passed validation — each stands alone, and
+  discarding them would waste spend already incurred. A **whole-artifact** capability (digest,
+  narrative) MUST discard partial output, because a half-written digest implies that nothing else
+  was notable. The run is recorded as truncated in both cases.
 - **FR-005** `[P1]`: Agent prompts and definitions MUST be versioned in the repository, and every
   stored output MUST record which version produced it.
 - **FR-006** `[P1]`: A rejected agent output MUST be recorded with the reason for rejection, so
@@ -275,6 +298,12 @@ figure in the prose matches the corresponding chart value exactly.
 
 - **FR-008** `[P1]`: The system MUST produce a digest on a daily schedule covering the top open
   findings, the direction and magnitude of compliance movement, and notable spend changes.
+- **FR-008a** `[P1]`: The findings a digest covers MUST be selected by the platform, not by the
+  agent, using a deterministic order: severity descending, then escalated before not-escalated,
+  then oldest first. The agent receives the already-selected set and explains it. Ranking is a
+  scoring decision, and Principle IV reserves scoring for the deterministic core — an
+  agent-chosen ranking would also be unverifiable, since the grounding validator can confirm a
+  finding exists but not that it was genuinely the most urgent.
 - **FR-009** `[P1]`: The digest MUST be displayed on the dashboard, labelled with the run that
   produced it so a stale digest is distinguishable from a current one.
 - **FR-010** `[P1]`: When there is nothing notable to report, the digest MUST say so plainly
@@ -295,7 +324,13 @@ figure in the prose matches the corresponding chart value exactly.
 
 - **FR-015** `[P2]`: The system MUST detect resource types present in a tenant's inventory that
   are not covered by existing enrichment or governance configuration, and propose the
-  configuration change that would cover them.
+  configuration change that would cover them — limited to the two kinds that take effect as
+  configuration: a new or widened **rule** over already-collected fields, and **enabling an
+  enrichment routine that already exists** but is not yet mapped to that type.
+- **FR-015a** `[P2]`: A detected gap that cannot be closed by configuration alone — a resource
+  type for which no enrichment routine exists — MUST be surfaced as read-only advisory content
+  and MUST NOT be offered as an acceptable proposal. Offering an acceptance control that could
+  not take effect would be worse than not surfacing the gap at all.
 - **FR-016** `[P2]`: A proposal MUST require explicit admin acceptance before taking effect, and
   MUST be visible to non-admin roles without being actionable by them.
 - **FR-017** `[P2]`: An accepted proposal MUST take effect on the next scan as configuration, with
@@ -356,7 +391,9 @@ figure in the prose matches the corresponding chart value exactly.
 - **SC-002**: Every open finding has its own suggestion available, naming that finding's own
   resource — 100% coverage of open findings, not of finding classes.
 - **SC-003**: An admin can accept a coverage proposal and see it take effect on the next scan
-  without any code change or deployment.
+  without any code change or deployment — true for 100% of proposals the platform offers for
+  acceptance, since a gap that would need code is surfaced as advisory content and never as an
+  acceptable proposal (FR-015a).
 - **SC-004**: A reader can identify the platform's most urgent governance issue from the digest
   alone, without opening another screen.
 - **SC-005**: No user-facing control anywhere in the platform applies, schedules, or executes an
@@ -365,8 +402,9 @@ figure in the prose matches the corresponding chart value exactly.
   sufficient history, and re-running the backtest over the same history reproduces the same
   figure exactly.
 - **SC-007**: Every figure in a displayed narrative matches its chart exactly — zero mismatches.
-- **SC-008**: Agent runs stay within their configured cost cap 100% of the time, and any truncated
-  run is identifiable as truncated.
+- **SC-008**: Agent runs stay within their configured cost cap 100% of the time, any truncated
+  run is identifiable as truncated, and no validated item produced before truncation is lost from
+  an item-wise capability.
 - **SC-009**: With the model unreachable, every agent surface still renders correctly — last valid
   output or an explicit "not enough data yet" — and no deterministic capability (inventory,
   findings, compliance, spend, utilization) changes behaviour at all.

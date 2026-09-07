@@ -60,6 +60,11 @@ this split that requirement would be unimplementable for class 3 and the spec wo
 that silently does nothing. Naming the boundary now is cheaper than discovering it in
 implementation — the lesson playbook §0.5.5 records about assumptions that read as settled.
 
+**Resolved in the spec (2026-09-05)**: the checklist review (CHK034/CHK035) confirmed FR-015 as
+originally written contradicted this finding. FR-015 is now narrowed to classes 1 and 2, and a
+new FR-015a makes class 3 read-only advisory content that is never offered for acceptance. SC-003
+therefore stays an absolute claim rather than gaining an exception clause.
+
 **Alternatives considered**: A generic data-driven enricher (a declarative field-extraction DSL
 over Cloud Control payloads) — genuinely would make class 3 data-only, and is real unplanned
 scope: a DSL, its evaluator, its validation, and its own security review. Rejected for a P2
@@ -141,6 +146,22 @@ meaningless as a signal for prod.
 §0.5.3 sweep, extended for this spec to confirm the agents, action-group Lambdas, guardrails, and
 their log groups are gone. Spec 005's own teardown proved the sweep matters: `terraform destroy`
 reported 106 resources destroyed and still left an RDS-created log group with no retention policy.
+
+## R-606a — The platform ranks the digest's findings; the agent only explains them
+
+**Decision**: Finding selection for the digest is a deterministic platform query — severity
+descending, then escalated before not-escalated, then oldest first — performed before the agent
+is invoked. The agent receives an already-selected set (FR-008a).
+
+**Rationale**: ranking is scoring, and Principle IV reserves scoring for the deterministic core.
+It is also the only version that is verifiable: the grounding validator can confirm a finding
+exists, but has no way to confirm that a model-chosen finding was genuinely the most urgent. A
+claim nobody can check is not a requirement, it is a hope.
+
+**Alternatives considered**: letting the agent rank from the full finding set — more adaptive
+wording, unauditable selection, and a model call on a scoring path. Severity-only ranking —
+simpler, but ranks a fresh high above a day-4 escalated medium, which is the wrong answer for a
+digest meant to say what needs attention today.
 
 ## R-607 — Grounding validation is deterministic code, never a second model call
 

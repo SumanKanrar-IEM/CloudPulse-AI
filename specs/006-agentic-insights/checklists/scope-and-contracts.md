@@ -72,14 +72,30 @@ cross-spec contract consistency — before `/speckit-tasks` turns this spec into
 - `/speckit-implement` reads checklist checkbox state as a gate and must not modify markers
 - `checklists/requirements.md` has a separate built-in lifecycle maintained by `/speckit-specify` and `/speckit-clarify`
 
-**Known candidates for a real finding.** These are the items most likely to fail review rather
-than pass, based on writing them:
+**Three findings were raised by this checklist and resolved in the spec on 2026-09-05.** Recorded
+here rather than silently absorbed, because a checklist that leaves no trace of what it caught
+cannot be told apart from one that caught nothing.
 
-- **CHK034/CHK035** — FR-015 says the advisor proposes coverage extensions generally, while R-603
-  establishes that one of the three classes cannot take effect as data. Either FR-015 narrows or
-  FR-017's "no code deployment" carries an exception it does not currently state.
-- **CHK038** — FR-008 requires "top open findings" without defining what makes one top. Severity,
-  age, and escalation state all exist and would rank differently.
-- **CHK040** — the Edge Cases section says a truncated run "records that it was truncated", and
-  US2's cost-cap scenario says remaining findings show no suggestion; neither states whether the
-  partial output already produced is displayed.
+- **CHK034/CHK035 — addressed.** FR-015 promised the advisor could propose coverage that FR-017's
+  "no code deployment" cannot deliver. FR-015 is now narrowed to the two kinds that apply as
+  configuration; new **FR-015a** makes the third read-only advisory content that is never offered
+  for acceptance, with its own `/coverage-proposals/advisory-gaps` path carrying no decision
+  endpoint. SC-003 stays an absolute claim instead of gaining an exception clause.
+  *Options weighed*: broadening FR-017 with an exception (rejected — leaves accept controls that
+  sometimes cannot deliver); building a declarative enrichment DSL (rejected — real unplanned
+  scope for a P2 story, recorded in R-603 as the thing to build if class-3 coverage is wanted).
+- **CHK038 — addressed.** New **FR-008a**: the platform selects the digest's findings
+  deterministically (severity, then escalated, then oldest) *before* the agent is invoked; the
+  agent explains the selection rather than making it. Recorded as **R-606a**. Ranking is scoring,
+  which Principle IV reserves for the deterministic core — and an agent-chosen ranking would be
+  unverifiable, since the grounding validator can confirm a finding exists but not that it was
+  genuinely the most urgent.
+- **CHK040 — addressed.** New **FR-004a**: truncation behaviour follows the shape of the output.
+  Item-wise capabilities (suggestions, proposals, rightsizing) retain every validated item —
+  discarding them would waste spend already incurred. Whole-artifact capabilities (digest,
+  narrative) discard partial output, because a half-written digest implies nothing else was
+  notable. SC-008 gained the retention half of that claim.
+
+The reviewer should still evaluate all 40 items against the updated spec. These three are noted
+as **addressed**, not as **passed** — that judgement belongs to the review, not to the author of
+the fix.
