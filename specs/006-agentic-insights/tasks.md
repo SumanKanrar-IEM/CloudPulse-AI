@@ -239,14 +239,20 @@ a resource-specific suggestion marked `ai_generated`, and that no endpoint or co
       `GET /insights/digest` is reachable and correctly role-gated. **Per T029's result**, either
       exercise a real agent invocation or record SC-001/SC-002/SC-004 as proven at the
       mocked-test level with the R-605 bound stated — do not attempt a live invocation blind.
+      **The precondition is two-deep, and both halves are blocked**: the model may be unreachable,
+      *and* the findings/spend a digest summarises cannot be produced by a live scan, because
+      account registration calls STS and the Tagging API with no route out of the VPC (spec 005
+      T051a). Seed fixture data rather than expecting a live scan to supply it, and say so in the
+      outcome — quickstart.md's Prerequisites now states this.
       Note: a `Deploy dev` run labelled *cancelled* may still have applied — check AWS directly
-      rather than trusting the label (spec 005 T051's finding) — S43, S44, SC-001, SC-002, SC-004
+      rather than trusting the label (spec 005's own live-verification task found exactly that: a
+      job timeout after `terraform apply` had completed, leaving an environment up and billing) — S43, S44, SC-001, SC-002, SC-004
 - [ ] T031 **Teardown and cost sweep**, immediately following T030, never separated from it by
       other work: full playbook §0.5.3 sweep, extended to confirm this spec's agents, aliases,
       guardrails, action-group Lambdas, schedules and log groups are gone. Take a baseline sweep
       *before* deploying so the post-teardown sweep is a real before/after. Check
-      `retentionInDays==null` log groups specifically — spec 005's T052 found an RDS-created
-      orphan Terraform never managed — playbook §0.5.3
+      `retentionInDays==null` log groups specifically — spec 005's teardown found an RDS-created
+      orphan Terraform never managed and `destroy` never touched — playbook §0.5.3
 
 **Checkpoint**: 🏁 **P1 complete.** Every P1 criterion provable; live-verification honestly bounded.
 
@@ -365,9 +371,14 @@ a resource-specific suggestion marked `ai_generated`, and that no endpoint or co
       raised a missing journal section as **H1 CRITICAL** (a Principle I violation) and spec 002's
       H1 caught it before that; spec 005 had to add it retroactively as T026a. Written as its own
       task this time rather than discovered a fourth time — Principle I
-- [ ] T058 **Live-verify P2** — deploy, exercise the coverage-proposal accept path end to end
-      (SC-003 needs no model call and is the P2 criterion most likely to be provable live), and
-      record what was and was not proven — S43, SC-003
+- [ ] T058 **Live-verify P2** — deploy and exercise the coverage-proposal accept path end to end.
+      SC-003 needs no model call, which makes it the P2 criterion most likely to be provable live
+      — **but its input is not free either**: the advisor detects gaps from scanned inventory, so
+      the accept path runs against seeded fixture inventory unless R-407 is funded. Verify the
+      acceptance transition and its effect on the next scan's configuration; record explicitly
+      what was proven against real AWS and what against fixtures. Do not repeat spec 005's R-511
+      error of calling a capability live-verifiable because the capability itself makes no AWS
+      call — S43, SC-003, FR-015a
 - [ ] T059 **Teardown and cost sweep**, immediately following T058, never separated from it —
       playbook §0.5.3
 - [ ] T060 Re-run `/speckit-analyze` on spec 006 and resolve any finding. Check *data

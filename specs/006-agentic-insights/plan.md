@@ -167,6 +167,28 @@ Phase 2 exists as its own phase deliberately: the grounding validator and the ru
 accounting are shared by all seven stories, and building them inside the digest phase would make
 the suggester's own compliance an accident of ordering rather than a property of the design.
 
+## Configured Values
+
+Three tunables this spec adds, and where they live (research.md **R-612**):
+
+| Value | Requirement | Default posture |
+| --- | --- | --- |
+| Agent run cost cap, in model tokens (input + output) | FR-004 | Conservative fallback; a run reaching it is `truncated`, not `failed` |
+| Notability thresholds — spend percentage, spend absolute, compliance points | FR-008b | Platform-computed before the agent is invoked; the agent never decides what is notable |
+| Minimum distinct periods for a forecast | FR-021a | Below it, the explicit not-enough-data state, never a projection |
+
+All three are read from the environment at their point of use, **not** added to the shared
+`Settings` model. Spec 005 tried the other way: adding `default_budget_usd` to `Settings` gave
+`POST /sdas` its first-ever configuration dependency and broke 11 existing spec-003 tests, none of
+which construct a Settings environment (spec 005's T029a). A malformed or non-positive value falls
+back rather than raising — a bad threshold must not take down an unrelated request path, and a
+cost cap of zero would truncate every run before it started.
+
+FR-001a additionally fixes *what* grounding validates, which is a design constraint rather than a
+configured value: platform-computed quantities resolve against the store; ordinary prose numerals
+do not; a quantity presented as a platform figure that the platform never computed is
+unresolvable.
+
 ## Complexity Tracking
 
 No constitution violations require justification.
