@@ -152,6 +152,88 @@ class IamPrincipalType(StrEnum):
     ACCESS_KEY = "access_key"
 
 
+# --- spec 006 (agentic insights). Created by migration 0015, not by 0001's
+# --- ENUM_TYPES registry -- that dict is the initial one-time registry, and
+# --- every spec since 003 has created its own types in its own migration.
+#
+# Every enum below carries only the values something can actually write today.
+# Migration 0014 had to perform a rename-create-recast-drop to remove
+# `withheld_bounced`, which shipped in 0012 with no writer: adding an enum value
+# later is additive and cheap, removing one is not.
+
+
+class AgentCapability(StrEnum):
+    """Which agent produced a run (spec 006, FR-005)."""
+
+    DIGEST = "digest"
+    SUGGESTER = "suggester"
+    ADVISOR = "advisor"
+    NARRATOR = "narrator"
+
+
+class AgentRunStatus(StrEnum):
+    """How a run ended (spec 006, FR-004, FR-007a).
+
+    `TRUNCATED` is not a failure. FR-004 requires a run reaching its cost cap to
+    stop and say so, and what it already produced may still be kept -- see
+    FR-004a, where item-wise capabilities retain validated items and
+    whole-artifact ones discard. `FAILED` is the unreachable-model case, which
+    FR-007a treats as an expected steady state rather than an outage.
+    """
+
+    SUCCEEDED = "succeeded"
+    TRUNCATED = "truncated"
+    FAILED = "failed"
+
+
+class GroundingReferenceKind(StrEnum):
+    """What kind of reference failed validation (spec 006, FR-001, FR-001a)."""
+
+    ARN = "arn"
+    RESOURCE_ID = "resource_id"
+    FINDING_ID = "finding_id"
+    SDA = "sda"
+    FIGURE = "figure"
+
+
+class CoverageProposalKind(StrEnum):
+    """The two gap kinds that can be closed as configuration (spec 006, FR-015).
+
+    Exactly two, deliberately. Research.md R-603: a resource type with no
+    existing enrichment routine cannot be proposed at all, because accepting it
+    could not take effect without a code change and FR-017 would be
+    unsatisfiable. Those gaps surface as read-only advisory content (FR-015a),
+    never as a row -- which is why there is no third member here to tempt one.
+    """
+
+    RULE_EXTENSION = "rule_extension"
+    ENABLE_EXISTING_ENRICHER = "enable_existing_enricher"
+
+
+class ProposalReviewState(StrEnum):
+    """FR-016: no proposal takes effect without explicit admin acceptance."""
+
+    PENDING = "pending"
+    ACCEPTED = "accepted"
+    REJECTED = "rejected"
+
+
+class ResourceMetricKind(StrEnum):
+    """Utilization dimensions collected per resource (spec 006, FR-019)."""
+
+    CPU = "cpu"
+    MEMORY = "memory"
+    NETWORK = "network"
+    STORAGE = "storage"
+
+
+class ForecastKind(StrEnum):
+    """What a forecast projects (spec 006, FR-021)."""
+
+    SPEND = "spend"
+    CAPACITY = "capacity"
+
+
 # name -> members, consumed by migration 0001 so the two cannot drift.
 ENUM_TYPES: dict[str, type[StrEnum]] = {
     "tenant_status": TenantStatus,

@@ -45,22 +45,48 @@ history readable.
 
 **Purpose**: The tables and scaffold every later phase writes to.
 
-- [ ] T001 Create the `agents/` tree per plan.md — `agents/definitions/`, `agents/action-groups/`,
+- [X] T001 Create the `agents/` tree per plan.md — `agents/definitions/`, `agents/action-groups/`,
       `agents/prompts/`, `agents/evals/`, each with a README stating what it holds and that spec
       001 reserved this tree. Replace `agents/README.md`'s "deliberately empty" wording, which
       stops being true here — S43, S44, Principle I
-- [ ] T002 Write `backend/migrations/versions/0015_agentic_insights.py` — the seven tables from
+      **Done.** Each subdirectory's README states the constraint that actually binds it rather
+      than repeating the tree: action groups call the HTTP API and never the database (R-602);
+      prompts are content-hashed so a behaviour change traces to a commit rather than to model
+      drift; evals run against recorded fixtures, which buys determinism and free CI at the cost
+      of proving output *handling* rather than model quality — stated so the suite is not mistaken
+      for something it is not.
+- [X] T002 Write `backend/migrations/versions/0015_agentic_insights.py` — the seven tables from
       data-model.md (`agent_run`, `insight_digest`, `grounding_rejection`, `coverage_proposal`,
       `resource_metric`, `forecast`, `rightsizing_recommendation`), the **seven** enum types
       data-model.md's "Enum additions" section lists, and the partial unique indexes. Declare `REVERSIBLE: yes` — S43, FR-005, FR-006a
       `erd-current` CI requires `ops/erd/schema.mmd` to change in this same PR.
-- [ ] T003 Update `ops/erd/schema.mmd` with the seven new entities and their relationships to
+      **Done.** Purely additive — no spec 001–005 row is touched and no backfill is needed. Two
+      CHECK constraints encode requirements rather than conventions:
+      `ck_agent_run_failure_reason_shape` (a failed run has a reason, a successful one does not)
+      and `ck_resource_metric_unavailable_shape` (FR-020's unknown-never-zero). Every enum carries
+      only values something can write today — the lesson migration 0014 paid for when
+      `withheld_bounced` shipped with no writer and removing it needed a rename-create-recast-drop.
+- [X] T003 Update `ops/erd/schema.mmd` with the seven new entities and their relationships to
       `tenant`, `finding`, `resource`, `sda` and `cloud_account` — S43, FR-028 (spec 001)
-- [ ] T004 [P] Add the SQLAlchemy models to `backend/app/models/core.py` and the enums to
+      **Done.** The ERD records *why* two shapes are what they are, not just what: `forecast` has
+      no `agent_run_id` because forecasting is deterministic and never an agent output, and
+      `grounding_rejection` deliberately does not store the rejected text — keeping unvalidated
+      model output would create a home for fabricated ARNs inside the platform.
+- [X] T004 [P] Add the SQLAlchemy models to `backend/app/models/core.py` and the enums to
       `backend/app/models/enums.py`, every table `TenantScoped` — S43, FR-005, FR-006a
-- [ ] T005 [P] Write `backend/tests/integration/test_migration_0015.py` — every revision applies
+      **Done.** The seven enums are created by this spec's own migration rather than added to
+      migration 0001's `ENUM_TYPES` registry, matching what every spec since 003 has done — that
+      dict is the one-time initial registry.
+- [X] T005 [P] Write `backend/tests/integration/test_migration_0015.py` — every revision applies
       and downgrades cleanly, the enums hold exactly their documented values, and the partial
       unique indexes reject the duplicates they exist to prevent — S43, FR-006a
+      **Done**, 18 tests. Two choices worth recording, both made after ruff flagged the first
+      draft and both real improvements rather than lint appeasement: assertions use
+      `IntegrityError`, never bare `Exception` — a broad catch would pass on a typo'd statement
+      raising `ProgrammingError`, so the test would report a constraint working while actually
+      proving the SQL was wrong — and every statement binds parameters instead of interpolating.
+      Enum membership is asserted exactly rather than with `<=`, so a speculative value fails here
+      instead of surviving into someone else's migration.
 
 **Checkpoint**: Schema exists; nothing reads it yet.
 

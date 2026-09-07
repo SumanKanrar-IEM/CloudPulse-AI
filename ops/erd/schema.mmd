@@ -23,6 +23,13 @@ erDiagram
     TENANT ||--o{ BUDGET : "owns"
     TENANT ||--o{ NOTIFICATION : "owns"
     TENANT ||--o{ IAM_HYGIENE_FLAG : "owns"
+    TENANT ||--o{ AGENT_RUN : "owns"
+    TENANT ||--o{ INSIGHT_DIGEST : "owns"
+    TENANT ||--o{ GROUNDING_REJECTION : "owns"
+    TENANT ||--o{ COVERAGE_PROPOSAL : "owns"
+    TENANT ||--o{ RESOURCE_METRIC : "owns"
+    TENANT ||--o{ FORECAST : "owns"
+    TENANT ||--o{ RIGHTSIZING_RECOMMENDATION : "owns"
 
     APP_USER ||--o{ AUDIT_EVENT : "acted as"
     APP_USER ||--o{ FINDING : "acknowledged"
@@ -40,6 +47,15 @@ erDiagram
     SDA ||--o{ SPEND_RECORD : "attributes (spec 005, null = No SDA)"
     SDA ||--|| BUDGET : "has (spec 005)"
     SDA ||--o{ FINDING : "overruns (budget_overrun kind, spec 005)"
+
+    AGENT_RUN ||--o| INSIGHT_DIGEST : "produced (spec 006)"
+    AGENT_RUN ||--o{ GROUNDING_REJECTION : "was refused for (spec 006)"
+    AGENT_RUN ||--o{ COVERAGE_PROPOSAL : "proposed (spec 006, P2)"
+    CLOUD_ACCOUNT ||--o{ COVERAGE_PROPOSAL : "revealed the gap (evidence, not scope)"
+    APP_USER ||--o{ COVERAGE_PROPOSAL : "decided"
+    RESOURCE ||--o{ RESOURCE_METRIC : "measured (spec 006, P2)"
+    RESOURCE ||--o{ RIGHTSIZING_RECOMMENDATION : "recommended for (spec 006, P2)"
+    SDA ||--o{ FORECAST : "projected (spec 006, P2)"
 
     TENANT {
         uuid id PK
@@ -212,4 +228,79 @@ erDiagram
         uuid tenant_id FK
         text principal_id UK "audit-trail identity, unique per tenant"
         text owner_email
+    }
+    AGENT_RUN {
+        uuid id PK
+        uuid tenant_id FK
+        enum capability "digest|suggester|advisor|narrator, spec 006"
+        text definition_hash "content hash of the prompt/definition that ran, FR-005"
+        enum status "succeeded|truncated|failed -- truncated is not a failure, FR-004"
+        numeric cost_units "consumed against the cap, in model tokens"
+        numeric cost_cap_units "the cap in force, so 'hit the cap' differs from 'cap was lowered'"
+        text failure_reason "NOT NULL exactly when status = failed (ck_agent_run_failure_reason_shape)"
+        timestamptz started_at
+        timestamptz finished_at "null while in flight"
+    }
+    INSIGHT_DIGEST {
+        uuid id PK
+        uuid tenant_id FK
+        uuid agent_run_id FK
+        date period_date UK "one digest per tenant per day; a re-run replaces"
+        jsonb content "structured sections, not rendered markup (R-610)"
+        bool is_empty "stored, not derived -- 'found nothing notable' differs from 'produced nothing'"
+        timestamptz created_at
+    }
+    GROUNDING_REJECTION {
+        uuid id PK
+        uuid tenant_id FK
+        uuid agent_run_id FK
+        text rejected_reference "the reference that failed. The rejected OUTPUT is deliberately not stored -- keeping unvalidated model text would create a home for fabricated ARNs inside the platform, which is what FR-001 exists to prevent"
+        enum reference_kind "arn|resource_id|finding_id|sda|figure"
+        timestamptz rejected_at
+    }
+    COVERAGE_PROPOSAL {
+        uuid id PK
+        uuid tenant_id FK
+        uuid agent_run_id FK
+        enum proposal_kind "rule_extension|enable_existing_enricher -- exactly two, per R-603"
+        text resource_type
+        uuid evidence_account_id FK "which account revealed it; acceptance is tenant-wide"
+        jsonb proposed_change
+        enum review_state "pending|accepted|rejected"
+        uuid decided_by FK "app_user, null exactly while pending"
+        timestamptz decided_at
+        timestamptz applied_at
+    }
+    RESOURCE_METRIC {
+        uuid id PK
+        uuid tenant_id FK
+        uuid resource_id FK
+        enum metric "cpu|memory|network|storage, spec 006 P2"
+        timestamptz period_start
+        numeric value "null exactly when is_unavailable"
+        bool is_unavailable "FR-020: unknown, never zero -- same discipline as spend_record.is_gap"
+        timestamptz collected_at
+    }
+    FORECAST {
+        uuid id PK
+        uuid tenant_id FK
+        uuid sda_id FK
+        enum kind "spend|capacity"
+        date period_start
+        date period_end
+        numeric projected_value "deterministic calculation, NOT an agent output (FR-021) -- hence no agent_run_id"
+        int history_days "makes FR-021a's not-enough-data state auditable"
+        numeric actual_value "filled once the period closes"
+        numeric absolute_percentage_error "computed when actual_value lands"
+    }
+    RIGHTSIZING_RECOMMENDATION {
+        uuid id PK
+        uuid tenant_id FK
+        uuid resource_id FK
+        text current_class
+        text recommended_class
+        jsonb evidence "NOT NULL -- FR-023: a downsizing recommendation without its measurements is a guess presented as a fact"
+        numeric estimated_monthly_saving_usd
+        timestamptz superseded_at "null = the live recommendation for this resource"
+        timestamptz created_at
     }
