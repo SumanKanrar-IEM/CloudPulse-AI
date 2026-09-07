@@ -51,8 +51,8 @@ history readable.
       stops being true here — S43, S44, Principle I
 - [ ] T002 Write `backend/migrations/versions/0015_agentic_insights.py` — the seven tables from
       data-model.md (`agent_run`, `insight_digest`, `grounding_rejection`, `coverage_proposal`,
-      `resource_metric`, `forecast`, `rightsizing_recommendation`), their four enums, and the
-      partial unique indexes. Declare `REVERSIBLE: yes` — S43, FR-005, FR-006a
+      `resource_metric`, `forecast`, `rightsizing_recommendation`), the **seven** enum types
+      data-model.md's "Enum additions" section lists, and the partial unique indexes. Declare `REVERSIBLE: yes` — S43, FR-005, FR-006a
       `erd-current` CI requires `ops/erd/schema.mmd` to change in this same PR.
 - [ ] T003 Update `ops/erd/schema.mmd` with the seven new entities and their relationships to
       `tenant`, `finding`, `resource`, `sda` and `cloud_account` — S43, FR-028 (spec 001)

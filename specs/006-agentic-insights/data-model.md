@@ -145,10 +145,11 @@ than a runtime-only decision.
 | `current_class` / `recommended_class` | VARCHAR(100) | NOT NULL |
 | `evidence` | JSONB | NOT NULL — the measurements justifying it |
 | `estimated_monthly_saving_usd` | NUMERIC(12,2) | NOT NULL |
+| `superseded_at` | TIMESTAMPTZ | nullable — NULL = the live recommendation for this resource |
 | `created_at` | TIMESTAMPTZ | NOT NULL |
 
-**Unique on** `(tenant_id, resource_id) WHERE superseded_at IS NULL`, with `superseded_at`
-TIMESTAMPTZ nullable — one live recommendation per resource, earlier ones kept as history.
+**Unique on** `(tenant_id, resource_id) WHERE superseded_at IS NULL` — one live recommendation per
+resource, earlier ones kept as history.
 `evidence` is NOT NULL because FR-023 requires it: a recommendation to downsize something,
 without the measurements behind it, is a guess presented as a fact.
 
