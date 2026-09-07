@@ -1,0 +1,340 @@
+openapi: 3.1.0
+info:
+  title: CloudPulse AI — Agentic Insights (spec 006)
+  version: 0.1.0
+  description: |
+    Design-time reference for spec 006's endpoints. The BINDING contract is
+    `backend/openapi.generated.yaml`, generated from the Pydantic models (FR-048).
+    This file exists to be diffed against the first generated document, the same
+    role it played for specs 001-005.
+
+    Every endpoint here is read-only except `POST /coverage-proposals/{id}/decision`.
+    That asymmetry is the feature: agents observe and propose, humans decide.
+paths:
+  /insights/digest:
+    get:
+      operationId: getInsightDigest
+      summary: The most recent validated digest for this tenant
+      tags: [insights]
+      responses:
+        "200":
+          description: |
+            The latest retained digest, or an explicit not-enough-data state. Never a
+            fabricated or partial one (FR-007a, FR-010).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/InsightDigest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /insights/runs:
+    get:
+      operationId: listAgentRuns
+      summary: Agent run history, including truncated and failed runs
+      tags: [insights]
+      parameters:
+        - name: capability
+          in: query
+          schema: { $ref: "#/components/schemas/AgentCapability" }
+        - name: status
+          in: query
+          schema: { $ref: "#/components/schemas/AgentRunStatus" }
+      responses:
+        "200":
+          description: Runs, most recent first. Retained 30 days (FR-006a).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AgentRunList" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /insights/rejections:
+    get:
+      operationId: listGroundingRejections
+      summary: Outputs refused before display, and what could not be validated
+      description: |
+        FR-006. Exposed so the rejection rate is inspectable rather than invisible —
+        a grounding validator nobody can audit is a claim, not a control.
+      tags: [insights]
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GroundingRejectionList" }
+          description: Rejections, most recent first.
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /coverage-proposals:
+    get:
+      operationId: listCoverageProposals
+      summary: Configuration extensions the advisor has proposed (P2)
+      tags: [coverage-proposals]
+      parameters:
+        - name: reviewState
+          in: query
+          schema: { $ref: "#/components/schemas/ProposalReviewState" }
+      responses:
+        "200":
+          description: |
+            Visible to every role; only an admin may decide one (FR-016).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CoverageProposalList" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /coverage-proposals/{proposalId}/decision:
+    post:
+      operationId: decideCoverageProposal
+      summary: Accept or reject a proposal (admin only, P2)
+      description: |
+        The only mutating endpoint this spec adds. An accepted proposal applies
+        TENANT-WIDE on the next scan (FR-017); the proposal's `evidenceAccountAlias`
+        names the account that revealed the gap as evidence, not as scope.
+      tags: [coverage-proposals]
+      parameters:
+        - name: proposalId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [decision]
+              properties:
+                decision:
+                  type: string
+                  enum: [accepted, rejected]
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CoverageProposal" }
+          description: The decided proposal.
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: Already decided. Idempotent by refusal, not by silent overwrite.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+  /forecasts:
+    get:
+      operationId: listForecasts
+      summary: Deterministic spend and capacity projections (P2)
+      description: |
+        Produced by calculation, not by a model (FR-021). `projectedValue` is null
+        with `insufficientHistory: true` when there is too little history to project.
+      tags: [forecasts]
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ForecastList" }
+          description: Forecasts per project.
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /rightsizing:
+    get:
+      operationId: listRightsizingRecommendations
+      summary: Instance-class recommendations with their evidence (P2)
+      tags: [rightsizing]
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RightsizingList" }
+          description: |
+            Live recommendations. There is deliberately no endpoint that applies one
+            (FR-002, SC-005).
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+components:
+  responses:
+    Unauthorized:
+      description: No valid credentials.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+    Forbidden:
+      description: Authenticated but not permitted.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+    NotFound:
+      description: No such resource in this tenant.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+  schemas:
+    ErrorEnvelope:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message, correlationId]
+          properties:
+            code: { type: string }
+            message: { type: string }
+            correlationId: { type: string, format: uuid }
+    AgentCapability:
+      type: string
+      enum: [digest, suggester, advisor, narrator]
+    AgentRunStatus:
+      type: string
+      enum: [succeeded, truncated, failed]
+    ProposalReviewState:
+      type: string
+      enum: [pending, accepted, rejected]
+    InsightDigest:
+      type: object
+      required: [available, generatedAt, periodDate, isEmpty, sections]
+      properties:
+        available:
+          type: boolean
+          description: |
+            False when no digest is retained — a new tenant, or none produced in 30
+            days. The frontend renders "not enough data yet", never an empty card.
+        generatedAt: { type: string, format: date-time, nullable: true }
+        periodDate: { type: string, format: date, nullable: true }
+        isEmpty:
+          type: boolean
+          description: A run completed and found nothing notable (FR-010).
+        definitionHash:
+          type: string
+          nullable: true
+          description: Which prompt version produced it (FR-005).
+        sections:
+          type: array
+          items:
+            type: object
+            required: [heading, body]
+            properties:
+              heading: { type: string }
+              body: { type: string }
+              references:
+                type: array
+                description: |
+                  Every identifier cited, each already validated against the
+                  governance store (FR-001). A reference that failed validation
+                  means the whole digest was rejected and never stored.
+                items:
+                  type: object
+                  required: [kind, id, label]
+                  properties:
+                    kind: { type: string, enum: [resource, finding, sda, account] }
+                    id: { type: string }
+                    label: { type: string }
+    AgentRun:
+      type: object
+      required: [id, capability, status, definitionHash, costUnits, costCapUnits, startedAt]
+      properties:
+        id: { type: string, format: uuid }
+        capability: { $ref: "#/components/schemas/AgentCapability" }
+        status: { $ref: "#/components/schemas/AgentRunStatus" }
+        definitionHash: { type: string }
+        costUnits: { type: string }
+        costCapUnits: { type: string }
+        failureReason: { type: string, nullable: true }
+        startedAt: { type: string, format: date-time }
+        finishedAt: { type: string, format: date-time, nullable: true }
+    AgentRunList:
+      type: object
+      required: [runs]
+      properties:
+        runs:
+          type: array
+          items: { $ref: "#/components/schemas/AgentRun" }
+    GroundingRejection:
+      type: object
+      required: [id, agentRunId, rejectedReference, referenceKind, rejectedAt]
+      properties:
+        id: { type: string, format: uuid }
+        agentRunId: { type: string, format: uuid }
+        rejectedReference: { type: string }
+        referenceKind:
+          type: string
+          enum: [arn, resource_id, finding_id, sda, figure]
+        rejectedAt: { type: string, format: date-time }
+    GroundingRejectionList:
+      type: object
+      required: [rejections]
+      properties:
+        rejections:
+          type: array
+          items: { $ref: "#/components/schemas/GroundingRejection" }
+    CoverageProposal:
+      type: object
+      required: [id, proposalKind, resourceType, evidenceAccountAlias, reviewState, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        proposalKind:
+          type: string
+          enum: [rule_extension, enable_existing_enricher]
+          description: |
+            Only these two. A resource type with no existing enricher cannot be
+            proposed, because accepting it could not take effect without a code
+            change (research.md R-603) — such gaps are advisory content, not rows.
+        resourceType: { type: string }
+        evidenceAccountAlias:
+          type: string
+          description: Which account revealed the gap. Evidence, not scope.
+        summary: { type: string }
+        proposedChange: { type: object, additionalProperties: true }
+        reviewState: { $ref: "#/components/schemas/ProposalReviewState" }
+        decidedBy: { type: string, nullable: true }
+        decidedAt: { type: string, format: date-time, nullable: true }
+        appliedAt: { type: string, format: date-time, nullable: true }
+        createdAt: { type: string, format: date-time }
+    CoverageProposalList:
+      type: object
+      required: [proposals]
+      properties:
+        proposals:
+          type: array
+          items: { $ref: "#/components/schemas/CoverageProposal" }
+    Forecast:
+      type: object
+      required: [sdaId, sdaName, kind, periodStart, periodEnd, insufficientHistory]
+      properties:
+        sdaId: { type: string, format: uuid }
+        sdaName: { type: string }
+        kind: { type: string, enum: [spend, capacity] }
+        periodStart: { type: string, format: date }
+        periodEnd: { type: string, format: date }
+        projectedValue: { type: string, nullable: true }
+        insufficientHistory:
+          type: boolean
+          description: True when there was too little history to project (FR-021).
+        historyDays: { type: integer }
+        absolutePercentageError: { type: string, nullable: true }
+    ForecastList:
+      type: object
+      required: [forecasts]
+      properties:
+        forecasts:
+          type: array
+          items: { $ref: "#/components/schemas/Forecast" }
+    RightsizingRecommendation:
+      type: object
+      required: [id, resourceArn, currentClass, recommendedClass, evidence, estimatedMonthlySavingUsd]
+      properties:
+        id: { type: string, format: uuid }
+        resourceArn: { type: string }
+        currentClass: { type: string }
+        recommendedClass: { type: string }
+        evidence:
+          type: object
+          additionalProperties: true
+          description: The measurements justifying it. Required, never empty (FR-023).
+        estimatedMonthlySavingUsd: { type: string }
+        createdAt: { type: string, format: date-time }
+    RightsizingList:
+      type: object
+      required: [recommendations]
+      properties:
+        recommendations:
+          type: array
+          items: { $ref: "#/components/schemas/RightsizingRecommendation" }
