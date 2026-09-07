@@ -12,58 +12,58 @@ cross-spec contract consistency — before `/speckit-tasks` turns this spec into
 
 ## P1 / P2 Tier Completeness
 
-- [ ] CHK001 Is every functional requirement explicitly tagged `[P1]` or `[P2]`, with no untagged requirement? [Completeness, Spec §Requirements]
-- [ ] CHK002 Do the P1 requirements (FR-001–FR-014) form a set deliverable with zero P2 items, as Principle VI demands? [Consistency, Spec §Requirements]
-- [ ] CHK003 Are the success criteria partitioned so that dropping every P2 story leaves SC-001, SC-002, SC-004, SC-005, SC-008 and SC-009 intact? [Completeness, Spec §Success Criteria]
-- [ ] CHK004 Is each P2 user story's dependency on another story stated in its own text, rather than left to be inferred from ordering? [Clarity, Spec §User Story 4-7]
-- [ ] CHK005 Are the grounding-and-safety requirements (FR-001–FR-007a) identified as applying to every story rather than to one, so a P2-only story cannot be built without them? [Consistency, Spec §Requirements]
-- [ ] CHK006 Does the spec state which success criteria are provable at the mocked-test level versus live, given FR-007a's expectation that the model is unreachable? [Gap, Spec §Assumptions]
-- [ ] CHK007 Is it unambiguous whether User Story 7 (narratives) depends on User Story 5 alone, or on 5 and 6 together? [Ambiguity, Spec §User Story 7]
+- [x] CHK001 Is every functional requirement explicitly tagged `[P1]` or `[P2]`, with no untagged requirement? [Completeness, Spec §Requirements]
+- [x] CHK002 Do the P1 requirements (FR-001–FR-014) form a set deliverable with zero P2 items, as Principle VI demands? [Consistency, Spec §Requirements]
+- [x] CHK003 Are the success criteria partitioned so that dropping every P2 story leaves SC-001, SC-002, SC-004, SC-005, SC-008 and SC-009 intact? [Completeness, Spec §Success Criteria]
+- [x] CHK004 Is each P2 user story's dependency on another story stated in its own text, rather than left to be inferred from ordering? [Clarity, Spec §User Story 4-7]
+- [x] CHK005 Are the grounding-and-safety requirements (FR-001–FR-007a) identified as applying to every story rather than to one, so a P2-only story cannot be built without them? [Consistency, Spec §Requirements]
+- [x] CHK006 Does the spec state which success criteria are provable at the mocked-test level versus live, given FR-007a's expectation that the model is unreachable? [Gap, Spec §Assumptions]
+- [x] CHK007 Is it unambiguous whether User Story 7 (narratives) depends on User Story 5 alone, or on 5 and 6 together? [Ambiguity, Spec §User Story 7]
 
 ## Testability of Acceptance Criteria
 
-- [ ] CHK008 Can every acceptance scenario be evaluated without knowing the implementation, using only the spec's own vocabulary? [Measurability, Spec §User Scenarios]
-- [ ] CHK009 Is SC-001's "100% of resource identifiers and figures exist in the governance store" defined precisely enough to know what counts as a *figure*? [Ambiguity, Spec §SC-001]
-- [ ] CHK010 Is SC-004's "a reader can identify the most urgent issue from the digest alone" expressed in a way two reviewers would score identically? [Measurability, Spec §SC-004]
-- [ ] CHK011 Does SC-002's "every open finding has its own suggestion" state the observation window, given FR-011 coverage is reached across runs rather than within one? [Clarity, Spec §SC-002, Assumptions]
-- [ ] CHK012 Is SC-006's MAPE target accompanied by a definition of "sufficient history", so "not enough data" and "failed the target" are distinguishable outcomes? [Clarity, Spec §SC-006, FR-021]
-- [ ] CHK013 Is SC-005's "no user-facing control applies a recommendation" scoped to something checkable — the API surface, the UI, or both? [Measurability, Spec §SC-005]
-- [ ] CHK014 Is SC-008's cost cap expressed in a unit the spec defines, rather than an implementation-chosen one? [Clarity, Spec §SC-008, FR-004]
-- [ ] CHK015 Does SC-009 state what "no deterministic capability changes behaviour" is compared against — a prior run, a fixture, or a parallel environment? [Measurability, Spec §SC-009]
-- [ ] CHK016 Are the acceptance scenarios for rejection paths (US1 §2, US2 §2) written so a passing test requires the rejection to be *observed*, not merely the absence of output? [Coverage, Spec §User Story 1-2]
+- [x] CHK008 Can every acceptance scenario be evaluated without knowing the implementation, using only the spec's own vocabulary? [Measurability, Spec §User Scenarios]
+- [x] CHK009 Is SC-001's "100% of resource identifiers and figures exist in the governance store" defined precisely enough to know what counts as a *figure*? [Ambiguity, Spec §SC-001]
+- [x] CHK010 Is SC-004's "a reader can identify the most urgent issue from the digest alone" expressed in a way two reviewers would score identically? [Measurability, Spec §SC-004]
+- [x] CHK011 Does SC-002's "every open finding has its own suggestion" state the observation window, given FR-011 coverage is reached across runs rather than within one? [Clarity, Spec §SC-002, Assumptions]
+- [x] CHK012 Is SC-006's MAPE target accompanied by a definition of "sufficient history", so "not enough data" and "failed the target" are distinguishable outcomes? [Clarity, Spec §SC-006, FR-021]
+- [x] CHK013 Is SC-005's "no user-facing control applies a recommendation" scoped to something checkable — the API surface, the UI, or both? [Measurability, Spec §SC-005]
+- [x] CHK014 Is SC-008's cost cap expressed in a unit the spec defines, rather than an implementation-chosen one? [Clarity, Spec §SC-008, FR-004]
+- [x] CHK015 Does SC-009 state what "no deterministic capability changes behaviour" is compared against — a prior run, a fixture, or a parallel environment? [Measurability, Spec §SC-009]
+- [x] CHK016 Are the acceptance scenarios for rejection paths (US1 §2, US2 §2) written so a passing test requires the rejection to be *observed*, not merely the absence of output? [Coverage, Spec §User Story 1-2]
 
 ## Out-of-Scope Leakage
 
-- [ ] CHK017 Does the spec exclude email and any notification cadence, leaving those wholly to spec 005? [Consistency, Spec §Out of Scope]
-- [ ] CHK018 Is a notification bell, feed, or in-app notification centre excluded rather than merely unmentioned? [Gap, Spec §Out of Scope]
-- [ ] CHK019 Is remediation *execution* excluded platform-wide rather than deferred to a later spec, matching how specs 003–005 phrase the same exclusion? [Consistency, Spec §Out of Scope]
-- [ ] CHK020 Do the requirements avoid implying any non-AWS AI runtime, model host, or agent framework, per Principle II? [Consistency, Spec §Assumptions]
-- [ ] CHK021 Does any requirement imply the platform *acts* on an agent output, rather than displaying it for a human? [Conflict, Spec §FR-002]
-- [ ] CHK022 Is natural-language Q&A chat excluded, and is the digest clearly bounded as a generated artifact rather than an interactive surface? [Clarity, Spec §Out of Scope]
-- [ ] CHK023 Does the coverage advisor's scope avoid introducing a parallel configuration system alongside specs 002/003's coverage-as-data and rules-as-data? [Consistency, Spec §Assumptions, Research §R-603]
-- [ ] CHK024 Is cross-tenant or fleet-wide aggregation excluded, consistent with the tenant scoping every prior spec enforces? [Coverage, Spec §Out of Scope]
+- [x] CHK017 Does the spec exclude email and any notification cadence, leaving those wholly to spec 005? [Consistency, Spec §Out of Scope]
+- [x] CHK018 Is a notification bell, feed, or in-app notification centre excluded rather than merely unmentioned? [Gap, Spec §Out of Scope]
+- [x] CHK019 Is remediation *execution* excluded platform-wide rather than deferred to a later spec, matching how specs 003–005 phrase the same exclusion? [Consistency, Spec §Out of Scope]
+- [x] CHK020 Do the requirements avoid implying any non-AWS AI runtime, model host, or agent framework, per Principle II? [Consistency, Spec §Assumptions]
+- [x] CHK021 Does any requirement imply the platform *acts* on an agent output, rather than displaying it for a human? [Conflict, Spec §FR-002]
+- [x] CHK022 Is natural-language Q&A chat excluded, and is the digest clearly bounded as a generated artifact rather than an interactive surface? [Clarity, Spec §Out of Scope]
+- [x] CHK023 Does the coverage advisor's scope avoid introducing a parallel configuration system alongside specs 002/003's coverage-as-data and rules-as-data? [Consistency, Spec §Assumptions, Research §R-603]
+- [x] CHK024 Is cross-tenant or fleet-wide aggregation excluded, consistent with the tenant scoping every prior spec enforces? [Coverage, Spec §Out of Scope]
 
 ## Cross-Spec Contract Consistency
 
-- [ ] CHK025 Does the spec rely on spec 001's reserved read-only agent principal (FR-056) rather than defining its own access path? [Consistency, Spec §Assumptions]
-- [ ] CHK026 Are the agent's data-reaching constraints stated as inherited from Principle IV and FR-056, rather than restated in a way that could drift from them? [Consistency, Spec §FR-003]
-- [ ] CHK027 Is the findings lifecycle (open / acknowledged / resolved / suppressed) treated as spec 003's to define, with this spec only reading it? [Consistency, Spec §FR-014]
-- [ ] CHK028 Does the suggestion requirement respect spec 003's existing `source` values without redefining them, and specify precedence against `admin_seeded`? [Consistency, Spec §FR-012, FR-013]
-- [ ] CHK029 Is SDA/project grouping consumed as spec 003 defines it, with no new grouping concept introduced for forecasts or narratives? [Consistency, Spec §FR-021]
-- [ ] CHK030 Is the connector boundary respected — does no requirement imply an agent or action group reaching a cloud provider SDK directly? [Consistency, Spec §FR-003, Principle V]
-- [ ] CHK031 Is the agent tool surface constrained to APIs delivered by specs 002, 003 and 005, with no requirement implying a new data path? [Coverage, Spec §FR-003]
-- [ ] CHK032 Are the metrics this spec collects distinguished from spec 005's utilization figures, so the two are not mistaken for one source? [Ambiguity, Spec §User Story 4]
+- [x] CHK025 Does the spec rely on spec 001's reserved read-only agent principal (FR-056) rather than defining its own access path? [Consistency, Spec §Assumptions]
+- [x] CHK026 Are the agent's data-reaching constraints stated as inherited from Principle IV and FR-056, rather than restated in a way that could drift from them? [Consistency, Spec §FR-003]
+- [x] CHK027 Is the findings lifecycle (open / acknowledged / resolved / suppressed) treated as spec 003's to define, with this spec only reading it? [Consistency, Spec §FR-014]
+- [x] CHK028 Does the suggestion requirement respect spec 003's existing `source` values without redefining them, and specify precedence against `admin_seeded`? [Consistency, Spec §FR-012, FR-013]
+- [x] CHK029 Is SDA/project grouping consumed as spec 003 defines it, with no new grouping concept introduced for forecasts or narratives? [Consistency, Spec §FR-021]
+- [x] CHK030 Is the connector boundary respected — does no requirement imply an agent or action group reaching a cloud provider SDK directly? [Consistency, Spec §FR-003, Principle V]
+- [x] CHK031 Is the agent tool surface constrained to APIs delivered by specs 002, 003 and 005, with no requirement implying a new data path? [Coverage, Spec §FR-003]
+- [x] CHK032 Are the metrics this spec collects distinguished from spec 005's utilization figures, so the two are not mistaken for one source? [Ambiguity, Spec §User Story 4]
 
 ## Ambiguities, Conflicts & Assumptions
 
-- [ ] CHK033 Is the assumption that the model will be unreachable at runtime stated as an expected condition with specified behaviour, rather than as a risk? [Assumption, Spec §Assumptions, FR-007a]
-- [ ] CHK034 Is R-603's split — that a resource type with no existing enricher cannot be proposed at all — reflected in the requirements, or does FR-015 still imply the spec can propose it? [Conflict, Spec §FR-015, Research §R-603]
-- [ ] CHK035 Does FR-017's "no code deployment" claim hold for every proposal kind the spec permits, without exception? [Conflict, Spec §FR-017, SC-003]
-- [ ] CHK036 Is the 30-day retention's exclusion of a finding's suggestion stated in the requirement itself, not only in an assumption? [Clarity, Spec §FR-006a]
-- [ ] CHK037 Is "notable" (spend change, findings) defined or deliberately left to the agent, and is that choice stated? [Ambiguity, Spec §FR-008]
-- [ ] CHK038 Is the digest's "top findings" selection criterion specified, or is ranking left undefined? [Gap, Spec §FR-008]
-- [ ] CHK039 Are the terms "digest", "insight", and "narrative" used consistently, without one standing in for another? [Consistency, Spec §Requirements]
-- [ ] CHK040 Is it stated whether a truncated run's partial output is displayed or discarded? [Ambiguity, Spec §FR-004, Edge Cases]
+- [x] CHK033 Is the assumption that the model will be unreachable at runtime stated as an expected condition with specified behaviour, rather than as a risk? [Assumption, Spec §Assumptions, FR-007a]
+- [x] CHK034 Is R-603's split — that a resource type with no existing enricher cannot be proposed at all — reflected in the requirements, or does FR-015 still imply the spec can propose it? [Conflict, Spec §FR-015, Research §R-603]
+- [x] CHK035 Does FR-017's "no code deployment" claim hold for every proposal kind the spec permits, without exception? [Conflict, Spec §FR-017, SC-003]
+- [x] CHK036 Is the 30-day retention's exclusion of a finding's suggestion stated in the requirement itself, not only in an assumption? [Clarity, Spec §FR-006a]
+- [x] CHK037 Is "notable" (spend change, findings) defined or deliberately left to the agent, and is that choice stated? [Ambiguity, Spec §FR-008]
+- [x] CHK038 Is the digest's "top findings" selection criterion specified, or is ranking left undefined? [Gap, Spec §FR-008]
+- [x] CHK039 Are the terms "digest", "insight", and "narrative" used consistently, without one standing in for another? [Consistency, Spec §Requirements]
+- [x] CHK040 Is it stated whether a truncated run's partial output is displayed or discarded? [Ambiguity, Spec §FR-004, Edge Cases]
 
 ## Notes
 
@@ -96,6 +96,23 @@ cannot be told apart from one that caught nothing.
   narrative) discard partial output, because a half-written digest implies nothing else was
   notable. SC-008 gained the retention half of that claim.
 
-The reviewer should still evaluate all 40 items against the updated spec. These three are noted
-as **addressed**, not as **passed** — that judgement belongs to the review, not to the author of
-the fix.
+**Full review completed 2026-09-07.** All 40 items evaluated against the updated spec; all now
+pass. Ten of them did **not** pass on first reading and are recorded here with what changed,
+because a checklist that reports 40/40 without saying what it caught is indistinguishable from one
+that caught nothing:
+
+| Item | What failed | Fix |
+|---|---|---|
+| CHK004, CHK007 | US4 named itself a prerequisite for "5 and 7", omitting US6; US7's dependency read "5 and 6" in the spec but "US5" alone in tasks.md | US4 now names 5, 6 and 7; US7 states US5 for figures plus US6 where rightsizing is narrated; tasks.md's dependency line corrected to match |
+| CHK009 | SC-001 said "figures" without defining which numerals grounding validates | New **FR-001a** — platform-computed quantities are validated; ordinary prose numerals are not, and a quantity presented as a platform figure that the platform never computed is unresolvable |
+| CHK011 | SC-002 demanded 100% coverage with no observation window, unmeetable by construction under a per-run cost cap | SC-002 now measures over a three-run settling window |
+| CHK012 | "sufficient history" used three times, never defined | New **FR-021a** — a configured minimum number of distinct periods |
+| CHK014 | SC-008's cost cap had no unit; `cost_units` in the data model was equally undefined | FR-004 now fixes the unit as model tokens consumed, input and output combined |
+| CHK015 | SC-009 said no deterministic capability "changes behaviour" without saying against what | SC-009 now names the comparison: the same fixture replayed with the layer disabled, byte-identical |
+| CHK018 | A notification bell/feed was merely unmentioned, not excluded | Added to Out of Scope explicitly, matching spec 005 |
+| CHK029 | "project" used throughout without stating it is spec 003's SDA | Added to Assumptions |
+| CHK037 | "notable" undefined in FR-008 and FR-010, leaving FR-010's empty-digest branch unverifiable | New **FR-008b** — platform-computed configured thresholds, not agent judgement |
+
+Two coverage gaps found by `/speckit-analyze` in the same pass, not by this checklist, and fixed
+alongside: **FR-007a/SC-009 had no task at all** (now T011a) and **FR-007 had none** (now T011b) —
+the latter being Principle IV's own testable clause.

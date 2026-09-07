@@ -133,7 +133,8 @@ admin, and confirm the next scan enriches or governs that type without any code 
 Utilization metrics for compute and database resources are collected over time into a metrics
 store, giving the platform a deterministic history to reason about rather than a single snapshot.
 
-**Why this priority**: P2, and a prerequisite for User Stories 5 and 7 rather than valuable alone.
+**Why this priority**: P2, and a prerequisite for User Stories 5, 6 and 7 rather than valuable
+alone.
 Spec 005's utilization answers "how much is in use right now"; forecasting and rightsizing both
 need "how much has been in use over time".
 
@@ -205,8 +206,10 @@ estimated monthly saving.
 Cost and forecast pages carry a short written explanation of what the chart shows, and its figures
 are exactly the chart's figures.
 
-**Why this priority**: P2, lowest of the set. It is presentation atop User Stories 5 and 6 — real
-value for a reader skimming, no new capability, and the last thing to drop if time runs short.
+**Why this priority**: P2, lowest of the set. It is presentation atop User Story 5 (forecasts,
+which supply every figure a narrative states) and, where rightsizing figures are shown, User Story
+6 — real value for a reader skimming, no new capability, and the last thing to drop if time runs
+short.
 
 **Independent Test**: Render a narrative alongside a chart with known values and confirm every
 figure in the prose matches the corresponding chart value exactly.
@@ -266,12 +269,23 @@ figure in the prose matches the corresponding chart value exactly.
 - **FR-001** `[P1]`: Every agent output displayed to a user MUST be validated against the
   governance store before display, and MUST be rejected rather than shown when it references a
   resource identifier, project, finding, or figure that does not exist there.
+- **FR-001a** `[P1]`: The validated set MUST be defined explicitly rather than left to the
+  validator's implementation: every ARN, resource identifier, project/SDA name, finding
+  identifier, and every **quantity the platform itself computes** — counts, scores, percentages,
+  and monetary amounts — must resolve against the governance store. Ordinary prose numerals that
+  the platform does not compute (a day count in "for the last 7 days", a list position) are not
+  validated, because rejecting them would make grounding fail on correct output. A quantity the
+  agent presents as a platform figure but which the platform never computed MUST be treated as
+  unresolvable, not as prose.
 - **FR-002** `[P1]`: Agents MUST NOT execute, schedule, or trigger any change against a cloud
   account, and no user-facing control may offer to apply an agent's recommendation.
 - **FR-003** `[P1]`: Agents MUST NOT hold, receive, or be able to resolve cloud credentials, and
   MUST reach platform data only through a read-only, tenant-scoped interface.
 - **FR-004** `[P1]`: Every agent run MUST enforce a cost cap, and a run reaching its cap MUST stop
   and record that it was truncated rather than continue or present partial output as complete.
+  The cap MUST be expressed in the unit the platform is actually billed in — model tokens
+  consumed by the run, input and output combined — and both the consumed amount and the cap in
+  force MUST be recorded, so "hit the cap" is distinguishable from "the cap was lowered".
 - **FR-004a** `[P1]`: What a truncated run does with the output it already produced depends on
   the shape of that output. An **item-wise** capability (suggestions, proposals, rightsizing
   recommendations) MUST retain every item that passed validation — each stands alone, and
@@ -298,6 +312,14 @@ figure in the prose matches the corresponding chart value exactly.
 
 - **FR-008** `[P1]`: The system MUST produce a digest on a daily schedule covering the top open
   findings, the direction and magnitude of compliance movement, and notable spend changes.
+- **FR-008b** `[P1]`: "Notable" MUST be a platform-computed threshold, not the agent's judgement,
+  and the thresholds MUST be configuration rather than literals: a spend change is notable when it
+  moves a project's day-over-day total by at least a configured percentage **or** a configured
+  absolute amount, whichever triggers first; a compliance movement is notable when the score
+  changes by at least a configured number of points. A digest with no input crossing any threshold
+  is the FR-010 "nothing notable" case. Leaving "notable" to the agent would make FR-010's empty
+  branch unverifiable — the grounding validator can confirm a figure is real, but not that
+  omitting it was correct.
 - **FR-008a** `[P1]`: The findings a digest covers MUST be selected by the platform, not by the
   agent, using a deterministic order: severity descending, then escalated before not-escalated,
   then oldest first. The agent receives the already-selected set and explains it. Ranking is a
@@ -352,6 +374,11 @@ figure in the prose matches the corresponding chart value exactly.
   deterministic calculation over collected metrics — no model call may produce or alter a
   forecast figure — and MUST state that there is not enough data rather than forecast from
   insufficient history.
+- **FR-021a** `[P2]`: "Sufficient history" MUST be defined as a configured minimum number of
+  distinct collected periods, and a project below it MUST return the explicit not-enough-data
+  state rather than a figure. Without this threshold, SC-006 cannot distinguish "the forecast was
+  wrong" from "there was never enough data to forecast from", which are different failures with
+  different fixes.
 - **FR-022** `[P2]`: Forecast accuracy MUST be backtested against held-out actuals and the
   measured error reported. The same history MUST always yield the same forecast, so a backtest is
   reproducible rather than indicative.
@@ -389,7 +416,11 @@ figure in the prose matches the corresponding chart value exactly.
 - **SC-001**: 100% of resource identifiers and figures displayed in a digest exist in the
   governance store — zero fabricated references reach a user.
 - **SC-002**: Every open finding has its own suggestion available, naming that finding's own
-  resource — 100% coverage of open findings, not of finding classes.
+  resource — 100% coverage of open findings, not of finding classes. Measured over a settling
+  window of three consecutive daily runs rather than instantaneously: per-finding suggestions are
+  produced under a cost cap, so coverage is reached across runs (FR-004a), and an instantaneous
+  100% would be unmeetable by construction on any tenant whose open findings exceed one run's
+  cap.
 - **SC-003**: An admin can accept a coverage proposal and see it take effect on the next scan
   without any code change or deployment — true for 100% of proposals the platform offers for
   acceptance, since a gap that would need code is surfaced as advisory content and never as an
@@ -407,7 +438,10 @@ figure in the prose matches the corresponding chart value exactly.
   an item-wise capability.
 - **SC-009**: With the model unreachable, every agent surface still renders correctly — last valid
   output or an explicit "not enough data yet" — and no deterministic capability (inventory,
-  findings, compliance, spend, utilization) changes behaviour at all.
+  findings, compliance, spend, utilization) changes behaviour at all. "Changes behaviour" is
+  measured against the same fixture replayed with the intelligence layer disabled: the two runs
+  MUST produce identical inventory, finding, and score output. A prose claim of no regression is
+  not evidence; a byte-identical comparison is.
 
 ## Assumptions
 
@@ -419,6 +453,9 @@ figure in the prose matches the corresponding chart value exactly.
 - **`source = ai_generated` on a finding's remediation suggestion is this feature's to write.**
   Spec 003 defined the value and spec 004 rendered it, but no code path has ever produced one —
   the seam was left open deliberately for this spec.
+- **"Project" and "SDA" are the same registered entity**, as every spec since 003 has used them —
+  forecasts, narratives and digests attribute to it exactly the way spend and resources already do.
+  This spec introduces no new grouping concept.
 - **Coverage-as-data and rules-as-data already exist** (specs 002 and 003), and are tenant-wide.
   The advisor proposes changes to those existing mechanisms rather than introducing a parallel
   configuration system, and acceptance inherits their existing tenant-wide scope (confirmed
@@ -457,6 +494,9 @@ figure in the prose matches the corresponding chart value exactly.
 
 - Natural-language question-and-answer chat against the governance data.
 - Weekly or emailed digests — the digest is a dashboard surface; spec 005 owns email.
+- A notification bell, feed, badge, or in-app notification centre of any kind. The digest is a
+  card on a page the user already opens; it does not push, queue, or accumulate unread items.
+  Excluded explicitly rather than merely unbuilt, matching how spec 005 excluded the same thing.
 - Remediation execution of any kind, including one-click apply of an agent suggestion. This is
   excluded platform-wide, not merely deferred.
 - Agent-initiated configuration changes that take effect without human acceptance.

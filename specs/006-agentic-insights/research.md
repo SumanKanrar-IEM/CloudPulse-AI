@@ -163,6 +163,28 @@ wording, unauditable selection, and a model call on a scoring path. Severity-onl
 simpler, but ranks a fresh high above a day-4 escalated medium, which is the wrong answer for a
 digest meant to say what needs attention today.
 
+## R-612 — This spec's tunable values are read from the environment directly, not through `Settings`
+
+**Decision**: FR-004's cost cap, FR-008b's notability thresholds, and FR-021a's minimum-period
+count are read from environment variables at their point of use, with conservative in-code
+fallbacks — not added as fields on the shared `Settings` model.
+
+**Rationale**: spec 005 tried the other way and paid for it. Adding `default_budget_usd` to
+`Settings` gave `POST /sdas` its first-ever configuration dependency and broke **11 existing
+spec-003 tests**, none of which construct a Settings environment because that request path never
+needed one (spec 005 tasks.md T029a). The fix was to read `os.environ` directly, matching what
+`app/api/main.py` already does for `frontend_url`. This spec adds tunables to `app/governance/`
+modules that several existing request and worker paths reach, so the same trap is live here.
+
+A malformed or non-positive value MUST fall back rather than raise, for the same reason spec 005's
+`default_budget_usd` does: a bad threshold must not take the digest run — or worse, an unrelated
+request path — down with it. A cost cap of zero would truncate every run before it started.
+
+**Alternatives considered**: `Settings` fields — rejected on the evidence above. A JSON data file
+like `coverage_definitions.json` — reasonable for the notability thresholds, and worth revisiting
+if they grow beyond three scalars, but a file plus loader plus schema is more machinery than three
+numbers justify today.
+
 ## R-607 — Grounding validation is deterministic code, never a second model call
 
 **Decision**: The validator that enforces FR-001 is ordinary Python: extract every candidate

@@ -22,7 +22,8 @@ something proves a fabricated reference is actually rejected.
 
 ## Tier Summary
 
-**P1 (must complete first, deliverable with zero P2 items)**: Phases 1–5, T001–T031. Delivers
+**P1 (must complete first, deliverable with zero P2 items)**: Phases 1–5, T001–T031 plus the
+T011a/T011b insertions — 33 tasks. Delivers
 SC-001, SC-002, SC-004, SC-005, SC-008, SC-009 — the digest, the suggester, and every
 grounding/safety guarantee.
 
@@ -76,18 +77,25 @@ Principle IV would be an accident of ordering rather than a property of the desi
 - [ ] T006 [P] Write `backend/tests/unit/test_grounding.py` — an output naming a resource absent
       from the store is rejected; one naming only real resources passes; a figure that does not
       match the store is rejected; the validator makes no model call and is deterministic over
-      the same input — S43, FR-001, FR-006, research.md R-607
+      the same input. Covers FR-001a's boundary in both directions: a prose numeral like "the last
+      7 days" does not trigger rejection, and a fabricated *platform* figure does — S43, FR-001,
+      FR-001a, FR-006, research.md R-607
 - [ ] T007 Write `backend/app/governance/grounding.py` — the deterministic validator: extract
       candidate ARNs, resource ids, project names and numerals from an agent output, resolve each
       against the governance store, return a pass/reject verdict naming the first unresolvable
-      reference — S43, FR-001, R-607
+      reference. FR-001a fixes *what* is validated: platform-computed quantities (counts, scores,
+      percentages, money) resolve; ordinary prose numerals do not; a quantity presented as a
+      platform figure that the platform never computed is unresolvable — S43, FR-001, FR-001a,
+      R-607
 - [ ] T008 [P] Write `backend/tests/unit/test_agent_run.py` — a run records its definition hash,
       cost and cap; reaching the cap yields `truncated`, not `failed`; an unreachable model yields
       `failed` with a reason; `finished_at` is set on every terminal state — S43, FR-004, FR-005
 - [ ] T009 Write `backend/app/governance/agent_runs.py` — open/close a run, enforce the cost cap,
       record `definition_hash`, and expose FR-004a's retention rule (item-wise capabilities keep
-      validated items on truncation; whole-artifact capabilities discard) — S43, FR-004, FR-004a,
-      FR-005
+      validated items on truncation; whole-artifact capabilities discard). The cap is read from
+      the environment at point of use with a conservative fallback, **not** added to `Settings` —
+      see R-612 and spec 005's T029a, where the Settings route broke 11 unrelated tests — S43,
+      FR-004, FR-004a, FR-005, R-612
 - [ ] T010 [P] Write `backend/app/governance/definition_hash.py` and
       `backend/tests/unit/test_definition_hash.py` — content-hash a prompt/definition file so
       every stored output traces to what produced it; the hash changes when the file does — S43,
@@ -95,12 +103,29 @@ Principle IV would be an accident of ordering rather than a property of the desi
 - [ ] T011 Extend `backend/connectors/aws.py` with `invoke_agent(...)` — the only place the
       Bedrock SDK appears (Principle V, FR-054). Returns raw output; makes no grounding or cost
       judgement, which belong to `app/governance/` — S43, FR-003, R-601, R-602
+- [ ] T011a [P] Write `backend/tests/integration/test_degraded_mode.py` — **FR-007a and SC-009,
+      the requirement that makes P1 shippable under R-605.** With the model unreachable: the run
+      is recorded `failed` with a reason; `GET /insights/digest` serves the last valid digest or
+      the explicit not-enough-data state; the findings workbench shows suggestions already stored
+      and none fabricated; and no surface renders a partial or placeholder result. Then replay a
+      fixed fixture with the intelligence layer disabled and assert inventory, finding and score
+      output are **byte-identical** to the run with it enabled — SC-009's own stated comparison,
+      not a prose claim of no regression — S43, S44, FR-007a, SC-009
+- [ ] T011b [P] Write `backend/tests/unit/test_deterministic_core_isolation.py` — **Principle IV's
+      own testable clause**, which no other task asserts: no module under `app/scan/`,
+      `app/governance/validation.py`, `app/governance/scoring.py` or `app/governance/spend.py`
+      imports a Bedrock client or reaches `app/governance/grounding.py`'s agent path, and
+      replaying a fixed account snapshot twice produces byte-identical inventory and finding sets.
+      `check_connector_boundary.py` restricts boto3 to `connectors/` generally but says nothing
+      about Bedrock specifically reaching the deterministic core — S43, FR-007, Principle IV
 - [ ] T012 [P] Write `backend/tests/unit/test_agent_read_only.py` — the action-group principal is
       refused on every non-GET method and holds no cloud credential, asserted against spec 001's
       existing `app/core/agent_access.py` rather than a re-implementation — S43, FR-002, FR-003,
       FR-056 (spec 001)
 
-**Checkpoint**: Any capability can now run, be capped, be recorded, and have its output validated.
+**Checkpoint**: Any capability can now run, be capped, be recorded, and have its output validated
+— and the two guarantees that let P1 ship without a reachable model (FR-007a/SC-009) and keep the
+deterministic core model-free (FR-007) are asserted rather than assumed.
 
 ---
 
@@ -122,15 +147,18 @@ in the store.
 - [ ] T014 [P] [US1] Write `backend/tests/integration/test_digest_pipeline.py` — a run produces
       one digest per tenant per day; a re-run replaces rather than duplicating; a draft naming an
       absent resource is rejected and recorded in `grounding_rejection` with no digest stored; a
-      tenant with nothing notable gets `is_empty = true` rather than an empty card; a truncated
-      digest run discards its partial output entirely (FR-004a) — S43, FR-001, FR-004a, FR-008,
-      FR-010
+      tenant whose inputs cross no FR-008b threshold gets `is_empty = true` rather than an empty
+      card, and one that crosses a threshold does not; a truncated digest run discards its partial
+      output entirely (FR-004a) — S43, FR-001, FR-004a, FR-008, FR-008b, FR-010
 
 ### Implementation for User Story 1
 
 - [ ] T015 [US1] Write `backend/app/governance/digest.py` — select findings per T013's order,
       assemble the compliance and spend inputs, invoke through T011, validate through T007, and
-      persist an `insight_digest` row plus its `agent_run` — S43, FR-008, FR-008a, FR-009, FR-010
+      persist an `insight_digest` row plus its `agent_run`. FR-008b's notability thresholds are
+      computed here, before the agent is invoked, and read from the environment per R-612 rather
+      than from literals or `Settings` — the agent never decides what counts as notable — S43,
+      FR-008, FR-008a, FR-008b, FR-009, FR-010, R-612
 - [ ] T016 [US1] Write `agents/definitions/digest.json`, `agents/prompts/digest.md` and
       `agents/action-groups/digest_tools.py` — the action group reads findings, compliance and
       spend through the platform API only (R-602), never the database — S43, FR-003, R-601, R-602
@@ -277,15 +305,18 @@ a resource-specific suggestion marked `ai_generated`, and that no endpoint or co
 ## Phase 8: User Story 5 — Forecasting (Priority: P2)
 
 - [ ] T044 [P] [US5] **[P2]** Write `backend/tests/unit/test_forecasting.py` — the calculation is
-      deterministic: the same history always yields the same forecast (FR-022); insufficient
-      history yields "not enough data", never a projection from too few points — S51, FR-021,
+      deterministic: the same history always yields the same forecast (FR-022); a project below
+      FR-021a's configured minimum period count yields "not enough data", never a projection from
+      too few points, and one exactly at the minimum does forecast — S51, FR-021, FR-021a,
       FR-022
 - [ ] T045 [P] [US5] **[P2]** Write `backend/tests/integration/test_forecast_backtest.py` —
       backtesting against held-out actuals reports a measured error, and re-running reproduces it
       exactly — S51, FR-022, SC-006
 - [ ] T046 [US5] **[P2]** Write `backend/app/governance/forecasting.py` — the deterministic
-      calculation. **No model call may produce or alter a forecast figure** (FR-021, Clarification
-      2026-09-05) — S51, FR-021, FR-022
+      calculation, with FR-021a's minimum-period threshold read from the environment per R-612.
+      **No model
+      call may produce or alter a forecast figure** (FR-021, Clarification 2026-09-05) — S51,
+      FR-021, FR-021a, FR-022
 - [ ] T047 [US5] **[P2]** Write `backend/app/api/routers/forecasts.py` — `GET /forecasts`,
       `require_viewer`-gated. Regenerate the contract and client — S51, FR-021
 
@@ -355,8 +386,10 @@ by whatever T029 establishes about Bedrock's VPC reachability.
 - **US1 and US2 are independent of each other** — different agents, different tables, different
   surfaces. Either could ship first; US1 is sequenced first only because the digest is the
   showcase capability.
-- **US3 depends on nothing but Phase 2.** US4 → US5 → US6 is a chain (metrics feed forecasts feed
-  rightsizing). US7 depends on US5.
+- **US3 depends on nothing but Phase 2.** US4 feeds US5, US6 and US7 (metrics are the history
+  forecasts and rightsizing both read). US7 depends on US5 for the figures a narrative states, and
+  additionally on US6 wherever rightsizing figures are narrated — matching the spec's own wording
+  for those stories rather than the narrower "US7 depends on US5" this line previously carried.
 - **`infra/modules/agents/` is a shared-file lineage**: T020, T027, T038 and T043 each append to
   it. Sequential, never concurrent — each should pull latest trunk before editing rather than
   assume the file is as its branch found it. This is the same discipline spec 005 used for
