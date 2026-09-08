@@ -492,11 +492,23 @@ a resource-specific suggestion marked `ai_generated`, and that no endpoint or co
 
 ## Phase 5: P1 Completion — Role Matrix, Live Verification, Teardown
 
-- [ ] T028 Write `backend/tests/integration/test_role_matrix_insights.py` — the full matrix across
+- [X] T028 Write `backend/tests/integration/test_role_matrix_insights.py` — the full matrix across
       this spec's P1 read surfaces (`GET /insights/digest`, `/insights/runs`,
       `/insights/rejections`): all three roles read; an unauthenticated caller gets 401; an
       authenticated caller with no recognised group gets 403. Assert response bodies, not just
       status codes, so an empty result cannot pass as success — S43, S44, FR-009
+      **Done**, 16 tests. Two cells beyond the ones the task names.
+      The no-group cell uses an **unrecognised** group rather than an empty list: a membership check
+      that asks "does this token have groups?" passes an empty-list test and still admits a token
+      carrying somebody else's. That shape matters here specifically — it is how an agent's machine
+      principal would arrive if `build_agent_principal` were ever bypassed, and defaulting it to
+      viewer would hand the intelligence layer a readable surface nobody granted it.
+      A correctly-authorised admin **of another tenant** is also asserted across all three surfaces.
+      A role matrix alone would miss it: every role check passes and the wrong tenant's data is
+      served. Each surface queries independently, so each needs its own cell.
+      The seeded run history contains a `failed` run as well as a succeeded one — a history holding
+      only successes would let a surface that filtered failures out look identical to one that does
+      not (FR-007a).
 - [ ] T029 [P] Run R-604's verification and record the result in research.md **before** any
       funding claim is made either way:
       `aws ec2 describe-vpc-endpoint-services --query 'ServiceNames' --output text | tr '\t' '\n' | grep -iE 'bedrock|monitoring'`
