@@ -59,6 +59,15 @@ _SPEND_PERCENT_ENV = "CLOUDPULSE_DIGEST_SPEND_NOTABLE_PERCENT"
 _SPEND_ABSOLUTE_ENV = "CLOUDPULSE_DIGEST_SPEND_NOTABLE_USD"
 _COMPLIANCE_POINTS_ENV = "CLOUDPULSE_DIGEST_COMPLIANCE_NOTABLE_POINTS"
 
+# Compliance scores are a float ratio and become a percentage figure the agent
+# has to reproduce **exactly** -- the grounding validator compares to the cent,
+# and the prompt forbids rounding. Two resources out of three is
+# 66.66666666666666, and a model handed that either writes sixteen digits into
+# prose or rounds and has the entire digest rejected. Quantising here means the
+# platform states a figure a person would actually write (R-607: rejecting
+# correct output is the failure direction that matters).
+_COMPLIANCE_PRECISION = Decimal("0.1")
+
 _FALLBACK_SPEND_PERCENT = Decimal("20")
 _FALLBACK_SPEND_ABSOLUTE = Decimal("50")
 _FALLBACK_COMPLIANCE_POINTS = Decimal("5")
@@ -295,7 +304,7 @@ def build_inputs(session: TenantSession, period_date: date) -> DigestInputs:
     candidates = collect_candidates(session)
     previous_spend, current_spend = spend_totals(session, period_date)
     _, _, score = tenant_compliance_score(session)
-    current_compliance = Decimal(str(score)) * Decimal("100")
+    current_compliance = (Decimal(str(score)) * Decimal("100")).quantize(_COMPLIANCE_PRECISION)
     previous_compliance = last_recorded_compliance(session, period_date)
 
     selected = select_digest_findings(candidates)

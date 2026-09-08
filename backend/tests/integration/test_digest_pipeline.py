@@ -32,6 +32,7 @@ from app.governance.digest import (
     AgentDraft,
     DigestCandidate,
     DigestInputs,
+    build_inputs,
     collect_candidates,
     parse_sections,
     run_digest,
@@ -688,3 +689,64 @@ def test_the_selection_handed_to_the_agent_is_the_platforms_ranking(
 
     assert seen[0][0].finding_id == critical.id
     assert len(seen[0]) == 2
+
+
+# --- the figures handed to the agent (FR-001a, R-607) ------------------------
+
+
+def test_the_compliance_figure_is_one_a_person_would_actually_write(
+    db: Session, session: TenantSession, tenant_id: uuid.UUID, account: CloudAccount
+) -> None:
+    """Three resources, one failing: a two-thirds score.
+
+    Unquantised, the agent would be handed 66.66666666666666 and told not to
+    round, so it would either write sixteen digits into prose or round and have
+    the whole digest rejected for a figure that was correct. R-607: rejecting
+    correct output is the failure direction that matters, and this is the shape
+    it would have taken.
+    """
+    _open_finding(db, tenant_id, account, arn="arn:aws:s3:::failing")
+    for name in ("clean-1", "clean-2"):
+        db.add(
+            Resource(
+                tenant_id=tenant_id,
+                cloud_account_id=account.id,
+                arn=f"arn:aws:s3:::{name}",
+                resource_type="AWS::S3::Bucket",
+                service="s3",
+                region="us-east-1",
+                tags={},
+            )
+        )
+    db.flush()
+
+    inputs = build_inputs(session, PERIOD)
+
+    assert inputs.current_compliance == Decimal("66.7")
+    # And a digest stating it validates rather than being rejected.
+    draft = AgentDraft(
+        sections=parse_sections(
+            json.dumps(
+                {
+                    "sections": [
+                        {
+                            "heading": "Compliance",
+                            "body": "Compliance stands at 66.7%.",
+                            "figures": [{"label": "compliance", "value": "66.7"}],
+                        }
+                    ]
+                }
+            )
+        ),
+        cost_units=Decimal("10"),
+    )
+    outcome = run_digest(
+        session,
+        inputs=inputs,
+        invoke=lambda _i, _s: draft,
+        definition_hash=DEFINITION_HASH,
+    )
+    db.commit()
+
+    assert outcome.status is AgentRunStatus.SUCCEEDED
+    assert outcome.digest_id is not None

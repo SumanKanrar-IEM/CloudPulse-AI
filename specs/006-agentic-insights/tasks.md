@@ -320,6 +320,18 @@ in the store.
       when the scanner first saw it, not to when it existed — so the digest row now carries the
       platform figures that produced it, and the next run reads its baseline from there. "Since the
       last digest" is a weaker claim than "since yesterday" and it is the one the data supports.
+- [X] T017b [US1] Quantise the compliance figure in `backend/app/governance/digest.py`'s
+      `build_inputs` before it becomes a known figure — S43, FR-001a, R-607
+      **Found in the Phase 3 self-review, after CI was green.** Compliance is a float ratio, and
+      `score * 100` for two resources out of three is `66.66666666666666`. That went to the agent
+      as a declared figure, and the prompt forbids rounding — so the model would either write
+      sixteen digits into prose or round to `66.7` and have the **entire digest rejected** for a
+      figure that was correct. Every tenant whose score is not a clean fraction would have hit it.
+      This is R-607's failure direction — rejecting correct output — and the same class of error as
+      T007a: the tests asserted the pipeline's *logic* thoroughly and never asked whether the
+      numbers it handed the agent were ones a person could write. Quantised to one decimal place,
+      with a regression test that seeds a two-thirds score and asserts a digest stating `66.7`
+      validates rather than being refused.
 - [X] T018 [US1] Write `backend/app/api/routers/insights.py` — `GET /insights/digest`,
       `GET /insights/runs`, `GET /insights/rejections`, all `require_viewer`-gated. Regenerate
       `backend/openapi.generated.yaml` and the frontend client — S43, FR-009, FR-006
