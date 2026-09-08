@@ -1,0 +1,124 @@
+{
+  "capability": "suggester",
+  "description": "Per-finding remediation drafts (spec 006, FR-011-FR-014). Writes a fix and a blast-radius note for one finding's own resource; applies nothing.",
+  "promptFile": "agents/prompts/suggester.md",
+  "foundationModel": "anthropic.claude-3-5-haiku-20241022-v1:0",
+  "idleSessionTTLInSeconds": 300,
+  "guardrail": {
+    "required": true,
+    "note": "Attached by infra (T027). Principle II names guardrails as part of the GenAI layer, and a resource tag or SDA name is attacker-influenced text reaching a model."
+  },
+  "actionGroups": [
+    {
+      "name": "finding-read",
+      "description": "Read-only lookups for one finding, through the platform HTTP API. Every operation is a GET; the agent principal is refused on every other method (FR-056, R-602).",
+      "lambda": "agents/action-groups/suggester_tools.py",
+      "apiSchema": {
+        "openapi": "3.0.0",
+        "info": {
+          "title": "Suggester finding reads",
+          "version": "1.0.0",
+          "description": "Three operations, each backed by an endpoint specs 002-004 already ship. Deliberately no list endpoint: this agent is invoked once per finding and has no reason to enumerate the others."
+        },
+        "paths": {
+          "/findings": {
+            "get": {
+              "operationId": "listFindings",
+              "summary": "Findings, filtered to the one being worked on.",
+              "description": "Pass the finding's own id. The pass invokes this agent once per finding; reading the others spends budget that belongs to them.",
+              "parameters": [
+                {
+                  "name": "status",
+                  "in": "query",
+                  "required": false,
+                  "schema": {
+                    "type": "string",
+                    "enum": [
+                      "open",
+                      "resolved",
+                      "suppressed"
+                    ]
+                  }
+                },
+                {
+                  "name": "severity",
+                  "in": "query",
+                  "required": false,
+                  "schema": {
+                    "type": "string",
+                    "enum": [
+                      "low",
+                      "medium",
+                      "high",
+                      "critical"
+                    ]
+                  }
+                }
+              ],
+              "responses": {
+                "200": {
+                  "description": "Findings with their resource, rule and severity.",
+                  "content": {
+                    "application/json": {
+                      "schema": {
+                        "type": "object"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "/resources/{resource_id}": {
+            "get": {
+              "operationId": "getResource",
+              "summary": "The failing resource, with its tags and owner attribution.",
+              "description": "The detail that makes a suggestion specific to this resource rather than generic to its rule (FR-011).",
+              "parameters": [
+                {
+                  "name": "resource_id",
+                  "in": "path",
+                  "required": true,
+                  "schema": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                }
+              ],
+              "responses": {
+                "200": {
+                  "description": "The resource.",
+                  "content": {
+                    "application/json": {
+                      "schema": {
+                        "type": "object"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "/rules": {
+            "get": {
+              "operationId": "listRules",
+              "summary": "The tagging rules, so the suggestion states what the rule actually requires.",
+              "responses": {
+                "200": {
+                  "description": "Rules and their definitions.",
+                  "content": {
+                    "application/json": {
+                      "schema": {
+                        "type": "object"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

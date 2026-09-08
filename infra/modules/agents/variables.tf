@@ -50,6 +50,12 @@ variable "digest_schedule_expression" {
   default     = "cron(0 9 * * ? *)"
 }
 
+variable "suggester_schedule_expression" {
+  type        = string
+  description = "FR-011: one daily suggester pass, after the digest's. Both read the same findings, and the digest reports on findings rather than on their suggestions, so there is nothing to gain from running the suggester first."
+  default     = "cron(0 10 * * ? *)"
+}
+
 variable "platform_api_base_url" {
   type        = string
   description = "R-602: the API Gateway base the action group reads through. Empty leaves the action group deployed but refusing to call anything, rather than silently reaching a wrong host."
