@@ -23,7 +23,7 @@ something proves a fabricated reference is actually rejected.
 ## Tier Summary
 
 **P1 (must complete first, deliverable with zero P2 items)**: Phases 1–5, T001–T031 plus the
-T011a/T011b insertions — 33 tasks. Delivers
+T007a/T011a/T011b/T017a/T018a/T020a insertions — 37 tasks. Delivers
 SC-001, SC-002, SC-004, SC-005, SC-008, SC-009 — the digest, the suggester, and every
 grounding/safety guarantee.
 
@@ -204,11 +204,16 @@ Principle IV would be an accident of ordering rather than a property of the desi
       alone — it must not become a general method filter, since an operator's POST is not an
       agent's POST.
 
-- [ ] T018a [US1] Assert FR-007a's **surface** half, alongside T018's routes: with the model
+- [X] T018a [US1] Assert FR-007a's **surface** half, alongside T018's routes: with the model
       unreachable, `GET /insights/digest` serves the last valid digest or the explicit
       not-enough-data state, `GET /insights/runs` shows the failed run with its reason, and no
       surface renders a partial or placeholder result. Split out of T011a, which could not
       exercise a Phase 3 surface from Phase 2 — S43, S44, FR-007a, SC-009
+      **Done**, in `backend/tests/integration/test_insights_api.py` alongside T018's own tests.
+      Every failure is driven through `run_digest` with an `invoke` that raises, rather than by
+      writing an `agent_run` row by hand — a hand-written row would assert that the API renders a
+      failed run correctly while leaving unproven the thing that matters, that a failed invocation
+      *produces* one.
 
 **Checkpoint**: Any capability can now run, be capped, be recorded, and have its output validated
 — and the two guarantees that let P1 ship without a reachable model (FR-007a/SC-009) and keep the
@@ -241,36 +246,125 @@ in the store.
       the absolute bar but not the percentage, $40 on a $100 project the reverse — and a project's
       first spend is notable only on the absolute bar, since treating a zero baseline as an
       infinite percentage increase would make every new project's first day notable.
-- [ ] T014 [P] [US1] Write `backend/tests/integration/test_digest_pipeline.py` — a run produces
+- [X] T014 [P] [US1] Write `backend/tests/integration/test_digest_pipeline.py` — a run produces
       one digest per tenant per day; a re-run replaces rather than duplicating; a draft naming an
       absent resource is rejected and recorded in `grounding_rejection` with no digest stored; a
       tenant whose inputs cross no FR-008b threshold gets `is_empty = true` rather than an empty
       card, and one that crosses a threshold does not; a truncated digest run discards its partial
       output entirely (FR-004a) — S43, FR-001, FR-004a, FR-008, FR-008b, FR-010
+      **Done**, 14 tests, driven through `run_digest` with an `invoke` callable rather than a
+      mocked Bedrock client — the pipeline has to be provable with no cloud client present at all.
+      Three tests the task did not name but the listed ones are weak without: two periods each keep
+      their own digest (otherwise "replaces rather than duplicates" would still pass if the upsert
+      keyed on tenant alone, and the platform would hold one digest ever); a correct digest quoting
+      a real platform figure is *stored* (R-607 — a validator that only ever refuses is as useless
+      as one that only ever accepts); and a notable spend move with no open findings still invokes,
+      since a digest firing only on findings would miss the whole cost half of FR-008.
 
 ### Implementation for User Story 1
 
-- [ ] T015 [US1] Write `backend/app/governance/digest.py` — select findings per T013's order,
+- [X] T015 [US1] Write `backend/app/governance/digest.py` — select findings per T013's order,
       assemble the compliance and spend inputs, invoke through T011, validate through T007, and
       persist an `insight_digest` row plus its `agent_run`. FR-008b's notability thresholds are
       computed here, before the agent is invoked, and read from the environment per R-612 rather
       than from literals or `Settings` — the agent never decides what counts as notable — S43,
       FR-008, FR-008a, FR-008b, FR-009, FR-010, R-612
-- [ ] T016 [US1] Write `agents/definitions/digest.json`, `agents/prompts/digest.md` and
+      **Done.** Every path writes exactly one `agent_run` row, including the ones that store no
+      digest: a run that produced nothing still happened and still cost something, and a digest
+      that silently did not appear is indistinguishable from a scheduler that never fired.
+      Three decisions worth naming. **The nothing-notable branch never invokes the model** —
+      FR-010's answer is already known before any spend is incurred, so paying for it would be
+      paying for an answer the platform computed itself. **A grounding rejection is recorded as a
+      `failed` run, not a `succeeded` one** — nothing was stored, and a run reporting success while
+      storing nothing reads exactly like a quiet day; truncation stays separate from both, because
+      FR-007a needs an ordinary budget stop to remain distinguishable from an unreachable model.
+      **`parse_sections` is fail-closed** — a best-effort read of malformed output would drop the
+      broken section silently, and a fabricated reference inside it would then never reach the
+      validator at all, so the check would pass by never seeing the thing it exists to catch.
+- [X] T016 [US1] Write `agents/definitions/digest.json`, `agents/prompts/digest.md` and
       `agents/action-groups/digest_tools.py` — the action group reads findings, compliance and
       spend through the platform API only (R-602), never the database — S43, FR-003, R-601, R-602
-- [ ] T017 [US1] Write `backend/handlers/digest_worker_handler.py` — the daily EventBridge
+      **Done**, three operations in the schema and no more — each backed by an endpoint specs
+      002–005 already ship, per `agents/definitions/README.md`.
+      **How the action group authenticates, since neither the plan nor research names it.** It
+      needs a Cognito token for the `custom:agent_id` principal, which needs a client secret. Every
+      obvious route to that secret is an SDK call, and `agents/action-groups/README.md` forbids a
+      provider SDK in this tree. The AWS Parameters and Secrets Lambda Extension resolves it: the
+      secret arrives over `localhost` HTTP, so the module holds no credential, imports no SDK, and
+      the rule stands as written. The extension layer is a new infra dependency, provisioned in
+      T020 and left empty by default.
+      The prompt is explicit that a *derived* number is rejected even when the arithmetic is right.
+      That is the likeliest honest failure — a model that adds two real figures correctly and
+      states a total nothing on the platform computed.
+- [X] T017 [US1] Write `backend/handlers/digest_worker_handler.py` — the daily EventBridge
       entrypoint — S43, FR-008, R-605
-- [ ] T018 [US1] Write `backend/app/api/routers/insights.py` — `GET /insights/digest`,
+      **Done.** Covers **yesterday**, not today: a run firing at 09:00 that summarised the current
+      date would compare a few hours of spend against a full previous day and call the difference
+      a collapse. The definition hash covers the prompt *and* the definition file — a change to the
+      action-group schema changes what the agent can read and therefore what it can say, and a hash
+      that moved only on prompt edits would leave that unexplainable.
+      One thing recorded rather than papered over: `connectors/aws.py`'s `invoke_agent` has no
+      truncation signal to report, because Bedrock's event stream ends the same way whether the
+      model finished or hit its output limit. For the digest that costs nothing — a summary cut off
+      mid-JSON fails to parse and is discarded whole, which is what FR-004a prescribes for a
+      whole-artifact capability anyway. It will matter for T021's suggester, which is item-wise and
+      must not inherit the assumption.
+- [X] T017a [US1] Add `tenant_compliance_score` to `backend/app/governance/scoring.py` — the digest
+      reports one score for the whole estate, and spec 003 only ever computed per-account and
+      per-SDA ones. Weighted by resource rather than by averaging per-account scores, so an account
+      holding three resources cannot move the headline as much as one holding three thousand —
+      S43, FR-008, FR-018
+      **Not anticipated by this list**, and recorded here rather than folded silently into T015.
+      It also forced a second decision: FR-008b's compliance movement needs a *previous* score, and
+      nothing stores one. Recomputing history from `resource.created_at` would date a resource to
+      when the scanner first saw it, not to when it existed — so the digest row now carries the
+      platform figures that produced it, and the next run reads its baseline from there. "Since the
+      last digest" is a weaker claim than "since yesterday" and it is the one the data supports.
+- [X] T018 [US1] Write `backend/app/api/routers/insights.py` — `GET /insights/digest`,
       `GET /insights/runs`, `GET /insights/rejections`, all `require_viewer`-gated. Regenerate
       `backend/openapi.generated.yaml` and the frontend client — S43, FR-009, FR-006
-- [ ] T019 [P] [US1] Extend `frontend/src/app/features/overview/compliance-overview.component.ts`
+      **Done.** Contract regenerated: 346 lines added, none removed — purely additive, so
+      `contract-compat` has nothing to object to. Tests are in
+      `backend/tests/integration/test_insights_api.py` (10, shared with T018a).
+      The digest is ordered by **period**, not by insert time: a backfill run for an older day must
+      not displace the current digest just by being written most recently.
+      `platform_figures` is stored on the row but deliberately not served. It is the platform's own
+      working, not part of the digest, and exposing it would invite a frontend to render a number
+      the grounding validator never checked as prose. There is a test pinning that.
+- [X] T019 [P] [US1] Extend `frontend/src/app/features/overview/compliance-overview.component.ts`
       with the digest card, labelled with the run that produced it so a stale digest is never
       mistaken for current — S43, FR-009
-- [ ] T020 [US1] Extend `infra/modules/agents/{main.tf,scheduler.tf}` — the digest agent, its
+      **Done.** The digest is fetched separately from the rest of the overview and fails quietly:
+      an unreachable intelligence layer must not take the compliance page down with it (FR-007a),
+      and a null digest renders no card at all — exactly what the page showed before this spec.
+      Period and prompt hash are on the card itself, not behind a tooltip. `ng lint` and `ng build`
+      both pass.
+- [X] T020 [US1] Extend `infra/modules/agents/{main.tf,scheduler.tf}` — the digest agent, its
       alias, its guardrail, the action-group Lambda and the daily schedule — S43, R-601, R-605,
       R-606
       `terraform fmt -check -recursive infra/` and `terraform validate` must pass.
+      **Done**, and wired into both `envs/dev` and `envs/prod`. `fmt -check` clean; `validate`
+      passes for the module and for both environments.
+      The agent's instruction is read from `agents/prompts/digest.md` with `file()` rather than
+      restated in Terraform — `definition_hash.py` hashes that same file onto every `agent_run`
+      row, and a duplicated prompt would let the deployed instruction and the recorded hash
+      disagree. The action group's schema comes from `digest.json` the same way.
+      The digest worker's `bedrock:InvokeAgent` is scoped to this one alias. A worker permitted to
+      invoke any agent could run the suggester's prompt against the digest's budget, and the
+      `agent_run` row would name the wrong capability.
+      `platform_api_base_url` and the Cognito machine-client variables are left empty: provisioning
+      a machine app client belongs to the identity module and is outside this task. The action
+      group deploys and refuses to call anything, which is honest — a Lambda pointed at a guessed
+      host is not.
+      The schedule takes **one** retry where every other worker takes two: a retried digest spends
+      its token budget again for the same day, and R-606 makes the model call the dominant cost.
+- [X] T020a [US1] Copy `agents/action-groups/*.py` into the Lambda package in
+      `.github/workflows/deploy-{dev,prod}.yml` — S43, R-601
+      **Not anticipated by this list.** The package build copies `app connectors handlers
+      migrations alembic.ini`; the action-group handlers live under `agents/` because
+      `agents/README.md` owns their no-provider-SDK rule, so T020's `digest_tools.handler` would
+      have resolved to nothing at runtime. Caught by reading the deploy workflow while wiring the
+      Lambda, not by a test — nothing in CI executes a Lambda handler from the built zip.
 
 **Checkpoint**: SC-001 and SC-004 provable at the mocked-test level.
 

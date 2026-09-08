@@ -8,6 +8,8 @@ import {
   Finding,
   FindingStatus,
   FindingsService,
+  InsightDigestResponse,
+  InsightsService,
 } from '../../api';
 
 export interface AccountOverview {
@@ -29,14 +31,17 @@ export class OverviewService {
   private readonly accountsApi = inject(AccountsService);
   private readonly complianceApi = inject(ComplianceService);
   private readonly findingsApi = inject(FindingsService);
+  private readonly insightsApi = inject(InsightsService);
 
   private readonly accountOverviewsState = signal<AccountOverview[]>([]);
   private readonly findingsState = signal<Finding[]>([]);
+  private readonly digestState = signal<InsightDigestResponse | null>(null);
   private readonly loadingState = signal(false);
   private readonly errorState = signal<string | null>(null);
 
   readonly accountOverviews = this.accountOverviewsState.asReadonly();
   readonly findings = this.findingsState.asReadonly();
+  readonly digest = this.digestState.asReadonly();
   readonly loading = this.loadingState.asReadonly();
   readonly error = this.errorState.asReadonly();
 
@@ -75,6 +80,23 @@ export class OverviewService {
       this.errorState.set('Could not load the compliance overview. Try again.');
     } finally {
       this.loadingState.set(false);
+    }
+
+    await this.refreshDigest();
+  }
+
+  /**
+   * Fetched separately and failing quietly (spec 006, FR-009). The digest is an
+   * additive card on a page whose subject is compliance -- an intelligence layer
+   * that is unreachable must not take the compliance overview down with it
+   * (FR-007a). A null digest renders no card at all, which is exactly what this
+   * page showed before this spec existed.
+   */
+  private async refreshDigest(): Promise<void> {
+    try {
+      this.digestState.set(await firstValueFrom(this.insightsApi.getInsightDigest()));
+    } catch {
+      this.digestState.set(null);
     }
   }
 }

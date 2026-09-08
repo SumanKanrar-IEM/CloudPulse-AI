@@ -1891,6 +1891,129 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /insights/digest:
+    get:
+      tags:
+      - insights
+      summary: The most recent validated digest for this tenant
+      description: 'FR-009, FR-007a, FR-010.
+
+
+        Ordered by period, not by insert time: a backfill run for an older day must
+
+        not displace the current digest just because it was written most recently.'
+      operationId: getInsightDigest
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InsightDigestResponse'
+        '401':
+          description: No valid identity presented.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Valid identity, but the caller's role does not permit the action
+            -- or the caller maps to zero or multiple directory groups and therefore
+            has no resolvable role (FR-032a, FR-034).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /insights/runs:
+    get:
+      tags:
+      - insights
+      summary: Agent run history, including truncated and failed runs
+      description: 'FR-005, FR-007a. Failed and truncated runs are listed alongside
+
+        successful ones -- a history showing only successes would answer "is the
+
+        layer working?" with "yes" whatever the truth.'
+      operationId: listAgentRuns
+      parameters:
+      - name: capability
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - $ref: '#/components/schemas/AgentCapability'
+          - type: 'null'
+          title: Capability
+      - name: status
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - $ref: '#/components/schemas/AgentRunStatus'
+          - type: 'null'
+          title: Status
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentRunList'
+        '401':
+          description: No valid identity presented.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Valid identity, but the caller's role does not permit the action
+            -- or the caller maps to zero or multiple directory groups and therefore
+            has no resolvable role (FR-032a, FR-034).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /insights/rejections:
+    get:
+      tags:
+      - insights
+      summary: Outputs refused before display, and what could not be validated
+      description: 'FR-006. The rejected output itself is not stored and so is not
+        served --
+
+        keeping it would put a fabricated reference inside the platform, which is
+
+        the thing the check exists to prevent. The reference that failed is enough
+
+        to diagnose the rejection.'
+      operationId: listGroundingRejections
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroundingRejectionList'
+        '401':
+          description: No valid identity presented.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Valid identity, but the caller's role does not permit the action
+            -- or the caller maps to zero or multiple directory groups and therefore
+            has no resolvable role (FR-032a, FR-034).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
 components:
   schemas:
     Account:
@@ -2015,6 +2138,91 @@ components:
       required:
       - accounts
       title: AccountsList
+    AgentCapability:
+      type: string
+      enum:
+      - digest
+      - suggester
+      - advisor
+      - narrator
+      title: AgentCapability
+      description: Which agent produced a run (spec 006, FR-005).
+    AgentRunList:
+      properties:
+        runs:
+          items:
+            $ref: '#/components/schemas/AgentRunResponse'
+          type: array
+          title: Runs
+      type: object
+      required:
+      - runs
+      title: AgentRunList
+    AgentRunResponse:
+      properties:
+        id:
+          type: string
+          title: Id
+        capability:
+          type: string
+          title: Capability
+        status:
+          type: string
+          title: Status
+        definitionHash:
+          type: string
+          title: Definitionhash
+        costUnits:
+          type: string
+          title: Costunits
+        costCapUnits:
+          type: string
+          title: Costcapunits
+        failureReason:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Failurereason
+        startedAt:
+          type: string
+          format: date-time
+          title: Startedat
+        finishedAt:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Finishedat
+      type: object
+      required:
+      - id
+      - capability
+      - status
+      - definitionHash
+      - costUnits
+      - costCapUnits
+      - startedAt
+      title: AgentRunResponse
+    AgentRunStatus:
+      type: string
+      enum:
+      - succeeded
+      - truncated
+      - failed
+      title: AgentRunStatus
+      description: 'How a run ended (spec 006, FR-004, FR-007a).
+
+
+        `TRUNCATED` is not a failure. FR-004 requires a run reaching its cost cap
+        to
+
+        stop and say so, and what it already produced may still be kept -- see
+
+        FR-004a, where item-wise capabilities retain validated items and
+
+        whole-artifact ones discard. `FAILED` is the unreachable-model case, which
+
+        FR-007a treats as an expected steady state rather than an outage.'
     Budget:
       properties:
         id:
@@ -2236,6 +2444,59 @@ components:
       - name
       - status
       title: DependencyCheck
+    DigestFigure:
+      properties:
+        label:
+          type: string
+          title: Label
+        value:
+          type: string
+          title: Value
+      type: object
+      required:
+      - label
+      - value
+      title: DigestFigure
+    DigestReference:
+      properties:
+        kind:
+          type: string
+          title: Kind
+        id:
+          type: string
+          title: Id
+        label:
+          type: string
+          title: Label
+      type: object
+      required:
+      - kind
+      - id
+      - label
+      title: DigestReference
+    DigestSection:
+      properties:
+        heading:
+          type: string
+          title: Heading
+        body:
+          type: string
+          title: Body
+        figures:
+          items:
+            $ref: '#/components/schemas/DigestFigure'
+          type: array
+          title: Figures
+        references:
+          items:
+            $ref: '#/components/schemas/DigestReference'
+          type: array
+          title: References
+      type: object
+      required:
+      - heading
+      - body
+      title: DigestSection
     ErrorBody:
       properties:
         code:
@@ -2411,6 +2672,43 @@ components:
       required:
       - findings
       title: FindingsList
+    GroundingRejectionList:
+      properties:
+        rejections:
+          items:
+            $ref: '#/components/schemas/GroundingRejectionResponse'
+          type: array
+          title: Rejections
+      type: object
+      required:
+      - rejections
+      title: GroundingRejectionList
+    GroundingRejectionResponse:
+      properties:
+        id:
+          type: string
+          title: Id
+        agentRunId:
+          type: string
+          title: Agentrunid
+        rejectedReference:
+          type: string
+          title: Rejectedreference
+        referenceKind:
+          type: string
+          title: Referencekind
+        rejectedAt:
+          type: string
+          format: date-time
+          title: Rejectedat
+      type: object
+      required:
+      - id
+      - agentRunId
+      - rejectedReference
+      - referenceKind
+      - rejectedAt
+      title: GroundingRejectionResponse
     HTTPValidationError:
       properties:
         detail:
@@ -2504,6 +2802,54 @@ components:
       required:
       - flags
       title: IamHygieneFlags
+    InsightDigestResponse:
+      properties:
+        available:
+          type: boolean
+          title: Available
+        generatedAt:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Generatedat
+        periodDate:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          title: Perioddate
+        isEmpty:
+          type: boolean
+          title: Isempty
+        selectionBasis:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Selectionbasis
+        definitionHash:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Definitionhash
+        sections:
+          items:
+            $ref: '#/components/schemas/DigestSection'
+          type: array
+          title: Sections
+      type: object
+      required:
+      - available
+      - isEmpty
+      title: InsightDigestResponse
+      description: 'FR-009/FR-010. `available` and `isEmpty` are different answers,
+        and
+
+        collapsing them would lose the distinction the digest exists to make: "no
+
+        digest has been produced" is a platform state, "a digest ran and found
+
+        nothing notable" is a governance result.'
     InventoryResourceSummary:
       properties:
         id:
