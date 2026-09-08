@@ -227,10 +227,20 @@ in the store.
 
 ### Tests for User Story 1
 
-- [ ] T013 [P] [US1] Write `backend/tests/unit/test_digest_selection.py` — FR-008a's deterministic
+- [X] T013 [P] [US1] Write `backend/tests/unit/test_digest_selection.py` — FR-008a's deterministic
       order: severity descending, then escalated before not, then oldest first; the same finding
       set always selects the same digest set; the agent is not consulted for ranking — S43,
       FR-008a, R-606a
+      **Done**, 25 tests, and they cover FR-008b's notability thresholds as well as FR-008a's
+      ranking — both are platform decisions made before the agent is invoked, so they belong
+      together. Two guards worth naming: severity ranks by an explicit map rather than the enum's
+      string values, which would sort `low` above `medium` and `critical` below both; and the
+      full three-key order is exercised in one test, since each pairwise test alone passes under
+      several wrong orderings.
+      FR-008b's "either bar" rule is tested at both blind spots — $500 on a $10,000 project clears
+      the absolute bar but not the percentage, $40 on a $100 project the reverse — and a project's
+      first spend is notable only on the absolute bar, since treating a zero baseline as an
+      infinite percentage increase would make every new project's first day notable.
 - [ ] T014 [P] [US1] Write `backend/tests/integration/test_digest_pipeline.py` — a run produces
       one digest per tenant per day; a re-run replaces rather than duplicating; a draft naming an
       absent resource is rejected and recorded in `grounding_rejection` with no digest stored; a
