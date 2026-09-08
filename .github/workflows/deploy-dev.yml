@@ -74,6 +74,12 @@ jobs:
             --python-version ${{ env.PYTHON_VERSION }} -r <(pip install -q pip-tools >/dev/null 2>&1; \
             python -c "import tomllib;print('\n'.join(tomllib.load(open('pyproject.toml','rb'))['project']['dependencies']))")
           cp -r app connectors handlers migrations alembic.ini build/
+          # spec 006 (T020a): the Bedrock action-group handlers ship in the same
+          # package, flat at the root, because Terraform's handler is
+          # `digest_tools.handler`. They live under agents/ rather than backend/
+          # because agents/README.md owns their no-provider-SDK rule -- but they
+          # still have to reach the Lambda that runs them.
+          cp ../agents/action-groups/*.py build/
           (cd build && zip -qr ../dist/lambda.zip .)
           echo "PACKAGE_HASH=$(openssl dgst -sha256 -binary dist/lambda.zip | base64)" >> "$GITHUB_ENV"
 

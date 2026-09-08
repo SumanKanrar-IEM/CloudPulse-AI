@@ -164,6 +164,32 @@ module "api" {
   git_sha            = var.git_sha
 }
 
+# spec 006. The intelligence layer. Additive by construction: every P1 success
+# criterion of specs 002-005 holds with this module removed, and with it present
+# but the model unreachable (FR-007a, SC-009).
+#
+# `platform_api_base_url` and the Cognito machine-client variables are left at
+# their empty defaults here. Provisioning a machine app client belongs to the
+# identity module and is not this task's scope (T020) -- the action group deploys
+# and refuses to call anything until they are supplied, which is the honest state
+# rather than a Lambda pointed at a guessed host. The digest itself still runs and
+# still records its outcome; only the agent's own lookups are unavailable.
+module "agents" {
+  source             = "../../modules/agents"
+  environment        = var.environment
+  vpc_id             = module.network.vpc_id
+  private_subnet_ids = module.network.private_subnet_ids
+
+  db_host       = module.database.connection_endpoint
+  db_name       = module.database.database_name
+  db_user       = "cloudpulse_admin"
+  db_secret_arn = module.database.master_user_secret_arn
+
+  log_retention_days = local.log_retention_days
+  package_path       = var.package_path
+  package_hash       = var.package_hash
+}
+
 # --- P2. Constitution Principle VIII: nothing here may block or destabilise a P1
 # --- path. Set enable_observability = false and every P1 success criterion still holds.
 module "observability" {

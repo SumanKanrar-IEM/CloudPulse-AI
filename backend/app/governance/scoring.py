@@ -59,6 +59,27 @@ def account_compliance_score(
     return compliant_count, total_count, compute_score(compliant_count, total_count)
 
 
+def tenant_compliance_score(session: TenantSession) -> tuple[int, int, float]:
+    """FR-018's formula across every account this tenant holds (spec 006, T017a).
+
+    The digest reports one number for the whole account estate, not one per
+    cloud account -- a reader opening a daily summary wants "are we better or
+    worse than yesterday", and a list of per-account scores is the dashboard's
+    job, not the digest's.
+
+    Weighted by resource, not by account: averaging per-account scores would let
+    an account holding three resources move the headline as much as one holding
+    three thousand.
+    """
+    stmt = session.scoped(select(Resource), Resource).where(
+        Resource.parent_resource_id.is_(None),
+        Resource.deleted_at.is_(None),
+    )
+    resources = session.raw.execute(stmt).scalars().all()
+    compliant_count, total_count = _counts(session, list(resources))
+    return compliant_count, total_count, compute_score(compliant_count, total_count)
+
+
 def sda_compliance_score(session: TenantSession, sda_id: uuid.UUID) -> tuple[int, int, float]:
     """FR-018, scoped to one SDA (FR-019a: well-defined at zero resources)."""
     stmt = session.scoped(select(Resource), Resource).where(
@@ -71,4 +92,9 @@ def sda_compliance_score(session: TenantSession, sda_id: uuid.UUID) -> tuple[int
     return compliant_count, total_count, compute_score(compliant_count, total_count)
 
 
-__all__ = ["compute_score", "account_compliance_score", "sda_compliance_score"]
+__all__ = [
+    "compute_score",
+    "account_compliance_score",
+    "sda_compliance_score",
+    "tenant_compliance_score",
+]

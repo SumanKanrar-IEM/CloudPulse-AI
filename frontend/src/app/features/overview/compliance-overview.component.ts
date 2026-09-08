@@ -1,3 +1,4 @@
+import { DatePipe } from '@angular/common';
 import { Component, OnInit, computed, inject } from '@angular/core';
 import { ChartConfiguration } from 'chart.js';
 import { BaseChartDirective } from 'ng2-charts';
@@ -12,7 +13,7 @@ import { OverviewService } from './overview.service';
 @Component({
   selector: 'cp-compliance-overview',
   standalone: true,
-  imports: [BaseChartDirective],
+  imports: [BaseChartDirective, DatePipe],
   template: `
     <h1>Compliance overview</h1>
 
@@ -28,6 +29,38 @@ import { OverviewService } from './overview.service';
       @if (overview.accountOverviews().length === 0) {
         <p>No connected accounts yet.</p>
       } @else {
+        @if (overview.digest(); as digest) {
+          <section class="digest-card" aria-labelledby="digest-heading">
+            <h2 id="digest-heading">Daily insight</h2>
+            @if (!digest.available) {
+              <p>Not enough data yet — no digest has been produced for this tenant.</p>
+            } @else {
+              <!--
+                FR-009: the run's period and prompt version are on the card, not
+                behind a tooltip. A digest from last week reads exactly like this
+                morning's unless the page says which is which, and the digest is
+                the one surface where being a day stale changes what you do.
+              -->
+              <p class="digest-provenance">
+                For {{ digest.periodDate }} · prompt {{ digest.definitionHash?.slice(0, 12) }}
+                @if (digest.generatedAt) {
+                  · generated {{ digest.generatedAt | date: 'medium' }}
+                }
+              </p>
+              @if (digest.isEmpty) {
+                <p>Nothing notable to report for this period.</p>
+              } @else {
+                @for (section of digest.sections; track section.heading) {
+                  <article>
+                    <h3>{{ section.heading }}</h3>
+                    <p>{{ section.body }}</p>
+                  </article>
+                }
+              }
+            }
+          </section>
+        }
+
         <section class="score-cards">
           <div class="score-card">
             <h2>Overall</h2>
@@ -114,6 +147,17 @@ import { OverviewService } from './overview.service';
       .score-cards {
         display: flex;
         gap: 1rem;
+      }
+      .digest-card {
+        border: 1px solid #d0d0d0;
+        border-radius: 4px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+      }
+      .digest-provenance {
+        color: #595959;
+        font-size: 0.875rem;
+        margin-top: 0;
       }
       .score-card {
         border: 1px solid #d0d0d0;

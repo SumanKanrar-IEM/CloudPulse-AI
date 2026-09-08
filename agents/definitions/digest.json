@@ -1,0 +1,89 @@
+{
+  "capability": "digest",
+  "description": "The daily insight digest (spec 006, FR-008-FR-010). Explains an already-ranked finding set and already-computed figures; decides neither.",
+  "promptFile": "agents/prompts/digest.md",
+  "foundationModel": "anthropic.claude-3-5-haiku-20241022-v1:0",
+  "idleSessionTTLInSeconds": 300,
+  "guardrail": {
+    "required": true,
+    "note": "Attached by infra (T020). Principle II names guardrails as part of the GenAI layer, and the digest's input is governance data belonging to a tenant."
+  },
+  "actionGroups": [
+    {
+      "name": "governance-read",
+      "description": "Read-only governance lookups through the platform HTTP API. Every operation is a GET; the agent principal is refused on every other method (FR-056, R-602).",
+      "lambda": "agents/action-groups/digest_tools.py",
+      "apiSchema": {
+        "openapi": "3.0.0",
+        "info": {
+          "title": "Digest governance reads",
+          "version": "1.0.0",
+          "description": "A deliberately small surface. Each operation is backed by an endpoint specs 002-005 already ship; an operation needing a new data path is a spec change, not a definition change."
+        },
+        "paths": {
+          "/findings": {
+            "get": {
+              "operationId": "listFindings",
+              "summary": "Open findings for this tenant, newest first.",
+              "description": "Use this to read detail about the findings named in the prompt. The prompt's selection is the digest's selection; this endpoint returning more of them does not widen it.",
+              "parameters": [
+                {
+                  "name": "status",
+                  "in": "query",
+                  "required": false,
+                  "schema": {"type": "string", "enum": ["open", "resolved", "suppressed"]},
+                  "description": "Defaults to open."
+                },
+                {
+                  "name": "severity",
+                  "in": "query",
+                  "required": false,
+                  "schema": {"type": "string", "enum": ["low", "medium", "high", "critical"]}
+                }
+              ],
+              "responses": {
+                "200": {
+                  "description": "Findings with their resource, rule and severity.",
+                  "content": {"application/json": {"schema": {"type": "object"}}}
+                }
+              }
+            }
+          },
+          "/resources/{resource_id}": {
+            "get": {
+              "operationId": "getResource",
+              "summary": "One resource, with its tags and owner attribution.",
+              "parameters": [
+                {
+                  "name": "resource_id",
+                  "in": "path",
+                  "required": true,
+                  "schema": {"type": "string", "format": "uuid"}
+                }
+              ],
+              "responses": {
+                "200": {
+                  "description": "The resource.",
+                  "content": {"application/json": {"schema": {"type": "object"}}}
+                }
+              }
+            }
+          },
+          "/spend/summary": {
+            "get": {
+              "operationId": "getSpendSummary",
+              "summary": "Spend totals for the current period.",
+              "description": "Read this for context only. The figures you may state are the ones supplied in the prompt; a number read here and not supplied there was not judged notable and will be rejected.",
+              "responses": {
+                "200": {
+                  "description": "Spend by project and account.",
+                  "content": {"application/json": {"schema": {"type": "object"}}}
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}
