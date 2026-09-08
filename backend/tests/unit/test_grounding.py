@@ -223,3 +223,90 @@ def test_validation_is_deterministic_over_the_same_input() -> None:
         second.rejected_reference,
         second.reference_kind,
     )
+
+
+# --- parser differentials (T007a) --------------------------------------------------
+#
+# A background security review of the T007 commit flagged a parser differential
+# here. It was real: seven ways a fabricated monetary or percentage figure passed
+# the prose sweep entirely, so FR-001a's "presented as a platform figure but
+# never computed" check never ran on it. Each is pinned below.
+
+
+@pytest.mark.parametrize(
+    ("label", "body"),
+    [
+        ("fullwidth dollar sign", "Spend reached \uff0d9999.00".replace("\uff0d", "\uff04")),
+        ("fullwidth digits", "Spend reached $\uff19\uff19\uff19\uff19.00"),
+        ("euro", "Spend reached \u20ac9999.00"),
+        ("pound", "Spend reached \u00a39999.00"),
+        ("yen", "Spend reached \u00a59999"),
+        ("fullwidth percent", "Coverage fell to 61.4\uff05"),
+        ("worded currency", "Spend reached 9999.00 USD"),
+    ],
+)
+def test_a_fabricated_figure_is_caught_however_it_is_written(label: str, body: str) -> None:
+    """Every one of these previously swept to nothing, so an undeclared
+    fabricated figure reached the reader unchecked. The body is NFKC-normalised
+    and the currency class covers more than ASCII `$`."""
+    verdict = validate_output([_section(body=body)], known_references=_known(), known_figures=set())
+    assert not verdict.ok, label
+    assert verdict.reference_kind is GroundingReferenceKind.FIGURE
+
+
+@pytest.mark.parametrize("body", ["Spend changed by -$500.00", "Spend changed by $-500.00"])
+def test_a_negative_figure_keeps_its_sign(body: str) -> None:
+    """The nastiest of the set: the sign was dropped, so a stated saving of
+    -$500 validated against a declared cost of $500. The reader and the
+    validator would have been looking at opposite facts."""
+    verdict = validate_output(
+        [_section(body=body, figures=[Figure("delta", Decimal("500.00"))])],
+        known_references=_known(),
+        known_figures={Decimal("500.00")},
+    )
+    assert not verdict.ok
+    assert verdict.rejected_reference == "-500.00"
+
+
+def test_a_negative_figure_passes_when_it_is_the_one_declared() -> None:
+    verdict = validate_output(
+        [
+            _section(
+                body="Spend changed by -$500.00",
+                figures=[Figure("delta", Decimal("-500.00"))],
+            )
+        ],
+        known_references=_known(),
+        known_figures={Decimal("-500.00")},
+    )
+    assert verdict.ok
+
+
+def test_malformed_thousands_grouping_is_rejected_not_normalised() -> None:
+    """`$4,2,0,0.00` used to normalise onto a declared 4200.00 and pass. Stripping
+    commas blindly makes any grouping equivalent to any other, so a figure the
+    reader sees as malformed validated against a well-formed declared one.
+    Fail-closed instead (R-607): unparseable reads as unresolvable."""
+    verdict = validate_output(
+        [
+            _section(
+                body="Spend reached $4,2,0,0.00",
+                figures=[Figure("spend", Decimal("4200.00"))],
+            )
+        ],
+        known_references=_known(),
+        known_figures={Decimal("4200.00")},
+    )
+    assert not verdict.ok
+    assert verdict.rejected_reference == "4,2,0,0.00"
+
+
+def test_well_formed_grouping_still_passes() -> None:
+    """The fix must not reject correct output — R-607 names that as the failure
+    direction to avoid, and a validator that rejects real digests gets removed."""
+    verdict = validate_output(
+        [_section(body="Spend reached $4,200.00", figures=[Figure("spend", Decimal("4200.00"))])],
+        known_references=_known(),
+        known_figures={Decimal("4200.00")},
+    )
+    assert verdict.ok

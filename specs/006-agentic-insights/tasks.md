@@ -121,6 +121,22 @@ Principle IV would be an accident of ordering rather than a property of the desi
       validation exact instead of a regex guess at which numerals were meant to be figures. The
       body is still swept for currency and percentages, because FR-001a treats an undeclared
       platform-shaped quantity as unresolvable; bare integers are exempt.
+- [X] T007a Close the parser differential in `backend/app/governance/grounding.py`. Found by a
+      background security review of T007's commit, and real: **seven ways a fabricated monetary or
+      percentage figure passed the prose sweep entirely**, so FR-001a's "presented as a platform
+      figure but never computed" check never ran on it. A fullwidth dollar sign, a euro/pound/yen
+      amount, a fullwidth percent, and a worded `9999.00 USD` all swept to nothing. `-$500.00`
+      swept as `500.00` — the sign dropped, so a stated saving validated against a declared cost
+      of the same magnitude, reader and validator seeing opposite facts. `$4,2,0,0.00` normalised
+      onto a declared `4200.00`, because stripping commas blindly makes any grouping equivalent to
+      any other.
+      Fixed by NFKC-normalising the body before sweeping (folding fullwidth forms to ASCII),
+      widening the currency class beyond `$`, capturing the sign on either side of the symbol, and
+      failing **closed** on a token that reads as a figure but does not parse — rather than
+      skipping it, which is how the malformed-grouping case slipped through. Nine regression tests
+      pin each differential; one pins that well-formed grouping still passes, since R-607 names
+      rejecting correct output as the failure direction to avoid — S43, FR-001, FR-001a, R-607
+
 - [X] T008 [P] Write `backend/tests/unit/test_agent_run.py` — a run records its definition hash,
       cost and cap; reaching the cap yields `truncated`, not `failed`; an unreachable model yields
       `failed` with a reason; `finished_at` is set on every terminal state — S43, FR-004, FR-005
