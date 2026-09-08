@@ -100,36 +100,75 @@ Principle IV would be an accident of ordering rather than a property of the desi
 
 ⚠️ **Blocking**: no user story may start before this phase completes.
 
-- [ ] T006 [P] Write `backend/tests/unit/test_grounding.py` — an output naming a resource absent
+- [X] T006 [P] Write `backend/tests/unit/test_grounding.py` — an output naming a resource absent
       from the store is rejected; one naming only real resources passes; a figure that does not
       match the store is rejected; the validator makes no model call and is deterministic over
       the same input. Covers FR-001a's boundary in both directions: a prose numeral like "the last
       7 days" does not trigger rejection, and a fabricated *platform* figure does — S43, FR-001,
       FR-001a, FR-006, research.md R-607
-- [ ] T007 Write `backend/app/governance/grounding.py` — the deterministic validator: extract
+      **Done**, 18 tests. FR-001a's boundary is asserted in both directions: rejecting "the last 7
+      days" would make grounding useless in practice, and letting a fabricated dollar figure
+      through would make it dishonest.
+- [X] T007 Write `backend/app/governance/grounding.py` — the deterministic validator: extract
       candidate ARNs, resource ids, project names and numerals from an agent output, resolve each
       against the governance store, return a pass/reject verdict naming the first unresolvable
       reference. FR-001a fixes *what* is validated: platform-computed quantities (counts, scores,
       percentages, money) resolve; ordinary prose numerals do not; a quantity presented as a
       platform figure that the platform never computed is unresolvable — S43, FR-001, FR-001a,
       R-607
-- [ ] T008 [P] Write `backend/tests/unit/test_agent_run.py` — a run records its definition hash,
+      **Done.** Figures are **declared** as structured data rather than parsed out of prose, which
+      required adding a `figures` array to the digest section contract — additive, and it makes
+      validation exact instead of a regex guess at which numerals were meant to be figures. The
+      body is still swept for currency and percentages, because FR-001a treats an undeclared
+      platform-shaped quantity as unresolvable; bare integers are exempt.
+- [X] T007a Close the parser differential in `backend/app/governance/grounding.py`. Found by a
+      background security review of T007's commit, and real: **seven ways a fabricated monetary or
+      percentage figure passed the prose sweep entirely**, so FR-001a's "presented as a platform
+      figure but never computed" check never ran on it. A fullwidth dollar sign, a euro/pound/yen
+      amount, a fullwidth percent, and a worded `9999.00 USD` all swept to nothing. `-$500.00`
+      swept as `500.00` — the sign dropped, so a stated saving validated against a declared cost
+      of the same magnitude, reader and validator seeing opposite facts. `$4,2,0,0.00` normalised
+      onto a declared `4200.00`, because stripping commas blindly makes any grouping equivalent to
+      any other.
+      Fixed by NFKC-normalising the body before sweeping (folding fullwidth forms to ASCII),
+      widening the currency class beyond `$`, capturing the sign on either side of the symbol, and
+      failing **closed** on a token that reads as a figure but does not parse — rather than
+      skipping it, which is how the malformed-grouping case slipped through. Nine regression tests
+      pin each differential; one pins that well-formed grouping still passes, since R-607 names
+      rejecting correct output as the failure direction to avoid — S43, FR-001, FR-001a, R-607
+
+- [X] T008 [P] Write `backend/tests/unit/test_agent_run.py` — a run records its definition hash,
       cost and cap; reaching the cap yields `truncated`, not `failed`; an unreachable model yields
       `failed` with a reason; `finished_at` is set on every terminal state — S43, FR-004, FR-005
-- [ ] T009 Write `backend/app/governance/agent_runs.py` — open/close a run, enforce the cost cap,
+      **Done**, 13 tests, including that an error outranks an exhausted budget — a run that both
+      hit its cap and threw is a failure, because the error is the fact needing diagnosis and
+      truncation would hide it.
+- [X] T009 Write `backend/app/governance/agent_runs.py` — open/close a run, enforce the cost cap,
       record `definition_hash`, and expose FR-004a's retention rule (item-wise capabilities keep
       validated items on truncation; whole-artifact capabilities discard). The cap is read from
       the environment at point of use with a conservative fallback, **not** added to `Settings` —
       see R-612 and spec 005's T029a, where the Settings route broke 11 unrelated tests — S43,
       FR-004, FR-004a, FR-005, R-612
-- [ ] T010 [P] Write `backend/app/governance/definition_hash.py` and
+      **Done.** Pure, and split from persistence deliberately: the decisions cannot drift into a
+      query and are provable without a database. `RunBudget` refuses a zero or negative cap at
+      construction — a cap of zero truncates every run before it starts, which is silent breakage
+      dressed as a configured limit.
+- [X] T010 [P] Write `backend/app/governance/definition_hash.py` and
       `backend/tests/unit/test_definition_hash.py` — content-hash a prompt/definition file so
       every stored output traces to what produced it; the hash changes when the file does — S43,
       FR-005, R-608
-- [ ] T011 Extend `backend/connectors/aws.py` with `invoke_agent(...)` — the only place the
+      **Done**, 10 tests. Hashing content rather than reading a version string: a version string is
+      a promise someone must remember to keep, a content hash cannot disagree with its file. Line
+      endings and trailing whitespace are normalised, so the hash does not move on how an editor
+      saved a file — a hash that noisy stops being trusted, and one nobody trusts records
+      nothing.
+- [X] T011 Extend `backend/connectors/aws.py` with `invoke_agent(...)` — the only place the
       Bedrock SDK appears (Principle V, FR-054). Returns raw output; makes no grounding or cost
       judgement, which belong to `app/governance/` — S43, FR-003, R-601, R-602
-- [ ] T011a [P] Write `backend/tests/integration/test_degraded_mode.py` — **FR-007a and SC-009,
+      **Done.** Returns raw text and token counts. Raises rather than returning a partial result:
+      FR-007a needs the caller to record `failed`, and a swallowed error would become a run that
+      looks successful and produced nothing. `connector-boundary`: 173 files, 0 violations.
+- [X] T011a [P] Write `backend/tests/integration/test_degraded_mode.py` — **FR-007a and SC-009,
       the requirement that makes P1 shippable under R-605.** With the model unreachable: the run
       is recorded `failed` with a reason; `GET /insights/digest` serves the last valid digest or
       the explicit not-enough-data state; the findings workbench shows suggestions already stored
@@ -137,17 +176,39 @@ Principle IV would be an accident of ordering rather than a property of the desi
       fixed fixture with the intelligence layer disabled and assert inventory, finding and score
       output are **byte-identical** to the run with it enabled — SC-009's own stated comparison,
       not a prose claim of no regression — S43, S44, FR-007a, SC-009
-- [ ] T011b [P] Write `backend/tests/unit/test_deterministic_core_isolation.py` — **Principle IV's
+      **Done in part, and split — see T018a.** The deterministic half is here: populating every
+      agent table leaves inventory, findings and the compliance score byte-identical, and an
+      unreachable model is recorded `failed` with a reason rather than silently absent. The
+      surface half — `GET /insights/digest` serving last-valid-output — asserts routes T018 builds
+      in Phase 3, so it moves there as **T018a**. A Phase 2 test cannot exercise a Phase 3
+      surface, and stubbing one to satisfy the ordering would prove nothing. This is an ordering
+      error in this task list, recorded rather than worked around.
+- [X] T011b [P] Write `backend/tests/unit/test_deterministic_core_isolation.py` — **Principle IV's
       own testable clause**, which no other task asserts: no module under `app/scan/`,
       `app/governance/validation.py`, `app/governance/scoring.py` or `app/governance/spend.py`
       imports a Bedrock client or reaches `app/governance/grounding.py`'s agent path, and
       replaying a fixed account snapshot twice produces byte-identical inventory and finding sets.
       `check_connector_boundary.py` restricts boto3 to `connectors/` generally but says nothing
       about Bedrock specifically reaching the deterministic core — S43, FR-007, Principle IV
-- [ ] T012 [P] Write `backend/tests/unit/test_agent_read_only.py` — the action-group principal is
+      **Done**, 20 tests. Also asserts the core imports no *agent-layer* module: importing
+      `agent_runs` or `digest` into scoring would put the intelligence layer's availability on a
+      deterministic path, so scoring could start failing because Bedrock was unreachable. Carries
+      a guard on the guard — if these module paths were renamed every test would skip and report
+      green while asserting nothing, so one test fails if fewer than six are found.
+- [X] T012 [P] Write `backend/tests/unit/test_agent_read_only.py` — the action-group principal is
       refused on every non-GET method and holds no cloud credential, asserted against spec 001's
       existing `app/core/agent_access.py` rather than a re-implementation — S43, FR-002, FR-003,
       FR-056 (spec 001)
+      **Done**, 16 tests. Includes the fail-closed case (an HTTP method the platform has never
+      heard of is refused, not permitted by omission) and that the guard leaves *human* principals
+      alone — it must not become a general method filter, since an operator's POST is not an
+      agent's POST.
+
+- [ ] T018a [US1] Assert FR-007a's **surface** half, alongside T018's routes: with the model
+      unreachable, `GET /insights/digest` serves the last valid digest or the explicit
+      not-enough-data state, `GET /insights/runs` shows the failed run with its reason, and no
+      surface renders a partial or placeholder result. Split out of T011a, which could not
+      exercise a Phase 3 surface from Phase 2 — S43, S44, FR-007a, SC-009
 
 **Checkpoint**: Any capability can now run, be capped, be recorded, and have its output validated
 — and the two guarantees that let P1 ship without a reachable model (FR-007a/SC-009) and keep the
