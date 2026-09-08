@@ -34,6 +34,9 @@ locals {
   agents_root       = "${path.module}/../../../agents"
   digest_prompt     = file("${local.agents_root}/prompts/digest.md")
   digest_definition = jsondecode(file("${local.agents_root}/definitions/digest.json"))
+
+  suggester_prompt     = file("${local.agents_root}/prompts/suggester.md")
+  suggester_definition = jsondecode(file("${local.agents_root}/definitions/suggester.json"))
 }
 
 data "aws_caller_identity" "current" {}
@@ -382,4 +385,244 @@ resource "aws_lambda_function" "digest_worker" {
   }
 
   depends_on = [aws_cloudwatch_log_group.digest_worker]
+}
+
+# --- the suggester agent (T027; S44, FR-011-FR-014, R-601) --------------------
+#
+# A second agent rather than a second action group on the digest's. The two have
+# different prompts, different tool surfaces and different cost profiles -- the
+# digest runs once a day, the suggester once per open finding -- and sharing an
+# agent would make `agent_run.definition_hash` ambiguous about which instruction
+# produced a given output (FR-005).
+#
+# The guardrail is shared with the digest deliberately. It encodes a property of
+# the tenant's data rather than of a capability: the same resource tags and SDA
+# names reach both, and a second guardrail would be a second thing to keep in
+# step for no stated difference.
+
+resource "aws_iam_role" "suggester_agent" {
+  name               = "${local.name}-suggester-agent"
+  assume_role_policy = data.aws_iam_policy_document.bedrock_assume.json
+}
+
+resource "aws_iam_role_policy" "suggester_agent_runtime" {
+  name = "runtime"
+  role = aws_iam_role.suggester_agent.id
+  # Identical scope to the digest agent's: this one model, this one guardrail.
+  policy = data.aws_iam_policy_document.digest_agent_runtime.json
+}
+
+resource "aws_bedrockagent_agent" "suggester" {
+  agent_name                  = "${local.name}-suggester"
+  agent_resource_role_arn     = aws_iam_role.suggester_agent.arn
+  foundation_model            = var.foundation_model
+  description                 = local.suggester_definition.description
+  instruction                 = local.suggester_prompt
+  idle_session_ttl_in_seconds = local.suggester_definition.idleSessionTTLInSeconds
+
+  guardrail_configuration {
+    guardrail_identifier = aws_bedrock_guardrail.digest.guardrail_id
+    guardrail_version    = aws_bedrock_guardrail_version.digest.version
+  }
+}
+
+resource "aws_bedrockagent_agent_action_group" "suggester_finding_read" {
+  action_group_name          = local.suggester_definition.actionGroups[0].name
+  agent_id                   = aws_bedrockagent_agent.suggester.agent_id
+  agent_version              = "DRAFT"
+  description                = local.suggester_definition.actionGroups[0].description
+  skip_resource_in_use_check = true
+
+  action_group_executor {
+    lambda = aws_lambda_function.suggester_tools.arn
+  }
+
+  api_schema {
+    payload = jsonencode(local.suggester_definition.actionGroups[0].apiSchema)
+  }
+}
+
+resource "aws_bedrockagent_agent_alias" "suggester" {
+  agent_alias_name = "live"
+  agent_id         = aws_bedrockagent_agent.suggester.agent_id
+  description      = "The alias the suggester worker invokes. Never the DRAFT version."
+
+  depends_on = [aws_bedrockagent_agent_action_group.suggester_finding_read]
+}
+
+# --- suggester action-group Lambda -------------------------------------------
+#
+# Its own function rather than a second handler on the digest's, so the two
+# allowlists cannot be reached through the wrong door: a bug in one capability's
+# path list stays inside that capability.
+
+resource "aws_iam_role" "suggester_tools" {
+  name               = "${local.name}-suggester-tools"
+  assume_role_policy = data.aws_iam_policy_document.lambda_assume.json
+}
+
+resource "aws_iam_role_policy_attachment" "suggester_tools_vpc" {
+  role       = aws_iam_role.suggester_tools.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
+}
+
+resource "aws_cloudwatch_log_group" "suggester_tools" {
+  name              = "/aws/lambda/${local.name}-suggester-tools"
+  retention_in_days = var.log_retention_days
+}
+
+data "aws_iam_policy_document" "suggester_tools_runtime" {
+  dynamic "statement" {
+    for_each = var.agent_client_secret_arn == "" ? [] : [var.agent_client_secret_arn]
+    content {
+      sid       = "ReadOwnClientSecret"
+      effect    = "Allow"
+      actions   = ["secretsmanager:GetSecretValue"]
+      resources = [statement.value]
+    }
+  }
+
+  statement {
+    sid       = "WriteOwnLogs"
+    effect    = "Allow"
+    actions   = ["logs:CreateLogStream", "logs:PutLogEvents"]
+    resources = ["${aws_cloudwatch_log_group.suggester_tools.arn}:*"]
+  }
+}
+
+resource "aws_iam_role_policy" "suggester_tools_runtime" {
+  name   = "runtime"
+  role   = aws_iam_role.suggester_tools.id
+  policy = data.aws_iam_policy_document.suggester_tools_runtime.json
+}
+
+resource "aws_lambda_function" "suggester_tools" {
+  function_name = "${local.name}-suggester-tools"
+  role          = aws_iam_role.suggester_tools.arn
+  handler       = "suggester_tools.handler"
+  runtime       = "python3.12"
+  architectures = ["arm64"]
+  timeout       = 30
+  memory_size   = 256
+
+  filename         = var.package_path
+  source_code_hash = var.package_hash
+
+  layers = var.secrets_extension_layer_arn == "" ? [] : [var.secrets_extension_layer_arn]
+
+  vpc_config {
+    subnet_ids         = var.private_subnet_ids
+    security_group_ids = [aws_security_group.digest_tools.id]
+  }
+
+  environment {
+    variables = {
+      PLATFORM_API_BASE_URL   = var.platform_api_base_url
+      COGNITO_TOKEN_ENDPOINT  = var.cognito_token_endpoint
+      AGENT_CLIENT_ID         = var.agent_client_id
+      AGENT_CLIENT_SECRET_ID  = var.agent_client_secret_arn
+      POWERTOOLS_SERVICE_NAME = "cloudpulse-suggester-tools"
+      POWERTOOLS_LOG_LEVEL    = "INFO"
+    }
+  }
+
+  depends_on = [aws_cloudwatch_log_group.suggester_tools]
+}
+
+resource "aws_lambda_permission" "suggester_tools_bedrock" {
+  statement_id  = "AllowBedrockAgentInvoke"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.suggester_tools.function_name
+  principal     = "bedrock.amazonaws.com"
+  source_arn    = aws_bedrockagent_agent.suggester.agent_arn
+}
+
+# --- suggester worker ---------------------------------------------------------
+
+resource "aws_iam_role" "suggester_worker" {
+  name               = "${local.name}-suggester-worker"
+  assume_role_policy = data.aws_iam_policy_document.lambda_assume.json
+}
+
+resource "aws_iam_role_policy_attachment" "suggester_worker_vpc" {
+  role       = aws_iam_role.suggester_worker.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
+}
+
+resource "aws_cloudwatch_log_group" "suggester_worker" {
+  name              = "/aws/lambda/${local.name}-suggester-worker"
+  retention_in_days = var.log_retention_days
+}
+
+data "aws_iam_policy_document" "suggester_worker_runtime" {
+  statement {
+    sid       = "ReadDatabaseCredential"
+    effect    = "Allow"
+    actions   = ["secretsmanager:GetSecretValue", "secretsmanager:DescribeSecret"]
+    resources = [var.db_secret_arn]
+  }
+
+  # Scoped to the suggester's own alias, for the same reason the digest worker
+  # is scoped to its own: a worker able to invoke any agent could spend one
+  # capability's budget on another's prompt, and the `agent_run` row would name
+  # the wrong capability.
+  statement {
+    sid       = "InvokeSuggesterAgent"
+    effect    = "Allow"
+    actions   = ["bedrock:InvokeAgent"]
+    resources = [aws_bedrockagent_agent_alias.suggester.agent_alias_arn]
+  }
+
+  statement {
+    sid       = "WriteOwnLogs"
+    effect    = "Allow"
+    actions   = ["logs:CreateLogStream", "logs:PutLogEvents"]
+    resources = ["${aws_cloudwatch_log_group.suggester_worker.arn}:*"]
+  }
+}
+
+resource "aws_iam_role_policy" "suggester_worker_runtime" {
+  name   = "runtime"
+  role   = aws_iam_role.suggester_worker.id
+  policy = data.aws_iam_policy_document.suggester_worker_runtime.json
+}
+
+resource "aws_lambda_function" "suggester_worker" {
+  function_name = "${local.name}-suggester-worker"
+  role          = aws_iam_role.suggester_worker.arn
+  handler       = "handlers.suggester_worker_handler.handler"
+  runtime       = "python3.12"
+  architectures = ["arm64"]
+  # Longer than the digest's: this pass makes one agent invocation per open
+  # finding, sequentially. The cost cap (FR-004) is what actually bounds the
+  # work -- this only has to be long enough that the cap is what stops it, since
+  # a wall-clock timeout would kill the pass without recording an outcome.
+  timeout     = 900
+  memory_size = 512
+
+  filename         = var.package_path
+  source_code_hash = var.package_hash
+
+  vpc_config {
+    subnet_ids         = var.private_subnet_ids
+    security_group_ids = [aws_security_group.digest_worker.id]
+  }
+
+  environment {
+    variables = {
+      CLOUDPULSE_ENVIRONMENT              = var.environment
+      CLOUDPULSE_AWS_REGION               = data.aws_region.current.name
+      CLOUDPULSE_DB_HOST                  = var.db_host
+      CLOUDPULSE_DB_NAME                  = var.db_name
+      CLOUDPULSE_DB_USER                  = var.db_user
+      CLOUDPULSE_DB_SECRET_ARN            = var.db_secret_arn
+      CLOUDPULSE_SUGGESTER_AGENT_ID       = aws_bedrockagent_agent.suggester.agent_id
+      CLOUDPULSE_SUGGESTER_AGENT_ALIAS_ID = aws_bedrockagent_agent_alias.suggester.agent_alias_id
+      CLOUDPULSE_AGENT_COST_CAP_UNITS     = var.agent_cost_cap_units
+      POWERTOOLS_SERVICE_NAME             = "cloudpulse-suggester-worker"
+      POWERTOOLS_LOG_LEVEL                = "INFO"
+    }
+  }
+
+  depends_on = [aws_cloudwatch_log_group.suggester_worker]
 }

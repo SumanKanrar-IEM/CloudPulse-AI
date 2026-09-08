@@ -23,7 +23,7 @@ something proves a fabricated reference is actually rejected.
 ## Tier Summary
 
 **P1 (must complete first, deliverable with zero P2 items)**: Phases 1–5, T001–T031 plus the
-T007a/T011a/T011b/T017a/T018a/T020a insertions — 37 tasks. Delivers
+T007a/T011a/T011b/T017a/T017b/T018a/T020a/T024a insertions — 39 tasks. Delivers
 SC-001, SC-002, SC-004, SC-005, SC-008, SC-009 — the digest, the suggester, and every
 grounding/safety guarantee.
 
@@ -392,32 +392,99 @@ a resource-specific suggestion marked `ai_generated`, and that no endpoint or co
 
 ### Tests for User Story 2
 
-- [ ] T021 [P] [US2] Write `backend/tests/unit/test_suggester_rules.py` — a suggestion is drafted
+- [X] T021 [P] [US2] Write `backend/tests/unit/test_suggester_rules.py` — a suggestion is drafted
       per individual finding and names that finding's own resource (Clarification 2026-09-05); an
       existing `admin_seeded` suggestion is never overwritten; a finding no longer open is skipped
       — S44, FR-011, FR-013, FR-014
-- [ ] T022 [P] [US2] Write `backend/tests/integration/test_suggester_pipeline.py` — an
+      **Done**, 13 tests. Two of the three rules the task names are enforced by a query and a
+      conflict clause rather than by pure logic, so they are proved in T022 against a real
+      PostgreSQL — asserting them against a stub session here would prove only that the stub agreed
+      with the test. What is pure, and is proved here, is the vocabulary: a suggestion may cite
+      **only its own finding's resource**. A tenant-wide vocabulary would let a suggestion name a
+      real ARN belonging to a different finding and still validate — grounded, and still not about
+      the thing it claims to be about, which is exactly what the 2026-09-05 clarification rules
+      out.
+      Also pinned: the fix and the blast-radius note are validated as **one** body. Validating only
+      the fix would let a fabricated ARN sit in the note — the half a reader consults precisely
+      because they are about to change something.
+- [X] T022 [P] [US2] Write `backend/tests/integration/test_suggester_pipeline.py` — an
       `ai_generated` suggestion is written and rendered distinctly from `admin_seeded`; a
       suggestion failing grounding is rejected and the finding shows none; a truncated run keeps
       every validated suggestion produced before the cap (FR-004a) and the remainder are picked
       up next run — S44, FR-001, FR-004a, FR-011, FR-012
+      **Done**, 14 tests. The cap is checked **before** each call, not after charging — a check
+      that ran only afterwards would let every pass overspend once and report the overrun as if it
+      had been authorised. There is a test counting invocations to prove it.
+      Two tests the task did not name. One rejected suggestion must not withhold the others (the
+      run still succeeds — item-wise means item-wise in both directions), and an agent suggestion
+      must still be able to replace an *earlier agent* one: a conflict clause narrow enough to
+      refuse admin-seeded rows could easily freeze the agent's own, making every re-run a no-op and
+      the suggestion permanently stale.
 
 ### Implementation for User Story 2
 
-- [ ] T023 [US2] Extend `backend/app/governance/suggestions.py` with the `ai_generated` writer —
+- [X] T023 [US2] Extend `backend/app/governance/suggestions.py` with the `ai_generated` writer —
       the seam spec 003 defined and spec 004 rendered, which no code path has ever produced. Must
       not be reachable from any human-facing endpoint — S44, FR-011, FR-012, FR-013
-- [ ] T024 [US2] Write `agents/definitions/suggester.json`, `agents/prompts/suggester.md` and
+      **Done.** FR-013 is enforced by the `on_conflict_do_update`'s `where`, not by reading first.
+      A read-then-write leaves a window in which an admin seeds a suggestion between the check and
+      the insert and the agent overwrites it — rare, silent, and exactly what the requirement
+      forbids. The database refuses it instead, so the race cannot exist.
+      Two writers now, and neither has a parameter that could make it write the other's `source`.
+      FR-012's "distinguishable in the interface" is therefore true at the write layer rather than
+      trusted to stay accurate at display time.
+- [X] T024 [US2] Write `agents/definitions/suggester.json`, `agents/prompts/suggester.md` and
       `agents/action-groups/suggester_tools.py` — reads the finding, its resource and its rule
       through the platform API — S44, FR-003, R-602
-- [ ] T025 [US2] Write `backend/handlers/suggester_worker_handler.py` — daily entrypoint,
+      **Done.** The suggester's allowlist has no spend endpoint, unlike the digest's: this agent has
+      no platform-computed figures and its prompt forbids stating numbers, so an endpoint returning
+      amounts would only offer it something it must not use. Narrowing the surface is cheaper than
+      relying on the prompt alone.
+      The prompt is explicit that the platform executes nothing and that phrasing implying otherwise
+      ("approve to apply") describes a capability that does not exist — T026 is what makes that
+      instruction true rather than merely stated.
+- [X] T024a [US2] Extract `agents/action-groups/_platform_api.py` from `digest_tools.py` — S43,
+      S44, FR-056, R-602
+      **Not anticipated by this list.** The suggester's action group differs from the digest's only
+      in which paths it exposes; copying the token exchange, the HTTPS check and the response
+      envelope into it would mean a fix to one silently not reaching the other — and those are the
+      parts where a mistake is a security mistake rather than a wrong answer. Each handler is now
+      about twenty lines: an allowlist and a delegation.
+- [X] T025 [US2] Write `backend/handlers/suggester_worker_handler.py` — daily entrypoint,
       processing findings in priority order until the cost cap — S44, FR-004, FR-011
-- [ ] T026 [P] [US2] Verify no apply/execute control exists for a suggestion anywhere in
+      **Done.** Priority order is the **digest's** order, not a second ranking. Two rankings would
+      eventually disagree, and a user reading a digest and a suggestion queue would get two
+      different accounts of what is urgent.
+      One session per finding, not one per pass. A shared session would carry the previous
+      finding's resource into this one's context, which is precisely how a suggestion stops being
+      specific to its own resource (FR-011).
+- [X] T026 [P] [US2] Verify no apply/execute control exists for a suggestion anywhere in
       `frontend/src/app/features/findings/` or the API surface, and add
       `backend/tests/integration/test_no_remediation_execution.py` asserting it — S44, FR-002,
       SC-005
-- [ ] T027 [US2] Extend `infra/modules/agents/` with the suggester agent, alias, guardrail,
+      **Done**, 5 tests, asserted **structurally** rather than by calling an apply endpoint and
+      expecting a 404 — that would prove one URL absent, where FR-002 claims no such capability
+      exists. The tests enumerate the generated contract and the findings workbench's real source
+      and fail on a plausible future addition.
+      The first draft was too broad and **failed on `applyFilters()`** — applying a filter, not a
+      fix. A test that flags that gets switched off within a week, taking the real check with it,
+      so the matcher is now two-tier: `remediate`/`autofix` stand alone, while `apply`/`execute`
+      count only alongside a remediation noun. Verified against twelve names, including
+      `applySuggestion` (caught) and `applyFilters` (not).
+      This became load-bearing with this phase rather than theoretical: before spec 006 no
+      suggestion had an author who might imply it could be actioned.
+- [X] T027 [US2] Extend `infra/modules/agents/` with the suggester agent, alias, guardrail,
       action-group Lambda and schedule — S44, R-601, R-606
+      **Done**, `fmt -check` clean and `validate` passing for the module and both environments.
+      A second agent rather than a second action group on the digest's: different prompts, tool
+      surfaces and cost profiles, and sharing one would make `agent_run.definition_hash` ambiguous
+      about which instruction produced a given output (FR-005). The guardrail *is* shared, because
+      it encodes a property of the tenant's data rather than of a capability.
+      The worker's timeout is 900s against the digest's 300s — this pass makes one invocation per
+      open finding. It only needs to be long enough that the **cost cap** is what stops the pass,
+      since a wall-clock timeout would kill it without recording an outcome. The schedule takes no
+      retries at all: a suggester pass is resumable by design, so retrying would re-spend budget to
+      reach findings tomorrow's pass reaches anyway.
 
 **Checkpoint**: SC-002 and SC-005 provable at the mocked-test level. 🏁 Both P1 stories complete.
 

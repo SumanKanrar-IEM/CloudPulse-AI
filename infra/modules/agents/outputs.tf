@@ -15,3 +15,15 @@ output "digest_worker_function_name" {
 output "digest_tools_function_name" {
   value = aws_lambda_function.digest_tools.function_name
 }
+
+output "suggester_agent_id" {
+  value = aws_bedrockagent_agent.suggester.agent_id
+}
+
+output "suggester_agent_alias_id" {
+  value = aws_bedrockagent_agent_alias.suggester.agent_alias_id
+}
+
+output "suggester_worker_function_name" {
+  value = aws_lambda_function.suggester_worker.function_name
+}

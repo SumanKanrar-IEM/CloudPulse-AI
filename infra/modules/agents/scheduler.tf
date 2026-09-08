@@ -23,9 +23,12 @@ resource "aws_iam_role" "scheduler" {
 
 data "aws_iam_policy_document" "scheduler_runtime" {
   statement {
-    effect    = "Allow"
-    actions   = ["lambda:InvokeFunction"]
-    resources = [aws_lambda_function.digest_worker.arn]
+    effect  = "Allow"
+    actions = ["lambda:InvokeFunction"]
+    resources = [
+      aws_lambda_function.digest_worker.arn,
+      aws_lambda_function.suggester_worker.arn,
+    ]
   }
 }
 
@@ -56,6 +59,34 @@ resource "aws_scheduler_schedule" "digest_daily" {
     # database one (research.md R-606: the model call is the dominant cost).
     retry_policy {
       maximum_retry_attempts = 1
+    }
+  }
+}
+
+# T027. After the digest, not before. Both read the same findings, and a
+# suggester pass holding the table while the digest tries to summarise it buys
+# nothing -- the digest reports on findings, not on their suggestions.
+resource "aws_scheduler_schedule" "suggester_daily" {
+  name       = "${local.name}-suggester-daily"
+  group_name = "default"
+
+  flexible_time_window {
+    mode = "OFF"
+  }
+
+  schedule_expression = var.suggester_schedule_expression
+
+  target {
+    arn      = aws_lambda_function.suggester_worker.arn
+    role_arn = aws_iam_role.scheduler.arn
+    input    = jsonencode({ action = "trigger_daily" })
+
+    # No retries at all, unlike the digest's one. A suggester pass is resumable
+    # by design -- FR-011's coverage is reached across runs, and whatever this
+    # pass wrote is already stored (FR-004a). Retrying would re-spend budget to
+    # reach findings tomorrow's pass will reach anyway.
+    retry_policy {
+      maximum_retry_attempts = 0
     }
   }
 }
