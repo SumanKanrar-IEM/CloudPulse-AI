@@ -564,6 +564,25 @@ a resource-specific suggestion marked `ai_generated`, and that no endpoint or co
       Note: a `Deploy dev` run labelled *cancelled* may still have applied — check AWS directly
       rather than trusting the label (spec 005's own live-verification task found exactly that: a
       job timeout after `terraform apply` had completed, leaving an environment up and billing) — S43, S44, SC-001, SC-002, SC-004
+- [X] T030a Raise the deploy job timeouts — `deploy-dev.yml` 30 to 60, `deploy-prod.yml` 45 to 60 —
+      S43, playbook §0.5.3
+      **Found by T030 failing, and it is spec 005's failure recurring rather than a new one.** The
+      dev apply ran 21:14:39 to 21:45:03 — 30.4 minutes against a 30-minute job timeout — and was
+      killed **mid-`terraform apply`**.
+      A job timeout during an apply rolls nothing back. It abandons the apply where it stands and
+      reports the run as `cancelled`, a label that reads like "nothing happened". What existed
+      afterwards: VPC, Aurora, both interface endpoints, the guardrail, both action-group Lambdas
+      and all four log groups — no agents, no aliases, no worker Lambdas, no schedules. A half-built
+      environment, billing.
+      **It also left a stale state lock**, which is the part worth naming: a held lock blocks
+      `destroy` as well as `apply`, so an unrecovered timeout does not merely leave an environment
+      up — it leaves one that cannot be torn down. Released with `terraform force-unlock` (the
+      holder was a runner that had already exited) before anything else could proceed.
+      Spec 005's task list already said to check AWS directly rather than trust the run label, and
+      that advice is what caught this — but nobody fixed the cause, so it cost a second environment.
+      prod is raised too: it has never been built from scratch, so its first apply would be the cold
+      one 45 minutes was never measured against.
+
 - [ ] T031 **Teardown and cost sweep**, immediately following T030, never separated from it by
       other work: full playbook §0.5.3 sweep, extended to confirm this spec's agents, aliases,
       guardrails, action-group Lambdas, schedules and log groups are gone. Take a baseline sweep

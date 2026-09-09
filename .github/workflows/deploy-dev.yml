@@ -53,7 +53,22 @@ jobs:
   deploy:
     name: Deploy to dev
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # 30 was too short and cost an environment (spec 006, T030a). A from-scratch
+    # apply provisions Aurora, which alone takes 15-20 minutes; the job was
+    # killed at 30.4 minutes MID-APPLY, leaving a half-built environment billing
+    # and a stale state lock that also blocked teardown.
+    #
+    # The failure mode matters more than the number: a job timeout during
+    # `terraform apply` does not roll anything back. It abandons the apply
+    # wherever it happens to be and reports the run as `cancelled` -- a label
+    # that reads like "nothing happened". Spec 005's own live-verification hit
+    # this once already, which is why its task list says to check AWS directly
+    # rather than trust the label.
+    #
+    # 60 covers a cold build (empty account) with room to spare; a warm apply
+    # finishes in a few minutes. This is a ceiling that prevents a runaway, not
+    # a target.
+    timeout-minutes: 60
     environment: dev
     # Skip on an ordinary trunk push unless the toggle is explicitly on; a manual
     # dispatch is already the explicit action the toggle exists to require.

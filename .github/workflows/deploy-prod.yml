@@ -84,7 +84,12 @@ jobs:
     name: Apply to prod
     needs: plan
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    # Raised with dev's, and for the same reason (spec 006, T030a): a job
+    # timeout during `terraform apply` abandons the apply where it stands and
+    # reports `cancelled`, leaving half an environment and a stale state lock.
+    # prod has never been built from scratch, so its first apply would be the
+    # cold one 45 minutes was never measured against.
+    timeout-minutes: 60
     # THE GATE. Configure the `prod` GitHub Environment with a required reviewer;
     # without that, this line pauses nothing and FR-017 is unmet. See T033.
     environment:
