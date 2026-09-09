@@ -48,6 +48,36 @@
   VII. A constitution that contradicts itself gives a PR reviewer no single MUST to check
   against, which is why this was flagged CRITICAL rather than a routine wording nit. No principle
   redefined; wording only. [PR #25](https://github.com/SumanKanrar-IEM/CloudPulse-AI/pull/25).
+- **Amended to v3.0.0 (2026-09-09, MAJOR) — forced by AWS, not chosen.** Spec 006's live
+  verification (T030) hit a hard stop deploying its two Bedrock Agents:
+  `AccessDeniedException: Bedrock Agents is in Maintenance Mode. New agent creation is not
+  available for accounts without prior service usage.` `CreateAgent` returned 403 for both, and
+  this account has no prior usage. Principle II had mandated "Amazon Bedrock Agents — agents,
+  action groups, and guardrails" for the entire product GenAI layer, so the constitution was
+  mandating a service the project cannot use — unsatisfiable rather than strict. Principle II now
+  names **Bedrock AgentCore Runtime** for agent orchestration, keeping Bedrock Agents (classic)
+  permitted only where already provisioned.
+  The amendment also settles an ambiguity that had been latent since v1.0.0: the old text banned
+  "non-AWS agent frameworks" without saying whether it meant *where the code runs* or *who wrote
+  the library*. It now says explicitly that an agent framework executing **inside** AgentCore
+  Runtime is part of the AWS runtime. The prohibition that actually matters — no user-reachable
+  component may call a non-AWS model — is unchanged and restated.
+  MAJOR rather than MINOR because spec 006's agent definitions, action groups and Terraform
+  module (PRs [#121](https://github.com/SumanKanrar-IEM/CloudPulse-AI/pull/121),
+  [#122](https://github.com/SumanKanrar-IEM/CloudPulse-AI/pull/122)) were built to the old wording
+  and are superseded — the versioning policy's own trigger. Principle V's connector boundary is
+  what keeps the cost at roughly 1,159 lines instead of the whole spec: the grounding validator,
+  run accounting, digest and suggester pipelines, the `/insights` API and all 3,893 lines of spec
+  006's tests are runtime-agnostic and survive untouched.
+  One consequence recorded rather than buried: the Testable clause deliberately **loosens** an
+  automated gate, from "no non-AWS inference or agent SDKs" to "no non-AWS *inference* SDK and no
+  agent runtime hosted outside AWS". `ops/scripts/check_dependencies.py` must be revisited to
+  match — an AWS-authored agent SDK becomes permitted, anything reaching a non-AWS inference
+  endpoint does not.
+  Worth noting for the record: the maintainer proposed exactly this direction — Strands SDK on
+  AgentCore Runtime — before spec 006 was written, and the decision at the time was to stay on
+  Bedrock Agents because Principle II was non-negotiable. The principle was right to be hard to
+  change; it was also, by then, pointing at a service AWS was closing.
 
 ## 2. Specification (6 feature specs, sequential solo pipeline)
 
