@@ -7,9 +7,33 @@ SDKs -- a README assertion was judged insufficient for a NON-NEGOTIABLE principl
 
 Scope of the rule
 -----------------
-The deployed system's GenAI layer is Amazon Bedrock Agents, exclusively. No
-third-party model host, inference SDK, or agent framework may become a runtime
-dependency of the platform.
+The deployed system's GenAI layer is Amazon Bedrock, exclusively -- AgentCore
+Runtime for orchestration since constitution v3.0.0 (2026-09-09). No third-party
+model host or non-AWS inference SDK may become a runtime dependency.
+
+Why the agent-framework entries below stay, even though v3.0.0 permits some
+--------------------------------------------------------------------------
+Principle II now says an agent framework executing *inside* AgentCore Runtime is
+part of the AWS runtime rather than a third-party one. Read literally, that would
+permit LangChain or CrewAI provided they ran inside AgentCore and called Bedrock.
+
+This gate cannot check that, and the reason is structural rather than a gap
+someone should close: **a manifest says what is installed, never where it runs or
+which endpoint it calls.** `langchain` in `pyproject.toml` is identical on disk
+whether it runs inside AgentCore against Bedrock or inside a Lambda against
+OpenAI. A gate that tried to infer intent from a package name would be guessing,
+and guessing permissively on a NON-NEGOTIABLE principle is the wrong direction to
+be wrong in.
+
+So the entries stay, and the gate stays conservative: it enforces the part of
+Principle II that is decidable from a manifest. An AWS-authored agent SDK
+intended to run inside AgentCore is added here explicitly, by name, with its
+reason -- a deliberate act with a reviewer attached, not an inference. That is
+the same discipline `check_connector_boundary.py`'s ALLOWED_PREFIXES applies to
+its own exceptions.
+
+If this ever blocks a legitimate in-AgentCore framework, the fix is to add that
+package with a stated reason, not to delete the category.
 
 Claude Code and GitHub Copilot drive development and are *development-time* tools:
 they are not installed by any manifest here, so this gate never sees them. The
@@ -52,16 +76,16 @@ BANNED_PACKAGES: dict[str, str] = {
     "ollama": "non-AWS local model runtime",
     "huggingface-hub": "third-party model host",
     "transformers": "non-AWS local inference",
-    "langchain": "non-AWS agent framework",
-    "langchain-core": "non-AWS agent framework",
-    "langchain-community": "non-AWS agent framework",
-    "langgraph": "non-AWS agent framework",
-    "llama-index": "non-AWS agent framework",
-    "haystack-ai": "non-AWS agent framework",
-    "crewai": "non-AWS agent framework",
-    "autogen": "non-AWS agent framework",
-    "semantic-kernel": "non-AWS agent framework",
-    "@langchain/core": "non-AWS agent framework",
+    "langchain": "agent framework whose default posture is non-AWS inference; not decidable from a manifest (see module docstring)",
+    "langchain-core": "agent framework whose default posture is non-AWS inference; not decidable from a manifest (see module docstring)",
+    "langchain-community": "agent framework whose default posture is non-AWS inference; not decidable from a manifest (see module docstring)",
+    "langgraph": "agent framework whose default posture is non-AWS inference; not decidable from a manifest (see module docstring)",
+    "llama-index": "agent framework whose default posture is non-AWS inference; not decidable from a manifest (see module docstring)",
+    "haystack-ai": "agent framework whose default posture is non-AWS inference; not decidable from a manifest (see module docstring)",
+    "crewai": "agent framework whose default posture is non-AWS inference; not decidable from a manifest (see module docstring)",
+    "autogen": "agent framework whose default posture is non-AWS inference; not decidable from a manifest (see module docstring)",
+    "semantic-kernel": "agent framework whose default posture is non-AWS inference; not decidable from a manifest (see module docstring)",
+    "@langchain/core": "agent framework whose default posture is non-AWS inference; not decidable from a manifest (see module docstring)",
     "@anthropic-ai/sdk": "third-party model host",
 }
 

@@ -4,7 +4,16 @@ Numbered `R-6xx`, continuing the convention specs 001–005 used. Each decision 
 chosen, why, and what was rejected — so a later reader can tell a considered choice from an
 accident.
 
-## R-601 — Bedrock Agents with Lambda action groups, not direct `InvokeModel`
+## R-601 — ~~Bedrock Agents with Lambda action groups~~ — **SUPERSEDED by R-613 (2026-09-09)**
+
+> **This decision is no longer implementable.** AWS placed Bedrock Agents (classic) in maintenance
+> mode and closed new agent creation to accounts without prior usage; `CreateAgent` returns 403 for
+> this account (T030). Constitution v3.0.0 moved the product GenAI layer to Bedrock AgentCore
+> Runtime. The reasoning below is kept because it explains *why* the direct-`InvokeModel`
+> alternative was rejected, and that reasoning still holds under R-613 — what changed is which
+> Bedrock service hosts the orchestration, not whether orchestration should exist.
+
+### Original decision (superseded)
 
 **Decision**: The GenAI layer is Amazon Bedrock Agents. Each capability (digest, suggester,
 advisor, narrator) is an agent with action groups implemented as Lambda functions, which call the
@@ -147,6 +156,58 @@ and it is exactly the conflation R-604 was written to prevent.
 **No action taken here beyond the correction.** Whether to provision any of these endpoints
 remains the maintainer's decision, twice declined for NAT and once for SES, and this entry does
 not re-litigate it (playbook §0.5.5). It records that the option exists.
+
+## R-613 — Bedrock AgentCore Runtime replaces Bedrock Agents (classic)
+
+**Decision**: agent orchestration moves to **Amazon Bedrock AgentCore Runtime**. The capability
+set is unchanged — digest, suggester, advisor, narrator — as are every grounding, cost-cap and
+no-execution guarantee. What changes is the host: an agent runtime this account can actually
+create, in place of one AWS has closed.
+
+**Forced, not chosen.** Verified against account 767828743440 on 2026-09-09 (T030):
+
+```
+AccessDeniedException: Bedrock Agents is in Maintenance Mode. New agent creation is not
+available for accounts without prior service usage.
+```
+
+`CreateAgent` returned 403 for both agents. AgentCore Runtime's control plane responds in the same
+account (`list-agent-runtimes` returns an empty list rather than a denial). Constitution v3.0.0
+records the amendment this forced.
+
+**What survives, and why that is not luck.** Principle V's connector boundary confined the Bedrock
+SDK to one function, `connectors/aws.py::invoke_agent`. The grounding validator, run accounting,
+both pipelines, the `/insights` API, the frontend and all 3,893 lines of spec 006's tests are
+runtime-agnostic and unchanged. Roughly 1,159 lines move: `agents/` definitions and action groups,
+that one connector function, and `infra/modules/agents/`. The boundary discipline was written for
+"a new provider ships without modifying core code"; it paid out for a change nobody anticipated,
+which is the better test of it.
+
+**What genuinely changes in shape, not just in name.**
+
+* **Tools stop being Lambda action groups.** Bedrock Agents invoked tools by calling a Lambda with
+  a fixed event envelope; AgentCore hosts the agent's own code, so the platform-API lookups become
+  ordinary calls inside the runtime. `agents/action-groups/_platform_api.py` keeps its job (read
+  the platform API as the read-only agent principal, hold no credential, import no provider SDK)
+  and loses its envelope. **R-602 is unaffected**: reaching the data store directly was forbidden
+  because of what it bypasses, not because of how the tool was hosted.
+* **The definition files change format.** `agents/definitions/*.json` describe a Bedrock Agents
+  action-group schema. R-608's content-hash rule is unaffected — the hash covers whatever files
+  define behaviour, and the point was never the format.
+* **Guardrails are still Bedrock guardrails**, applied by the runtime rather than attached to a
+  classic agent.
+
+**What must be verified before any of this is built.** That AgentCore's control plane *answers* is
+not evidence that an agent runtime *deploys*. Recording "AgentCore works" on the strength of one
+`list` call would be R-503's exact error — a confident claim about a capability nobody exercised —
+in the same spec that just corrected it. **T032 is a spike, and it comes before the rewrite.**
+
+**Alternatives considered**: direct `bedrock-runtime:InvokeModel` with hand-rolled tool-calling —
+verified working (123 foundation models available), cheapest to build, and rejected for the reason
+R-601 originally gave: it produces an application that calls a model rather than an agentic system,
+which is the thing this spec exists to demonstrate. Requesting Bedrock Agents access from AWS —
+unknown feasibility and unknown timeline, so not something to plan around; still worth doing in
+parallel if the maintainer wants it.
 
 ## R-605 — Every new compute is VPC-attached, and inherits the standing R-407 gap
 

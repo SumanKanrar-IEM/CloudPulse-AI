@@ -6,7 +6,8 @@
 
 ## Summary
 
-Build the platform's intelligence layer as Amazon Bedrock Agents that observe the governance data
+Build the platform's intelligence layer on Amazon Bedrock AgentCore Runtime (R-613; was Bedrock
+Agents, superseded 2026-09-09) — agents that observe the governance data
 specs 002–005 already produce, explain it, and propose improvements — never executing changes and
 never holding a cloud credential.
 
@@ -17,7 +18,7 @@ follow: a coverage advisor, metrics collection, deterministic forecasting, right
 narratives.
 
 The technical shape is settled by constraints rather than chosen: Principle II fixes Bedrock
-Agents; spec 001's `app/core/agent_access.py` fixes how action groups reach data; Principle IV
+Bedrock; spec 001's `app/core/agent_access.py` fixes how agent tools reach data; Principle IV
 fixes that agents observe and propose but never decide. What this plan adds is the grounding
 validator (deterministic, never a second model call), the run/cost-cap accounting that makes
 FR-004 real, and a honest split of what the coverage advisor can actually apply as data.
@@ -28,7 +29,10 @@ FR-004 real, and a honest split of what the coverage advisor can actually apply 
 
 **Primary Dependencies**: FastAPI + Mangum, Pydantic v2, SQLAlchemy 2 + Alembic, AWS Lambda
 Powertools, boto3 (`bedrock-agent-runtime`, `cloudwatch`) confined to `connectors/`; Angular
-Material + ng2-charts. **No new AI/agent SDK** — Bedrock Agents is a service, not a library, so
+Material + ng2-charts. **AgentCore Runtime hosts the agent's own code**, so an AWS-authored agent SDK may enter the
+backend manifest where Bedrock Agents needed none (constitution v3.0.0). `dependency-allowlist`
+stays conservative regardless — see its own note on why a manifest cannot express *where* code
+runs. Previously:
 `dependency-allowlist` sees nothing new.
 
 **Storage**: Aurora Serverless v2 PostgreSQL. Seven new tenant-scoped tables (data-model.md); no
@@ -38,7 +42,7 @@ existing table's shape changes.
 Playwright (P1 dashboard journeys), plus `agents/evals/` run in CI against recorded fixtures
 (research.md R-609).
 
-**Target Platform**: AWS Lambda arm64 behind the existing API Gateway HTTP API; Bedrock Agents in
+**Target Platform**: AWS Lambda arm64 behind the existing API Gateway HTTP API; Bedrock AgentCore Runtime in
 `us-east-1`.
 
 **Project Type**: Web service + SPA, monorepo.
@@ -62,7 +66,7 @@ figure worth watching (research.md R-606).
 | Principle | Status | How this plan satisfies it |
 | --- | --- | --- |
 | **I. Spec-Driven & Documented** | PASS | Full lifecycle followed; `agents/README.md` already reserves this tree and states the constraints; T050-style README updates are in scope. |
-| **II. AWS-Native Runtime, GitHub-Native Delivery** (NON-NEGOTIABLE) | PASS | Bedrock Agents exclusively (R-601). No non-AWS inference or agent SDK enters any manifest — `dependency-allowlist` sees no new dependency at all, since Bedrock is a service. Delivery stays GitHub Actions on the `pods/pod73` trunk. |
+| **II. AWS-Native Runtime, GitHub-Native Delivery** (NON-NEGOTIABLE) | PASS | Amazon Bedrock exclusively — AgentCore Runtime for orchestration (R-613, constitution v3.0.0; R-601's Bedrock Agents route is superseded, AWS closed it). No non-AWS inference or agent SDK enters any manifest — `dependency-allowlist` sees no new dependency at all, since Bedrock is a service. Delivery stays GitHub Actions on the `pods/pod73` trunk. |
 | **III. Zero Stored Credentials** (NON-NEGOTIABLE) | PASS | Action groups hold no cloud credential and reach data only through the platform API as `AgentPrincipal` (R-602). No new secret is introduced. |
 | **IV. Deterministic Core, Agentic Edge** | PASS | FR-007 keeps discovery/validation/scoring/ingestion free of model calls; forecasting is a deterministic calculation the agent narrates (Clarifications); the grounding validator is ordinary code (R-607); proposals require human acceptance. |
 | **V. Contract-First Modularity** | PASS | Design-time contract written; the generated document stays binding. `boto3` stays inside `connectors/` — `connector-boundary` enforces it. |
