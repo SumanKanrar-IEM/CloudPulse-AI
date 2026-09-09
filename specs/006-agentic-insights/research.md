@@ -70,32 +70,83 @@ over Cloud Control payloads) — genuinely would make class 3 data-only, and is 
 scope: a DSL, its evaluator, its validation, and its own security review. Rejected for a P2
 story; recorded here as the thing to build if class-3 coverage is ever wanted.
 
-## R-604 — Bedrock's VPC reachability is UNVERIFIED and must be checked before any funding claim
+## R-604 — VERIFIED (T029, 2026-09-09): Bedrock publishes interface endpoints, and so does every service previously believed not to
 
-**Decision**: This plan does **not** assert whether Bedrock (`bedrock`, `bedrock-runtime`,
-`bedrock-agent`, `bedrock-agent-runtime`) or CloudWatch (`monitoring`) publish VPC interface
-endpoints. It must be verified live before any statement is made either way, with:
+**Result**: every service checked publishes an **Interface** endpoint in `us-east-1`, across all
+six AZs. Verified against the live API with a valid session, error suppression removed:
 
 ```bash
 aws ec2 describe-vpc-endpoint-services --query 'ServiceNames' --output text | tr '\t' '\n' | grep -iE 'bedrock|monitoring'
 ```
 
-**Why this is a decision and not an omission**: an attempt to verify it during planning returned
-"available: 0" for every service — including `monitoring`, which is known to publish an endpoint.
-The command had a swallowed authentication failure (`2>/dev/null || echo 0` turning an expired SSO
-token into a plausible-looking zero). The result was wrong for every row, in a way that would have
-read as a confident finding. It is recorded here as unverified rather than guessed, and the check
-above avoids the same trap by not suppressing errors.
+| Service name | Type | AZs |
+| --- | --- | --- |
+| `com.amazonaws.us-east-1.bedrock-agent-runtime` | Interface | 6 |
+| `com.amazonaws.us-east-1.bedrock-runtime` | Interface | 6 |
+| `com.amazonaws.us-east-1.bedrock-agent` | Interface | 6 |
+| `com.amazonaws.us-east-1.monitoring` | Interface | 6 |
+| `com.amazonaws.us-east-1.execute-api` | Interface | 6 |
 
-**What is verified** (T051, spec 005, against the running dev environment): the deployed VPC has
-**no NAT gateway** and only **S3 and Secrets Manager** interface endpoints. That is a fact about
-what is *provisioned*, not about what AWS *offers* — the two were conflated once already and must
-not be again.
+`bedrock-agent-runtime` is the one `connectors/aws.py`'s `invoke_agent` needs, and
+`execute-api` is the one the action-group Lambdas need to reach the platform API (R-602).
+Both exist.
 
-**Consequence for this spec either way**: if endpoints exist, this is R-504's situation (a
-priced, fundable gap the maintainer may decline); if they do not, it is R-503's (a platform
-limitation with nothing to fund). The spec is already written to be acceptable in either case —
-FR-007a and SC-009 make an unreachable model a specified, testable state.
+**This is R-504's situation, not R-503's** — a priced, fundable gap the maintainer may decline,
+not a platform limitation with nothing to fund. Pricing is structural: interface endpoints bill
+per-AZ-hour plus data processed, so two AZs run at roughly the same order as the SES endpoint
+R-504 priced and the maintainer declined. A verification window measured in hours costs cents;
+the monthly figure is what was actually declined.
+
+**What was wrong before, and why it matters more than the answer.** The planning-time attempt
+returned "available: 0" for every service because `2>/dev/null || echo 0` turned an expired SSO
+token into a plausible-looking zero. That was caught and recorded as UNVERIFIED rather than
+written up as a finding — which is the only reason this correction is a research update rather
+than a wrong claim shipped in three specs.
+
+**The distinction this entry exists to protect**: what AWS *offers* and what this account has
+*provisioned* are different facts. The dev VPC still has no NAT gateway and only S3 and Secrets
+Manager endpoints — that part of R-407 remains true and verified. Nothing here changes what is
+deployed; it changes what could be, and at what price.
+
+**See R-604a** — the same check falsified a standing claim in spec 005.
+
+## R-604a — Correction to spec 005's R-503: Cost Explorer and IAM *do* publish interface endpoints
+
+**R-503 is wrong.** It states, as a documented AWS platform limitation:
+
+> neither Cost Explorer nor IAM publishes an interface-endpoint service name
+> (`aws ec2 describe-vpc-endpoint-services` against either would return nothing to attach a
+> `aws_vpc_endpoint` resource to even if funded)
+
+That is the exact check T029 ran, and it returns:
+
+| Service name | Type | AZs |
+| --- | --- | --- |
+| `com.amazonaws.us-east-1.ce` | Interface | 6 |
+| `com.amazonaws.iam` | Interface | 6 |
+| `com.amazonaws.us-east-1.sts` | Interface | 6 |
+| `com.amazonaws.us-east-1.tagging` | Interface | 6 |
+
+IAM's service name carries **no region prefix** — it is `com.amazonaws.iam`, because IAM is a
+global service. A check filtering on `com.amazonaws.<region>.` finds nothing and reads as
+absence. That is the likeliest way the original claim was formed, and it is worth naming: the
+grep pattern was wrong, not the API.
+
+**Why this matters more than a factual correction.** R-503 reframed a *funding* decision as a
+*platform* limitation. A gap that costs money to close is a decision the maintainer gets to make;
+a gap AWS makes impossible is not a decision at all. Presenting the first as the second removed a
+real option from the table, silently, across specs 004, 005 and 006 — and every later entry that
+cites R-503 inherits that. `sts` and `tagging` are the same story: spec 005's T051a treated
+account registration as unfixable-without-NAT, and both publish endpoints.
+
+**What is still true**: R-407's own wording is precise and survives intact — the deployed VPC
+*has* no NAT gateway and *has* no STS or Tagging endpoint provisioned. That is a fact about this
+account's configuration, and it was verified live in spec 005's T051. The error is R-503's alone,
+and it is exactly the conflation R-604 was written to prevent.
+
+**No action taken here beyond the correction.** Whether to provision any of these endpoints
+remains the maintainer's decision, twice declined for NAT and once for SES, and this entry does
+not re-litigate it (playbook §0.5.5). It records that the option exists.
 
 ## R-605 — Every new compute is VPC-attached, and inherits the standing R-407 gap
 

@@ -53,7 +53,20 @@ existing write path, not a new capability.
 **Alternatives considered**: A daily "create budgets for any SDA registered without one" sweep —
 rejected as needless indirection for something the registration request can just do.
 
-## R-503 — Cost Explorer and IAM control-plane calls have no VPC PrivateLink support; both inherit R-407 unchanged
+## R-503 — ~~Cost Explorer and IAM control-plane calls have no VPC PrivateLink support~~ — **CORRECTED, see spec 006 R-604a**
+
+> **This entry's central claim is false.** Verified against the live API on 2026-09-09 (spec 006,
+> T029): `com.amazonaws.us-east-1.ce` and `com.amazonaws.iam` both publish **Interface**
+> endpoints across all six `us-east-1` AZs, as do `sts` and `tagging`. IAM's service name carries
+> no region prefix because IAM is a global service, which is the likeliest reason a
+> region-filtered check read as absence.
+>
+> The operational conclusion below — both workers run VPC-attached and cannot currently reach
+> these APIs — **remains correct**, because the dev VPC still has no NAT gateway and no such
+> endpoint provisioned. What is wrong is the *reason*: this is a funding decision the maintainer
+> may decline (R-504's situation), not an AWS platform limitation with nothing to fund. Read the
+> paragraph below with that substitution; see spec 006's R-604a for the full correction.
+
 
 **Decision**: `cost-ingestion-worker` (spend ingestion + budget/overrun-finding check, one daily
 Lambda, folded together per R-505 below) and `iam-hygiene-worker` (weekly, R-509) both run

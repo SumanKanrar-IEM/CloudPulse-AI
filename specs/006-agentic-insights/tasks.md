@@ -509,12 +509,31 @@ a resource-specific suggestion marked `ai_generated`, and that no endpoint or co
       The seeded run history contains a `failed` run as well as a succeeded one — a history holding
       only successes would let a surface that filtered failures out look identical to one that does
       not (FR-007a).
-- [ ] T029 [P] Run R-604's verification and record the result in research.md **before** any
+- [X] T029 [P] Run R-604's verification and record the result in research.md **before** any
       funding claim is made either way:
       `aws ec2 describe-vpc-endpoint-services --query 'ServiceNames' --output text | tr '\t' '\n' | grep -iE 'bedrock|monitoring'`
       A planning-time attempt returned a false "0 available" for every service because an expired
       SSO token was swallowed by `2>/dev/null || echo 0`. Do not repeat that pattern — let the
       command fail loudly — S43, R-604
+      **Done, 2026-09-09, and the answer is the opposite of the working assumption.** Every service
+      checked publishes an **Interface** endpoint in `us-east-1` across all six AZs —
+      `bedrock-agent-runtime` (what `invoke_agent` needs) and `execute-api` (what the action-group
+      Lambdas need) included. R-604 rewritten with the table.
+      The command failed loudly first, exactly as intended: the SSO token had expired, and
+      `InvalidClientTokenId` is what a real failure looks like instead of a plausible zero.
+- [X] T029a [P] Correct spec 005's R-503 — S43, R-604a
+      **Not anticipated by this list, and the more consequential half of T029.** R-503 states that
+      "neither Cost Explorer nor IAM publishes an interface-endpoint service name" and predicts
+      that the exact command T029 runs "would return nothing". It returns
+      `com.amazonaws.us-east-1.ce` and `com.amazonaws.iam`, both Interface, both six AZs — along
+      with `sts` and `tagging`, which spec 005's T051a treated as unfixable-without-NAT.
+      IAM's service name has **no region prefix** because IAM is global; a check filtering on
+      `com.amazonaws.<region>.` finds nothing and reads as absence. The grep was wrong, not the API.
+      Why this outranks the factual error: R-503 reframed a **funding** decision as a **platform**
+      limitation. A gap that costs money is a decision the maintainer makes; a gap AWS makes
+      impossible is not a decision at all. That removed a real option from the table, silently,
+      across three specs. R-407's own wording survives intact — it describes what is *provisioned*,
+      which is still accurate and still verified.
 - [ ] T030 **Live-verification.** Deploy to dev (dispatch `Deploy dev`). Confirm the deploy is
       healthy and the version matches trunk HEAD; confirm the digest and suggester Lambdas,
       their schedules and their log groups exist with the intended shape; confirm
