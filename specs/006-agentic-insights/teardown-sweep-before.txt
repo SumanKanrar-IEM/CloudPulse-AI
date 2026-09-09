@@ -1,0 +1,29 @@
+=== sweep: before @ 2026-09-09T20:59:41Z ===
+identity: arn:aws:sts::767828743440:assumed-role/AWSReservedSSO_AdministratorAccess_0c3c966c5d4ad128/Suman_cloudpulse
+
+--- lambda functions ---
+
+--- bedrock agents ---
+
+--- bedrock guardrails ---
+
+--- eventbridge schedules ---
+
+--- rds clusters ---
+
+--- vpcs (non-default) ---
+
+--- nat gateways (should always be none: R-407) ---
+
+--- vpc endpoints ---
+
+--- api gateways ---
+
+--- step functions ---
+
+--- cloudformation stacks (not ours, but they bill) ---
+serverlessrepo-RDKlib-Layer
+
+--- log groups WITHOUT retention (orphan tell) ---
+
+--- log groups with retention ---

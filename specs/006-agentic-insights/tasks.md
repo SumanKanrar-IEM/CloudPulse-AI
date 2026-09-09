@@ -550,7 +550,7 @@ a resource-specific suggestion marked `ai_generated`, and that no endpoint or co
       with no working action group and produces output that fails grounding — a worse signal than
       not running at all, because it looks like a model problem.
 
-- [ ] T030 **Live-verification.** Deploy to dev (dispatch `Deploy dev`). Confirm the deploy is
+- [X] T030 **Live-verification.** Deploy to dev (dispatch `Deploy dev`). Confirm the deploy is
       healthy and the version matches trunk HEAD; confirm the digest and suggester Lambdas,
       their schedules and their log groups exist with the intended shape; confirm
       `GET /insights/digest` is reachable and correctly role-gated. **Per T029's result**, either
@@ -564,6 +564,28 @@ a resource-specific suggestion marked `ai_generated`, and that no endpoint or co
       Note: a `Deploy dev` run labelled *cancelled* may still have applied — check AWS directly
       rather than trusting the label (spec 005's own live-verification task found exactly that: a
       job timeout after `terraform apply` had completed, leaving an environment up and billing) — S43, S44, SC-001, SC-002, SC-004
+      **Run, and it found a hard blocker that ends this spec's architecture.** Deployed from trunk
+      `b3dc94c` with `enable_agent_endpoints=true`. Both `aws_bedrockagent_agent` resources failed:
+      `AccessDeniedException: Bedrock Agents is in Maintenance Mode. New agent creation is not
+      available for accounts without prior service usage.` 403 on `CreateAgent`, both agents. Not a
+      permissions gap, not a retry candidate — an AWS service state change.
+      **What was proven before the blocker.** The Terraform applies; the guardrail, both
+      action-group Lambdas, both interface endpoints and all four log groups were created with the
+      intended shape and correct 30-day retention. 8 of 12 shape checks passed. What could not be
+      verified: agents, aliases, worker Lambdas, schedules, `GET /insights/digest` reachability, and
+      the live invocation itself.
+      **SC-001, SC-002 and SC-004 remain proven at the mocked-test level only**, and now
+      permanently in this account rather than pending R-407 funding. FR-007a and SC-009 already make
+      that a specified, tested state — 63 tests prove both pipelines with no model reachable — so P1
+      is still honestly shippable. That is the requirement doing exactly the job it was written for.
+      The first attempt (run 34405814425) was killed by a 30-minute job timeout mid-apply — see
+      T030a — leaving a half-built environment, a stale state lock, and two resources in AWS that
+      were never written to state. The second attempt (34408878706) then failed on that drift as
+      well as the maintenance-mode error.
+      **Consequence: constitution amended to v3.0.0.** Principle II mandated Bedrock Agents for the
+      entire product GenAI layer, so it was mandating a service this account cannot use. It now
+      names Bedrock AgentCore Runtime. Spec 006's agent layer needs re-planning; roughly 1,159 lines
+      change and all 3,893 lines of its tests survive.
 - [X] T030a Raise the deploy job timeouts — `deploy-dev.yml` 30 to 60, `deploy-prod.yml` 45 to 60 —
       S43, playbook §0.5.3
       **Found by T030 failing, and it is spec 005's failure recurring rather than a new one.** The
@@ -583,12 +605,27 @@ a resource-specific suggestion marked `ai_generated`, and that no endpoint or co
       prod is raised too: it has never been built from scratch, so its first apply would be the cold
       one 45 minutes was never measured against.
 
-- [ ] T031 **Teardown and cost sweep**, immediately following T030, never separated from it by
+- [X] T031 **Teardown and cost sweep**, immediately following T030, never separated from it by
       other work: full playbook §0.5.3 sweep, extended to confirm this spec's agents, aliases,
       guardrails, action-group Lambdas, schedules and log groups are gone. Take a baseline sweep
       *before* deploying so the post-teardown sweep is a real before/after. Check
       `retentionInDays==null` log groups specifically — spec 005's teardown found an RDS-created
       orphan Terraform never managed and `destroy` never touched — playbook §0.5.3
+      **Done. The account is byte-identical to the pre-deploy baseline** — `diff` of the before and
+      after sweeps is empty across Lambdas, agents, guardrails, schedules, RDS, VPCs, NAT gateways,
+      VPC endpoints, API Gateways, Step Functions and log groups. `Destroy complete! Resources: 129
+      destroyed.` Nothing bills. The only thing in the account is `serverlessrepo-RDKlib-Layer`,
+      which predates this work and was in the baseline too.
+      **131 resources went, not 129.** Two were invisible to `destroy`:
+      `cloudpulse-dev-notification-worker` and the `cloudpulse-dev-daily-scan` schedule, created by
+      the timed-out apply and never written to state. `destroy` cannot remove what it cannot see, so
+      it would have reported complete while leaving them — and the Lambda was VPC-attached across
+      two subnets, so its ENIs were pinning the VPC the teardown was waiting on. A teardown that
+      trusts its own summary would have left a VPC behind and called it clean.
+      **The baseline sweep is what made this checkable.** Taken before anything deployed, so the
+      final check is a diff rather than someone eyeballing a list and deciding it looks empty.
+      Zero-checks on manual RDS snapshots and EBS volumes are in the sweep too — both classic
+      teardown survivors, both absent here.
 
 **Checkpoint**: 🏁 **P1 complete.** Every P1 criterion provable; live-verification honestly bounded.
 
