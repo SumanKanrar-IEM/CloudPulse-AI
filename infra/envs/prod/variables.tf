@@ -130,3 +130,9 @@ variable "notification_sender_email" {
   description = "FR-014: the fixed SES sending identity for owner notifications. Must be verified in this account before any email sends. Empty deploys the worker without letting it send (T015 refuses to run), rather than sending from an unverified address."
   default     = ""
 }
+
+variable "enable_agent_endpoints" {
+  type        = bool
+  description = "spec 006 (T029b): provision the bedrock-agent-runtime and execute-api interface endpoints so the agent layer is reachable from inside the VPC. Verified available in us-east-1 (R-604), billed per AZ-hour, and off by default -- a live-verification window sets it explicitly and the teardown removes it with everything else."
+  default     = false
+}

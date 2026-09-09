@@ -534,6 +534,22 @@ a resource-specific suggestion marked `ai_generated`, and that no endpoint or co
       impossible is not a decision at all. That removed a real option from the table, silently,
       across three specs. R-407's own wording survives intact — it describes what is *provisioned*,
       which is still accurate and still verified.
+- [X] T029b [P] Add the `bedrock-agent-runtime` and `execute-api` interface endpoints to
+      `infra/modules/network/`, gated behind `enable_agent_endpoints` (default **off**), and expose
+      the toggle as a `Deploy dev` dispatch input — S43, R-604, R-605
+      **Not anticipated by this list**, and only possible because T029 falsified the assumption the
+      list was written under. T030's own wording — "per T029's result, either exercise a real agent
+      invocation or record ... at the mocked-test level" — has a branch that could not be taken
+      until the endpoints were known to exist.
+      **Default off, and that is the point.** An interface endpoint bills per AZ-hour whether or not
+      anything calls it, and the standing decision not to fund this VPC's egress gap is unchanged.
+      The dispatch input defaults false and a `push`-triggered run has no inputs at all, so a merge
+      can never silently provision one — the same discipline `DEV_AUTO_DEPLOY` exists for, applied
+      to a cost that accrues while idle rather than one that starts on merge.
+      Both endpoints or neither: with Bedrock reachable but not `execute-api`, the agent reasons
+      with no working action group and produces output that fails grounding — a worse signal than
+      not running at all, because it looks like a model problem.
+
 - [ ] T030 **Live-verification.** Deploy to dev (dispatch `Deploy dev`). Confirm the deploy is
       healthy and the version matches trunk HEAD; confirm the digest and suggester Lambdas,
       their schedules and their log groups exist with the intended shape; confirm

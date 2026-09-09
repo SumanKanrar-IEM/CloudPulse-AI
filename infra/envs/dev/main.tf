@@ -33,6 +33,11 @@ module "network" {
   environment = var.environment
   vpc_cidr    = var.vpc_cidr
   azs         = var.azs
+
+  # spec 006, T029b. Off unless a live-verification window asks for it: these
+  # bill per AZ-hour whether or not anything calls them, and the standing
+  # decision not to fund the VPC's egress gap is unchanged (R-407, R-604a).
+  enable_agent_endpoints = var.enable_agent_endpoints
 }
 
 module "database" {
