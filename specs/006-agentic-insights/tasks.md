@@ -27,7 +27,15 @@ T007a/T011a/T011b/T017a/T017b/T018a/T020a/T024a insertions — 39 tasks. Deliver
 SC-001, SC-002, SC-004, SC-005, SC-008, SC-009 — the digest, the suggester, and every
 grounding/safety guarantee.
 
-**P2 (stretch)**: Phases 6–10, T032–T060. Every P2 task is marked **[P2]** in its description.
+**Phase 5a (P1 work, deferred)**: T061–T067 — the AgentCore migration forced by AWS closing
+Bedrock Agents (constitution v3.0.0, R-613). Scheduled after P2 because P2 does not depend on which
+runtime hosts an agent, and T061's spike could still change the shape of T062–T067.
+
+Numbered T061+ rather than inserted at T032: P2 already owns T032–T060, and renumbering a phase
+that other documents cite would break every reference to buy nothing. The higher numbers also
+match execution order, since this phase runs last.
+
+**P2 (stretch)**: Phases 6–10, T032–T060. Every P2 task is marked **[P2]** in its description. Every P2 task is marked **[P2]** in its description.
 Dropping all five P2 stories leaves both P1 stories and their success criteria intact — only
 SC-003, SC-006, SC-007 and FR-015–FR-024 go with them.
 
@@ -628,6 +636,55 @@ a resource-specific suggestion marked `ai_generated`, and that no endpoint or co
       teardown survivors, both absent here.
 
 **Checkpoint**: 🏁 **P1 complete.** Every P1 criterion provable; live-verification honestly bounded.
+
+---
+
+## Phase 5a: AgentCore Migration (T061–T067; Priority: P1, deferred — runs after P2)
+
+**Why this phase exists**: AWS placed Bedrock Agents (classic) in maintenance mode and closed new
+agent creation to accounts without prior usage (T030). Constitution v3.0.0 moved the GenAI layer to
+Bedrock AgentCore Runtime; research R-613 records the decision and R-601 is superseded.
+
+**Why it is scheduled after Phase 6 rather than before**: P2's coverage advisor, forecasts and
+narratives are unaffected by which runtime hosts an agent — they are governance logic behind the
+same grounding validator and run accounting. Rewriting the agent layer first would block work that
+does not depend on it, and T061's outcome could still change the shape of T062–T067.
+
+**What is NOT in this phase, deliberately**: nothing under `app/governance/`, `app/api/`,
+`frontend/`, or `backend/tests/`. Those are runtime-agnostic and stay untouched (R-613). If a task
+here starts wanting to change one, that is the signal the migration has slipped its boundary.
+
+- [ ] T061 **Spike, before anything is rewritten.** Deploy a minimal agent to AgentCore Runtime in
+      dev and invoke it once, end to end. Record the result in research.md as R-613a **whether it
+      works or not** — S43, R-613
+      This is the task that stops R-503's error from repeating. AgentCore's control plane answering
+      a `list` call is not evidence that a runtime deploys, and T029a exists precisely because
+      somebody once recorded a capability claim nobody had exercised. **No T062–T067 work starts
+      until this returns.** Deploy the smallest possible runtime, invoke it, tear it down in the
+      same session per playbook §0.5.3, and state the cost.
+- [ ] T062 [P] Rewrite `agents/definitions/{digest,suggester}.json` for AgentCore's definition
+      format; keep R-608's content-hash contract intact — S43, S44, FR-005, R-608, R-613
+- [ ] T063 Replace `connectors/aws.py::invoke_agent` with its AgentCore equivalent — still the only
+      place the Bedrock SDK appears (Principle V, FR-054), still raising rather than returning a
+      partial (FR-007a) — S43, S44, FR-003, R-613
+      If the AgentCore response reports truncation, wire it through: `digest_worker_handler.py`
+      records that Bedrock Agents had no such signal, and T021's suggester is item-wise and would
+      genuinely benefit.
+- [ ] T064 Adapt `agents/action-groups/_platform_api.py` from the Bedrock Agents event envelope to
+      AgentCore tool calls. **R-602 is unchanged** — the platform API only, never the database, no
+      cloud credential, no provider SDK — S43, S44, FR-003, FR-056, R-602
+- [ ] T065 Rewrite `infra/modules/agents/` for AgentCore: runtime, its execution role, guardrail
+      attachment and both schedules. `terraform fmt -check -recursive infra/`, `terraform validate`
+      and `terraform-ascii` must pass — S43, S44, R-605, R-606, R-613
+- [ ] T066 [P] Re-run the full suite unchanged and confirm it still passes. **This is the
+      assertion, not a formality**: R-613 claims the governance core, both pipelines, the
+      `/insights` API and all 3,893 lines of tests are runtime-agnostic. A test file needing an edit
+      falsifies that claim and should be reported, not quietly edited — S43, S44, SC-009
+- [ ] T067 Live-verify the migrated layer and tear down immediately after, per playbook §0.5.3 and
+      the T030/T031 pattern: baseline sweep first, check AWS directly rather than trusting a run
+      label, and diff the after-sweep against the baseline — S43, S44, SC-001, SC-002, SC-004
+
+**Checkpoint**: the P1 stories run on a runtime this account can actually create.
 
 ---
 
