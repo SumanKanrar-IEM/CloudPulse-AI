@@ -18,6 +18,16 @@ on:
   push:
     branches: [pods/pod73]
   workflow_dispatch:
+    inputs:
+      # spec 006, T029b. The agent layer cannot reach Bedrock or the platform API
+      # from inside the VPC without these, and they bill per AZ-hour whether or
+      # not anything calls them. Off unless a live-verification window asks --
+      # the same discipline DEV_AUTO_DEPLOY exists for, applied to a cost that
+      # accrues while idle rather than one that starts on merge.
+      enable_agent_endpoints:
+        description: "Provision bedrock-agent-runtime and execute-api VPC endpoints (billed per AZ-hour; tear down after)"
+        type: boolean
+        default: false
 
 # FR-022: OIDC federation only. No AWS access key exists anywhere in this repository.
 permissions:
@@ -101,12 +111,17 @@ jobs:
       - name: Terraform apply
         id: apply
         working-directory: infra/envs/dev
+        env:
+          # A push-triggered run has no inputs, so this is false there -- a merge
+          # can never silently provision a billed endpoint.
+          ENABLE_AGENT_ENDPOINTS: ${{ inputs.enable_agent_endpoints || false }}
         run: |
           terraform init -input=false
           terraform apply -input=false -auto-approve \
             -var="package_path=../../../backend/dist/lambda.zip" \
             -var="package_hash=${PACKAGE_HASH}" \
-            -var="git_sha=${GITHUB_SHA}"
+            -var="git_sha=${GITHUB_SHA}" \
+            -var="enable_agent_endpoints=${ENABLE_AGENT_ENDPOINTS}"
           {
             echo "migrate_function=$(terraform output -raw migrate_function_name)"
             echo "frontend_bucket=$(terraform output -raw frontend_bucket)"

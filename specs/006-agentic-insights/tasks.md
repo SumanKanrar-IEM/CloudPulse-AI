@@ -492,17 +492,64 @@ a resource-specific suggestion marked `ai_generated`, and that no endpoint or co
 
 ## Phase 5: P1 Completion — Role Matrix, Live Verification, Teardown
 
-- [ ] T028 Write `backend/tests/integration/test_role_matrix_insights.py` — the full matrix across
+- [X] T028 Write `backend/tests/integration/test_role_matrix_insights.py` — the full matrix across
       this spec's P1 read surfaces (`GET /insights/digest`, `/insights/runs`,
       `/insights/rejections`): all three roles read; an unauthenticated caller gets 401; an
       authenticated caller with no recognised group gets 403. Assert response bodies, not just
       status codes, so an empty result cannot pass as success — S43, S44, FR-009
-- [ ] T029 [P] Run R-604's verification and record the result in research.md **before** any
+      **Done**, 16 tests. Two cells beyond the ones the task names.
+      The no-group cell uses an **unrecognised** group rather than an empty list: a membership check
+      that asks "does this token have groups?" passes an empty-list test and still admits a token
+      carrying somebody else's. That shape matters here specifically — it is how an agent's machine
+      principal would arrive if `build_agent_principal` were ever bypassed, and defaulting it to
+      viewer would hand the intelligence layer a readable surface nobody granted it.
+      A correctly-authorised admin **of another tenant** is also asserted across all three surfaces.
+      A role matrix alone would miss it: every role check passes and the wrong tenant's data is
+      served. Each surface queries independently, so each needs its own cell.
+      The seeded run history contains a `failed` run as well as a succeeded one — a history holding
+      only successes would let a surface that filtered failures out look identical to one that does
+      not (FR-007a).
+- [X] T029 [P] Run R-604's verification and record the result in research.md **before** any
       funding claim is made either way:
       `aws ec2 describe-vpc-endpoint-services --query 'ServiceNames' --output text | tr '\t' '\n' | grep -iE 'bedrock|monitoring'`
       A planning-time attempt returned a false "0 available" for every service because an expired
       SSO token was swallowed by `2>/dev/null || echo 0`. Do not repeat that pattern — let the
       command fail loudly — S43, R-604
+      **Done, 2026-09-09, and the answer is the opposite of the working assumption.** Every service
+      checked publishes an **Interface** endpoint in `us-east-1` across all six AZs —
+      `bedrock-agent-runtime` (what `invoke_agent` needs) and `execute-api` (what the action-group
+      Lambdas need) included. R-604 rewritten with the table.
+      The command failed loudly first, exactly as intended: the SSO token had expired, and
+      `InvalidClientTokenId` is what a real failure looks like instead of a plausible zero.
+- [X] T029a [P] Correct spec 005's R-503 — S43, R-604a
+      **Not anticipated by this list, and the more consequential half of T029.** R-503 states that
+      "neither Cost Explorer nor IAM publishes an interface-endpoint service name" and predicts
+      that the exact command T029 runs "would return nothing". It returns
+      `com.amazonaws.us-east-1.ce` and `com.amazonaws.iam`, both Interface, both six AZs — along
+      with `sts` and `tagging`, which spec 005's T051a treated as unfixable-without-NAT.
+      IAM's service name has **no region prefix** because IAM is global; a check filtering on
+      `com.amazonaws.<region>.` finds nothing and reads as absence. The grep was wrong, not the API.
+      Why this outranks the factual error: R-503 reframed a **funding** decision as a **platform**
+      limitation. A gap that costs money is a decision the maintainer makes; a gap AWS makes
+      impossible is not a decision at all. That removed a real option from the table, silently,
+      across three specs. R-407's own wording survives intact — it describes what is *provisioned*,
+      which is still accurate and still verified.
+- [X] T029b [P] Add the `bedrock-agent-runtime` and `execute-api` interface endpoints to
+      `infra/modules/network/`, gated behind `enable_agent_endpoints` (default **off**), and expose
+      the toggle as a `Deploy dev` dispatch input — S43, R-604, R-605
+      **Not anticipated by this list**, and only possible because T029 falsified the assumption the
+      list was written under. T030's own wording — "per T029's result, either exercise a real agent
+      invocation or record ... at the mocked-test level" — has a branch that could not be taken
+      until the endpoints were known to exist.
+      **Default off, and that is the point.** An interface endpoint bills per AZ-hour whether or not
+      anything calls it, and the standing decision not to fund this VPC's egress gap is unchanged.
+      The dispatch input defaults false and a `push`-triggered run has no inputs at all, so a merge
+      can never silently provision one — the same discipline `DEV_AUTO_DEPLOY` exists for, applied
+      to a cost that accrues while idle rather than one that starts on merge.
+      Both endpoints or neither: with Bedrock reachable but not `execute-api`, the agent reasons
+      with no working action group and produces output that fails grounding — a worse signal than
+      not running at all, because it looks like a model problem.
+
 - [ ] T030 **Live-verification.** Deploy to dev (dispatch `Deploy dev`). Confirm the deploy is
       healthy and the version matches trunk HEAD; confirm the digest and suggester Lambdas,
       their schedules and their log groups exist with the intended shape; confirm

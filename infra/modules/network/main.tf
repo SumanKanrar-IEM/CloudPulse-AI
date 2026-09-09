@@ -100,6 +100,58 @@ resource "aws_vpc_endpoint" "secretsmanager" {
   private_dns_enabled = true
 }
 
+# --- agent-layer endpoints (spec 006, T029b) ----------------------------------
+#
+# Off by default, and that is the point. R-604 verified that AWS publishes these
+# -- the earlier belief that it did not was a wrong grep, not a platform limit
+# (R-604a) -- but publishing and provisioning are different facts, and an
+# interface endpoint bills per AZ-hour whether or not anything calls it. The
+# standing NAT/endpoint funding decision has been declined twice, so these
+# default to off and a deploy that wants them says so explicitly.
+#
+# `count` rather than `for_each` over a list: these two are not
+# interchangeable members of a set. `bedrock-agent-runtime` is what
+# `invoke_agent` needs and `execute-api` is what the action groups need to reach
+# the platform API, and a future reader should see two named reasons rather than
+# a collection to append to without one.
+
+resource "aws_vpc_endpoint" "bedrock_agent_runtime" {
+  count               = var.enable_agent_endpoints ? 1 : 0
+  vpc_id              = aws_vpc.this.id
+  service_name        = "com.amazonaws.${data.aws_region.current.name}.bedrock-agent-runtime"
+  vpc_endpoint_type   = "Interface"
+  subnet_ids          = aws_subnet.private[*].id
+  security_group_ids  = [aws_security_group.endpoints.id]
+  private_dns_enabled = true
+
+  tags = {
+    Name = "${local.name}-bedrock-agent-runtime"
+  }
+}
+
+# Without this the agent reaches Bedrock and its action groups still cannot
+# reach the platform API, so it reasons with no tools and produces output that
+# fails grounding. The two are only useful together.
+resource "aws_vpc_endpoint" "execute_api" {
+  count               = var.enable_agent_endpoints ? 1 : 0
+  vpc_id              = aws_vpc.this.id
+  service_name        = "com.amazonaws.${data.aws_region.current.name}.execute-api"
+  vpc_endpoint_type   = "Interface"
+  subnet_ids          = aws_subnet.private[*].id
+  security_group_ids  = [aws_security_group.endpoints.id]
+  private_dns_enabled = true
+
+  tags = {
+    Name = "${local.name}-execute-api"
+  }
+}
+
+variable "enable_agent_endpoints" {
+  type        = bool
+  description = "Provision the bedrock-agent-runtime and execute-api interface endpoints (spec 006, R-604/T029b). Billed per AZ-hour whether or not anything calls them, so this defaults to off and a live-verification window turns it on deliberately. Verified available in us-east-1 across all six AZs; the standing decision not to fund them long-term is unchanged."
+  default     = false
+}
+
 data "aws_region" "current" {}
 
 output "vpc_id" {
@@ -112,4 +164,9 @@ output "private_subnet_ids" {
 
 output "vpc_cidr" {
   value = aws_vpc.this.cidr_block
+}
+
+output "agent_endpoints_enabled" {
+  value       = var.enable_agent_endpoints
+  description = "Whether the agent-layer interface endpoints are provisioned, so a live-verification write-up can state reachability as a fact rather than an assumption."
 }
