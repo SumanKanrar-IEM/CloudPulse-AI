@@ -4,7 +4,7 @@
 > Agents (classic). AWS placed that service in maintenance mode and closed new agent creation to
 > accounts without prior usage, so the definitions and action groups here describe a runtime this
 > account cannot create. The constraints below are unchanged and still binding; what changes is
-> which Bedrock service hosts the orchestration. See T032-T038.
+> which Bedrock service hosts the orchestration. See T061-T067.
 
 **Owned by spec 006 (agentic insights).** Spec 001 reserved this tree and left it empty; spec 006
 populates it. The constraints below are spec 001's and this spec implements against them — it does

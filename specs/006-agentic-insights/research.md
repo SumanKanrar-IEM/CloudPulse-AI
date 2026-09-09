@@ -200,7 +200,7 @@ which is the better test of it.
 **What must be verified before any of this is built.** That AgentCore's control plane *answers* is
 not evidence that an agent runtime *deploys*. Recording "AgentCore works" on the strength of one
 `list` call would be R-503's exact error — a confident claim about a capability nobody exercised —
-in the same spec that just corrected it. **T032 is a spike, and it comes before the rewrite.**
+in the same spec that just corrected it. **T061 is a spike, and it comes before the rewrite.**
 
 **Alternatives considered**: direct `bedrock-runtime:InvokeModel` with hand-rolled tool-calling —
 verified working (123 foundation models available), cheapest to build, and rejected for the reason
