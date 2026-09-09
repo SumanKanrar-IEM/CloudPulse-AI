@@ -1,6 +1,55 @@
 <!--
 Sync Impact Report
 ==================
+Version change: 2.0.1 → 3.0.0 (2026-09-09)
+Bump rationale: MAJOR. Principle II is redefined — the product GenAI layer moves from "Amazon
+Bedrock Agents" to Amazon Bedrock's agent services, naming AgentCore Runtime as the target for
+new work. This invalidates work already merged under the old wording: spec 006's agent
+definitions, action groups and Terraform module (PRs #121, #122) were built to Bedrock Agents
+and are superseded. That is precisely the MAJOR trigger in the versioning policy below.
+
+Forced by AWS, not chosen. Verified against account 767828743440 on 2026-09-09 (spec 006, T030):
+
+    AccessDeniedException: Bedrock Agents is in Maintenance Mode. New agent creation is not
+    available for accounts without prior service usage.
+
+`CreateAgent` returns 403 for both agents; AgentCore Runtime's control plane is reachable in the
+same account. The previous wording mandated a service this account cannot use, which would have
+made the constitution unsatisfiable rather than strict.
+
+Modified principles:
+  - II. AWS-Native Runtime and GitHub-Native Delivery — the GenAI layer is Amazon Bedrock with
+    AgentCore Runtime for orchestration; Bedrock Agents (classic) permitted only where already
+    provisioned. Adds the explicit statement that an agent framework running INSIDE AgentCore is
+    part of the AWS runtime rather than a third-party one. The old wording banned "non-AWS agent
+    frameworks" without saying whether it meant where code runs or who authored the library; that
+    ambiguity is now resolved in the text.
+  - II. Testable clause — narrowed from "no non-AWS inference or agent SDKs" to "no non-AWS
+    INFERENCE SDK and no agent runtime hosted outside AWS". This deliberately loosens an
+    automated gate: `ops/scripts/check_dependencies.py` must be revisited to permit an
+    AWS-authored agent SDK while still rejecting anything that reaches a non-AWS inference
+    endpoint. Recorded here because a quietly-loosened guard is worse than a documented one.
+  - IV. Deterministic Core, Agentic Edge — wording only ("Bedrock Agents" → "Bedrock agents").
+    Its substance is runtime-independent and unchanged: agents never execute changes, never hold
+    cloud credentials, every output is grounded and validated before display.
+
+Modified sections:
+  - Technology Constraints, GenAI line — mirrors Principle II.
+
+Unchanged and load-bearing: Principle V's connector boundary, which is why this amendment costs
+roughly 1,159 lines rather than the whole of spec 006. Every grounding, run-accounting, cost-cap
+and no-execution guarantee survives, along with all 3,893 lines of spec 006's tests.
+
+Propagation still owed (tracked as tasks, not done silently):
+  1. spec 006 research.md — R-601 (Bedrock Agents with Lambda action groups) is superseded
+  2. agents/README.md — quotes Principle II's old wording
+  3. ops/scripts/check_dependencies.py — allowlist, per the testable clause above
+  4. spec 006 re-plan — agents/, connectors/aws.py invoke_agent, infra/modules/agents/
+  5. AI_WORKFLOW_JOURNAL.md §1 — governance requires the amendment recorded there
+
+Added sections: none · Removed sections: none
+
+--- Superseded v2.0.1 report ---
 Version change: 2.0.0 → 2.0.1 (2026-08-23)
 Bump rationale: PATCH. The v2.0.0 amendment redefined Principle VII to solo delivery with AI
 collaboration but its Sync Impact Report claimed full propagation while missing two spots: the
@@ -110,10 +159,22 @@ evidence of the opposite, and a journal written after the fact is not evidence a
 ### II. AWS-Native Runtime and GitHub-Native Delivery (NON-NEGOTIABLE)
 
 **Runtime.** All runtime components MUST run on AWS managed services. The entire product GenAI
-layer MUST be implemented with Amazon Bedrock Agents — agents, action groups, and guardrails.
-Third-party model hosts, non-AWS agent frameworks, and non-AWS orchestration runtimes are
-prohibited in the deployed system. No component the user can reach may depend on any non-AWS AI
-vendor's runtime.
+layer MUST be implemented on Amazon Bedrock: agent orchestration on **Bedrock AgentCore
+Runtime**, with tools, memory, and guardrails as AgentCore provides them. Bedrock Agents
+(classic) remains permitted where already provisioned, and is not the target for new work — AWS
+placed it in maintenance mode and closed new agent creation to accounts without prior usage,
+confirmed against this project's own account on 2026-09-09.
+
+An agent framework executing **inside** AgentCore Runtime is a component of the AWS runtime, not
+a third-party runtime, and is permitted on that basis. Third-party model hosts, non-AWS inference
+endpoints, and agent runtimes hosted outside AWS remain prohibited in the deployed system. No
+component the user can reach may depend on any non-AWS AI vendor's runtime, and no model call may
+resolve to a non-AWS service.
+
+The boundary this principle draws is **where the code runs and which model answers**, not who
+wrote the library. That distinction is stated explicitly because the earlier wording conflated
+the two, and the conflation is what made an amendment necessary rather than a configuration
+change.
 
 **Delivery.** All engineering tooling MUST be GitHub-native: GitHub Actions for CI/CD, GitHub
 Spec Kit for the spec lifecycle, and GitHub Issues/Projects for work tracking.
@@ -124,9 +185,10 @@ development-time tool, not a runtime dependency: nothing it produces may cause t
 system to call a non-AWS model. The boundary is absolute — an authoring tool may be Anthropic's;
 a running component may not be.
 
-Testable: dependency manifests and infrastructure code contain no non-AWS inference or agent
-SDKs, enforced by an automated allowlist gate in CI; every deployed compute, storage, queue, and
-model call resolves to an AWS service; every required workflow runs in GitHub Actions.
+Testable: dependency manifests and infrastructure code contain no non-AWS **inference** SDK and
+no agent runtime hosted outside AWS, enforced by an automated allowlist gate in CI; every
+deployed compute, storage, queue, and model call resolves to an AWS service; every required
+workflow runs in GitHub Actions.
 
 Rationale: the AWS-native runtime is a hard constraint of the engagement. Naming the
 development-time engine explicitly closes a gap the earlier wording left open — the lifecycle was
@@ -154,7 +216,7 @@ also remove the whole class of secret-rotation work from a two-week build.
 
 Discovery, validation, scoring, and cost ingestion MUST be deterministic and reproducible: the
 same account state MUST always yield the same inventory, the same findings, and the same scores.
-No model call may sit on these paths. Bedrock Agents operate strictly at the edge — they observe,
+No model call may sit on these paths. Bedrock agents operate strictly at the edge — they observe,
 explain, recommend, and propose configuration as rules-as-data. Agents MUST NOT execute changes
 against cloud accounts, MUST NOT hold or receive credentials, and every agent output shown to a
 user MUST be grounded in and validated against platform data before display: real ARNs, real
@@ -244,7 +306,9 @@ growth is the standard way hackathon projects arrive at demo day with nothing ru
 
 - **Runtime:** serverless AWS managed services only. Compute is AWS Lambda; orchestration is AWS
   Step Functions; persistence is Aurora Serverless v2 plus S3 for immutable snapshots.
-- **GenAI:** Amazon Bedrock Agents exclusively, with action groups for tool access and guardrails
+- **GenAI:** Amazon Bedrock exclusively — AgentCore Runtime for agent orchestration, with its
+  tool, memory and guardrail primitives. Bedrock Agents (classic) permitted where already
+  provisioned; not a target for new work (maintenance mode, confirmed 2026-09-09)
   enabled on every agent. Agent action groups MUST call platform APIs only — never cloud
   provider APIs directly.
 - **Frontend/backend:** a single OpenAPI document is the contract; generated clients on both
@@ -307,4 +371,4 @@ principle regardless of how well the code is written. Complexity that appears to
 principle MUST either be justified in the PR description and accepted at review, or removed. Runtime development guidance lives in `SPECKIT_PLAYBOOK.md`, which is subordinate to
 this document.
 
-**Version**: 2.0.1 | **Ratified**: 2026-08-22 | **Last Amended**: 2026-08-23
+**Version**: 3.0.0 | **Ratified**: 2026-08-22 | **Last Amended**: 2026-09-09
