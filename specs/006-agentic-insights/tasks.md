@@ -35,7 +35,7 @@ Numbered T061+ rather than inserted at T032: P2 already owns T032–T060, and re
 that other documents cite would break every reference to buy nothing. The higher numbers also
 match execution order, since this phase runs last.
 
-**P2 (stretch)**: Phases 6–10, T032–T060. Every P2 task is marked **[P2]** in its description. Every P2 task is marked **[P2]** in its description.
+**P2 (stretch)**: Phases 6–10, T032–T060. Every P2 task is marked **[P2]** in its description.
 Dropping all five P2 stories leaves both P1 stories and their success criteria intact — only
 SC-003, SC-006, SC-007 and FR-015–FR-024 go with them.
 
@@ -692,7 +692,7 @@ here starts wanting to change one, that is the signal the migration has slipped 
 
 **⚠️ P2 — STRETCH ONLY**: Per Principle VIII, nothing here may block or destabilise the P1 path.
 
-- [ ] T032 [P] [US3] **[P2]** Write `backend/tests/unit/test_coverage_advisor.py` — a gap
+- [X] T032 [P] [US3] **[P2]** Write `backend/tests/unit/test_coverage_advisor.py` — a gap
       closeable by a rule extension is proposed; one closeable by enabling an existing enricher is
       proposed; a type with **no** existing enrichment routine is surfaced as advisory only and
       never as an acceptable proposal (FR-015a, R-603) — S43, FR-015, FR-015a
@@ -700,7 +700,7 @@ here starts wanting to change one, that is the signal the migration has slipped 
       accept applies tenant-wide on the next scan with no code change; reject is not re-proposed;
       a non-admin can read but not decide; an advisory gap has no decision endpoint at all — S43,
       FR-016, FR-017, FR-018
-- [ ] T034 [US3] **[P2]** Write `backend/app/governance/coverage_advisor.py` — gap detection
+- [X] T034 [US3] **[P2]** Write `backend/app/governance/coverage_advisor.py` — gap detection
       against `coverage_definitions.json` and the rule registry, proposal creation, and the
       accept/reject transition — S43, FR-015, FR-016, FR-017, FR-018
 - [ ] T035 [US3] **[P2]** Write `agents/definitions/advisor.json`, `agents/prompts/advisor.md`
