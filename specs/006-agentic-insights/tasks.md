@@ -703,7 +703,7 @@ here starts wanting to change one, that is the signal the migration has slipped 
 - [X] T034 [US3] **[P2]** Write `backend/app/governance/coverage_advisor.py` — gap detection
       against `coverage_definitions.json` and the rule registry, proposal creation, and the
       accept/reject transition — S43, FR-015, FR-016, FR-017, FR-018
-- [ ] T035 [US3] **[P2]** Write `agents/definitions/advisor.json`, `agents/prompts/advisor.md`
+- [X] T035 [US3] **[P2]** Write `agents/definitions/advisor.json`, `agents/prompts/advisor.md`
       and `agents/action-groups/advisor_tools.py` — S43, FR-003
 - [X] T036 [US3] **[P2]** Write `backend/app/api/routers/coverage_proposals.py` —
       `GET /coverage-proposals`, `GET /coverage-proposals/advisory-gaps` (no decision endpoint, by
