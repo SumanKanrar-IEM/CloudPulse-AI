@@ -10,7 +10,8 @@ import { authGuard, roleGuard } from './core/auth.guard';
 import { AuthService } from './core/auth.service';
 
 // Feature routes: accounts (spec 002), sdas (spec 003), overview/inventory/findings/
-// scans (spec 004), cost/utilization/iam-hygiene (spec 005). sign-in/auth/callback (spec 004) are the two
+// scans (spec 004), cost/utilization/iam-hygiene (spec 005), coverage-proposals (spec 006).
+// sign-in/auth/callback (spec 004) are the two
 // unauthenticated routes everything else depends on reaching.
 export const routes: Routes = [
   // FR-006 default landing route after sign-in.
@@ -85,6 +86,18 @@ export const routes: Routes = [
     canActivate: [authGuard, roleGuard('admin', 'operator', 'viewer')],
     loadComponent: () =>
       import('./features/cost/cost-dashboard.component').then((m) => m.CostDashboardComponent),
+  },
+  {
+    // Every role may reach this route. FR-016 makes reading a proposal open and
+    // deciding one admin-only, so the gate belongs on the controls inside, not
+    // on the route -- a viewer who cannot see coverage gaps cannot raise the
+    // fact that one exists.
+    path: 'coverage-proposals',
+    canActivate: [authGuard, roleGuard('admin', 'operator', 'viewer')],
+    loadComponent: () =>
+      import('./features/coverage-proposals/coverage-proposals.component').then(
+        (m) => m.CoverageProposalsComponent,
+      ),
   },
 ];
 

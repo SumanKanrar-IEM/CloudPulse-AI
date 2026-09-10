@@ -709,7 +709,7 @@ here starts wanting to change one, that is the signal the migration has slipped 
       `GET /coverage-proposals`, `GET /coverage-proposals/advisory-gaps` (no decision endpoint, by
       design), `POST /coverage-proposals/{proposalId}/decision` admin-gated. Regenerate the
       contract and client — S43, FR-016, FR-017, FR-015a
-- [ ] T037 [P] [US3] **[P2]** Write `frontend/src/app/features/coverage-proposals/` — proposals
+- [X] T037 [P] [US3] **[P2]** Write `frontend/src/app/features/coverage-proposals/` — proposals
       with accept/reject for admins, advisory gaps rendered distinctly with no control at all;
       wire the route into `app.config.ts` — S43, FR-016, FR-015a
 - [ ] T038 [US3] **[P2]** Extend `infra/modules/agents/` with the advisor agent and its schedule —
