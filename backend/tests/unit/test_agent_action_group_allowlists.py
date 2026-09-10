@@ -33,11 +33,7 @@ def _declared_paths(capability: str) -> set[str]:
     definition = json.loads(
         (AGENTS_ROOT / "definitions" / f"{capability}.json").read_text(encoding="utf-8")
     )
-    return {
-        path
-        for group in definition["actionGroups"]
-        for path in group["apiSchema"]["paths"]
-    }
+    return {path for group in definition["actionGroups"] for path in group["apiSchema"]["paths"]}
 
 
 def _handler_paths(capability: str) -> set[str]:

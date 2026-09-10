@@ -265,9 +265,7 @@ def test_a_rejected_proposal_is_not_re_proposed_on_the_next_run(
     # Still exactly one row, still rejected. FR-018 means the answer persists,
     # not that the row is deleted -- a vanished proposal is indistinguishable
     # from a gap that was never detected.
-    assert [(p["resourceType"], p["reviewState"]) for p in listed] == [
-        (REJECTED_TYPE, "rejected")
-    ]
+    assert [(p["resourceType"], p["reviewState"]) for p in listed] == [(REJECTED_TYPE, "rejected")]
 
 
 def test_deciding_an_already_decided_proposal_is_refused(

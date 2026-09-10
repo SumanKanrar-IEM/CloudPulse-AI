@@ -204,9 +204,7 @@ def record_advisory_gaps(
     observed = {gap.resource_type for gap in gaps}
     existing = {
         row.resource_type: row
-        for row in session.raw.execute(
-            session.scoped(select(AdvisoryRow), AdvisoryRow)
-        ).scalars()
+        for row in session.raw.execute(session.scoped(select(AdvisoryRow), AdvisoryRow)).scalars()
     }
 
     for resource_type, row in existing.items():

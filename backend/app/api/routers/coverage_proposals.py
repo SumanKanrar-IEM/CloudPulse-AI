@@ -138,9 +138,7 @@ async def list_coverage_proposals(principal: ViewerPrincipal) -> CoverageProposa
             ProposalRow.resource_type
         )
         return CoverageProposalList(
-            proposals=[
-                _to_proposal(row) for row in session.raw.execute(statement).scalars()
-            ]
+            proposals=[_to_proposal(row) for row in session.raw.execute(statement).scalars()]
         )
 
 
@@ -214,9 +212,7 @@ async def decide_coverage_proposal(
     with tenant_session(principal.tenant_id) as session:
         actor_id = resolve_app_user_id(session, principal)
         try:
-            row = decide_proposal(
-                session, proposal_id, accept=body.accept, decided_by=actor_id
-            )
+            row = decide_proposal(session, proposal_id, accept=body.accept, decided_by=actor_id)
         except ValueError as exc:
             raise AppError(
                 ErrorCode.CONFLICT,
