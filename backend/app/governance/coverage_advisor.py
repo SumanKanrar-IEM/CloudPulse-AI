@@ -201,7 +201,18 @@ def record_advisory_gaps(
     keeping history here would only preserve statements the platform has since
     contradicted.
     """
-    observed = {gap.resource_type for gap in gaps}
+    # Deduplicated first, keeping the first account that revealed each type.
+    # Inventory is per account, so one uncovered type present in two accounts
+    # arrives here as two gaps -- and the unique index is per tenant, so writing
+    # both would fail the whole advisor run over a duplicate rather than over
+    # anything wrong. Which account is kept does not matter: FR-017 makes it
+    # evidence, not scope. `record_proposals` guards the same case with its
+    # `pending` set.
+    unique: dict[str, AdvisoryGap] = {}
+    for gap in gaps:
+        unique.setdefault(gap.resource_type, gap)
+
+    observed = set(unique)
     existing = {
         row.resource_type: row
         for row in session.raw.execute(session.scoped(select(AdvisoryRow), AdvisoryRow)).scalars()
@@ -212,7 +223,7 @@ def record_advisory_gaps(
             session.raw.delete(row)
 
     now = datetime.now(UTC)
-    for gap in gaps:
+    for gap in unique.values():
         row = existing.get(gap.resource_type)
         if row is None:
             session.add(

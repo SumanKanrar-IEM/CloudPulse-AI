@@ -402,3 +402,40 @@ def test_a_gap_no_longer_observed_is_deleted_rather_than_left_standing(
 
     _stage(stager, real_tenant_id, VIEWER)
     assert client.get("/coverage-proposals/advisory-gaps").json()["gaps"] == []
+
+
+def test_the_same_type_seen_in_two_accounts_is_one_advisory_row(
+    api: tuple[TestClient, _ClaimStager, FastAPI],
+    real_tenant_id: uuid.UUID,
+    seed: dict[str, uuid.UUID],
+) -> None:
+    """Inventory is per account, so one uncovered type in two accounts arrives
+    as two gaps. The unique index is per tenant, and a run that raised the same
+    standing gap twice would fail on it -- taking down the whole advisor run
+    over a duplicate rather than over anything wrong."""
+    client, stager, _ = api
+    with tenant_session(real_tenant_id) as session:
+        record_advisory_gaps(
+            session,
+            agent_run_id=seed["run"],
+            gaps=[
+                AdvisoryGap(
+                    resource_type=ADVISORY_TYPE,
+                    evidence_account_id=seed["evidence"],
+                    reason="no enrichment routine exists",
+                ),
+                AdvisoryGap(
+                    resource_type=ADVISORY_TYPE,
+                    evidence_account_id=seed["other"],
+                    reason="no enrichment routine exists",
+                ),
+            ],
+        )
+        session.commit()
+
+    _stage(stager, real_tenant_id, VIEWER)
+    gaps = client.get("/coverage-proposals/advisory-gaps").json()["gaps"]
+    assert [g["resourceType"] for g in gaps] == [ADVISORY_TYPE]
+    # The first account seen is kept as the evidence. Either is correct -- the
+    # account is evidence, not scope -- but the row must name one of them.
+    assert gaps[0]["evidenceAccountId"] == str(seed["evidence"])

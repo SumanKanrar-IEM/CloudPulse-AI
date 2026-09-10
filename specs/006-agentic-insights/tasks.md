@@ -749,6 +749,12 @@ here starts wanting to change one, that is the signal the migration has slipped 
       `ENRICHMENT_FUNCTIONS` behind the connector boundary (Principle V), and deriving them from
       "uncovered type with no proposal row" would mean displaying a reason the platform invented
       rather than one it determined — S43, FR-015a
+- [X] T038e [US3] **[P2]** Fix `record_advisory_gaps` writing a duplicate row when one uncovered
+      resource type appears in two accounts. Inventory is per account, so `detect_gaps` returns one
+      `AdvisoryGap` per account per type, and the table's uniqueness is per tenant — the second
+      insert failed the whole advisor run on a duplicate rather than on anything wrong. Found in
+      self-review after CI was green; `record_proposals` already guarded the same case with its
+      `pending` set — S43, FR-015a
 
 **Checkpoint**: SC-003 provable.
 
