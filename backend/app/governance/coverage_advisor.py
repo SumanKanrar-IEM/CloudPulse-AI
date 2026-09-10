@@ -37,6 +37,7 @@ from sqlalchemy import select
 
 from app.core.db import TenantSession
 from app.core.logging import logger
+from app.models.core import CoverageAdvisoryGap as AdvisoryRow
 from app.models.core import CoverageProposal as ProposalRow
 from app.models.enums import CoverageProposalKind, ProposalReviewState
 
@@ -188,6 +189,52 @@ def record_proposals(
     return written
 
 
+def record_advisory_gaps(
+    session: TenantSession, *, agent_run_id: uuid.UUID, gaps: list[AdvisoryGap]
+) -> None:
+    """Replace the tenant's advisory set with what this run observed (FR-015a).
+
+    A rewrite rather than an append. These rows carry a claim -- "no enrichment
+    routine exists for this type" -- and a release that adds the routine makes
+    the claim false. Since the run that would notice is the one running now,
+    deleting what it no longer observes is what keeps the surface honest;
+    keeping history here would only preserve statements the platform has since
+    contradicted.
+    """
+    observed = {gap.resource_type for gap in gaps}
+    existing = {
+        row.resource_type: row
+        for row in session.raw.execute(
+            session.scoped(select(AdvisoryRow), AdvisoryRow)
+        ).scalars()
+    }
+
+    for resource_type, row in existing.items():
+        if resource_type not in observed:
+            session.raw.delete(row)
+
+    now = datetime.now(UTC)
+    for gap in gaps:
+        row = existing.get(gap.resource_type)
+        if row is None:
+            session.add(
+                AdvisoryRow(
+                    agent_run_id=agent_run_id,
+                    resource_type=gap.resource_type,
+                    evidence_account_id=gap.evidence_account_id,
+                    reason=gap.reason,
+                    observed_at=now,
+                )
+            )
+            continue
+        row.agent_run_id = agent_run_id
+        row.evidence_account_id = gap.evidence_account_id
+        row.reason = gap.reason
+        row.observed_at = now
+
+    session.flush()
+
+
 def decide(
     session: TenantSession,
     proposal_id: uuid.UUID,
@@ -259,5 +306,6 @@ __all__ = [
     "already_decided_types",
     "decide",
     "detect_gaps",
+    "record_advisory_gaps",
     "record_proposals",
 ]

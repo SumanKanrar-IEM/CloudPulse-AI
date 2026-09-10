@@ -22,11 +22,12 @@ from app.api.errors import ERROR_RESPONSES, AppError, ErrorCode, correlation_id_
 from app.core.audit import write_audit_event
 from app.core.db import TenantSession, tenant_session
 from app.core.security import Principal, require_admin, require_operator, require_viewer
+from app.core.users import resolve_app_user_id
 from app.governance import suggestions as suggestions_governance
 from app.governance.notifications import displayed_escalated_at
-from app.models.core import AppUser, Resource
 from app.models.core import Finding as FindingRow
 from app.models.core import Notification as NotificationRow
+from app.models.core import Resource
 from app.models.core import Rule as RuleRow
 from app.models.enums import FindingKind, FindingStatus
 
@@ -129,23 +130,6 @@ def _get_finding_or_404(session: TenantSession, finding_id: uuid.UUID) -> Findin
     return row
 
 
-def _resolve_app_user_id(session: TenantSession, principal: Principal) -> uuid.UUID:
-    """Find or create the caller's `app_user` row (mirrors `me._upsert_user`).
-
-    A signed-in caller has always hit `GET /me` at least once, but this stays
-    defensive rather than assuming that row already exists.
-    """
-    existing = session.raw.execute(
-        select(AppUser).where(AppUser.cognito_sub == principal.subject)
-    ).scalar_one_or_none()
-    if existing is not None:
-        return existing.id
-    user = AppUser(cognito_sub=principal.subject, email=principal.email)
-    session.add(user)
-    session.flush()
-    return user.id
-
-
 @router.get(
     "",
     operation_id="listFindings",
@@ -236,7 +220,7 @@ async def acknowledge_finding(
     updates nothing rather than racing or duplicating (data-model.md)."""
     with tenant_session(principal.tenant_id) as session:
         _get_finding_or_404(session, finding_id)
-        user_id = _resolve_app_user_id(session, principal)
+        user_id = resolve_app_user_id(session, principal)
         stmt = (
             update(FindingRow)
             .where(FindingRow.id == finding_id, FindingRow.acknowledged_at.is_(None))

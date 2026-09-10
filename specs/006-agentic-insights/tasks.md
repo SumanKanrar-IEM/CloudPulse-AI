@@ -696,7 +696,7 @@ here starts wanting to change one, that is the signal the migration has slipped 
       closeable by a rule extension is proposed; one closeable by enabling an existing enricher is
       proposed; a type with **no** existing enrichment routine is surfaced as advisory only and
       never as an acceptable proposal (FR-015a, R-603) — S43, FR-015, FR-015a
-- [ ] T033 [P] [US3] **[P2]** Write `backend/tests/integration/test_coverage_proposal_flow.py` —
+- [X] T033 [P] [US3] **[P2]** Write `backend/tests/integration/test_coverage_proposal_flow.py` —
       accept applies tenant-wide on the next scan with no code change; reject is not re-proposed;
       a non-admin can read but not decide; an advisory gap has no decision endpoint at all — S43,
       FR-016, FR-017, FR-018
@@ -705,7 +705,7 @@ here starts wanting to change one, that is the signal the migration has slipped 
       accept/reject transition — S43, FR-015, FR-016, FR-017, FR-018
 - [ ] T035 [US3] **[P2]** Write `agents/definitions/advisor.json`, `agents/prompts/advisor.md`
       and `agents/action-groups/advisor_tools.py` — S43, FR-003
-- [ ] T036 [US3] **[P2]** Write `backend/app/api/routers/coverage_proposals.py` —
+- [X] T036 [US3] **[P2]** Write `backend/app/api/routers/coverage_proposals.py` —
       `GET /coverage-proposals`, `GET /coverage-proposals/advisory-gaps` (no decision endpoint, by
       design), `POST /coverage-proposals/{proposalId}/decision` admin-gated. Regenerate the
       contract and client — S43, FR-016, FR-017, FR-015a
@@ -714,6 +714,15 @@ here starts wanting to change one, that is the signal the migration has slipped 
       wire the route into `app.config.ts` — S43, FR-016, FR-015a
 - [ ] T038 [US3] **[P2]** Extend `infra/modules/agents/` with the advisor agent and its schedule —
       S43, R-606
+- [X] T038a [US3] **[P2]** Add the `coverage_advisory_gap` entity — model in
+      `backend/app/models/core.py`, its migration, the ERD regeneration, and the table's row in
+      `specs/006-agentic-insights/data-model.md`. Surfaced by T036: FR-015a requires advisory gaps
+      be displayed with the reason the advisor computed, and there is nowhere to keep one.
+      `data-model.md` says advisory gaps are never a row in `coverage_proposal` and defines no
+      other home; they cannot be recomputed at request time because the deciding input is
+      `ENRICHMENT_FUNCTIONS` behind the connector boundary (Principle V), and deriving them from
+      "uncovered type with no proposal row" would mean displaying a reason the platform invented
+      rather than one it determined — S43, FR-015a
 
 **Checkpoint**: SC-003 provable.
 

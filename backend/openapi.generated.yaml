@@ -2014,6 +2014,160 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
+  /coverage-proposals:
+    get:
+      tags:
+      - coverage-proposals
+      summary: Coverage gaps the platform can close as configuration
+      description: 'FR-016. Every role may read; only an admin may decide.
+
+
+        Decided proposals stay in the list rather than disappearing on decision --
+
+        "we looked at this and said no" is the answer FR-018 needs to be visible,
+
+        otherwise a rejected gap is indistinguishable from one never detected.'
+      operationId: listCoverageProposals
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CoverageProposalList'
+        '401':
+          description: No valid identity presented.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Valid identity, but the caller's role does not permit the action
+            -- or the caller maps to zero or multiple directory groups and therefore
+            has no resolvable role (FR-032a, FR-034).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /coverage-proposals/advisory-gaps:
+    get:
+      tags:
+      - coverage-proposals
+      summary: Coverage gaps that need a code change and cannot be accepted
+      description: 'FR-015a. Read-only, for every role, with no sibling decision route.
+
+
+        The reason served here is the one the advisor determined, read back from
+
+        the row it wrote. It is not re-derived at request time: the deciding input
+
+        is the enrichment registry behind the connector boundary (Principle V), and
+
+        an inferred reason would be the platform''s own guess presented as its
+
+        finding.'
+      operationId: listCoverageAdvisoryGaps
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdvisoryGapList'
+        '401':
+          description: No valid identity presented.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Valid identity, but the caller's role does not permit the action
+            -- or the caller maps to zero or multiple directory groups and therefore
+            has no resolvable role (FR-032a, FR-034).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /coverage-proposals/{proposal_id}/decision:
+    post:
+      tags:
+      - coverage-proposals
+      summary: Accept or reject a coverage proposal
+      description: 'FR-016/FR-017/FR-018. Admin only, audited, and idempotent by refusal.
+
+
+        An accepted proposal takes effect on the next scan with no deployment: the
+
+        scan path reads accepted mappings as configuration. That is why this handler
+
+        applies nothing itself -- there is no code path here that changes a cloud
+
+        account, which is what keeps FR-016''s "explicit acceptance" the whole of
+        the
+
+        action (Principle IV).
+
+
+        A second decision on a decided proposal is a 409 rather than a silent
+
+        re-apply: moving `applied_at` would make the audit trail misstate when the
+
+        change took effect.'
+      operationId: decideCoverageProposal
+      parameters:
+      - name: proposal_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Proposal Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProposalDecision'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CoverageProposalResponse'
+        '401':
+          description: No valid identity presented.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Valid identity, but the caller's role does not permit the action
+            -- or the caller maps to zero or multiple directory groups and therefore
+            has no resolvable role (FR-032a, FR-034).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '404':
+          description: Target record does not exist, or the caller is not entitled
+            to know that it does.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '409':
+          description: This proposal has already been accepted or rejected.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '422':
+          description: Request body or parameters failed validation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
 components:
   schemas:
     Account:
@@ -2138,6 +2292,48 @@ components:
       required:
       - accounts
       title: AccountsList
+    AdvisoryGapList:
+      properties:
+        gaps:
+          items:
+            $ref: '#/components/schemas/AdvisoryGapResponse'
+          type: array
+          title: Gaps
+      type: object
+      required:
+      - gaps
+      title: AdvisoryGapList
+    AdvisoryGapResponse:
+      properties:
+        resourceType:
+          type: string
+          title: Resourcetype
+        evidenceAccountId:
+          type: string
+          title: Evidenceaccountid
+        reason:
+          type: string
+          title: Reason
+        observedAt:
+          type: string
+          format: date-time
+          title: Observedat
+      type: object
+      required:
+      - resourceType
+      - evidenceAccountId
+      - reason
+      - observedAt
+      title: AdvisoryGapResponse
+      description: 'FR-015a. No `id` that a decision route could take, and no state
+        field.
+
+
+        The response carries nothing a client could mistake for something to act
+
+        on -- it is a statement about what the platform cannot do yet, and the
+
+        remedy is a release, not a click.'
     AgentCapability:
       type: string
       enum:
@@ -2393,6 +2589,59 @@ components:
         key -- Principle III forbids storing one, so it is absent from the vocabulary
 
         rather than merely discouraged.'
+    CoverageProposalList:
+      properties:
+        proposals:
+          items:
+            $ref: '#/components/schemas/CoverageProposalResponse'
+          type: array
+          title: Proposals
+      type: object
+      required:
+      - proposals
+      title: CoverageProposalList
+    CoverageProposalResponse:
+      properties:
+        id:
+          type: string
+          title: Id
+        proposalKind:
+          type: string
+          title: Proposalkind
+        resourceType:
+          type: string
+          title: Resourcetype
+        evidenceAccountId:
+          type: string
+          title: Evidenceaccountid
+        proposedChange:
+          additionalProperties: true
+          type: object
+          title: Proposedchange
+        reviewState:
+          type: string
+          title: Reviewstate
+        decidedAt:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Decidedat
+        appliedAt:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Appliedat
+      type: object
+      required:
+      - id
+      - proposalKind
+      - resourceType
+      - evidenceAccountId
+      - proposedChange
+      - reviewState
+      title: CoverageProposalResponse
     CurrentUser:
       properties:
         userId:
@@ -3017,6 +3266,15 @@ components:
       - sdaName
       - utilization
       title: ProjectUtilization
+    ProposalDecision:
+      properties:
+        accept:
+          type: boolean
+          title: Accept
+      type: object
+      required:
+      - accept
+      title: ProposalDecision
     RemediationSuggestion:
       properties:
         findingId:
@@ -3656,3 +3914,4 @@ components:
         then re-validated for role cardinality by the application (research.md R-004).
 security:
 - cognitoJwt: []
+

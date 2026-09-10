@@ -27,6 +27,7 @@ erDiagram
     TENANT ||--o{ INSIGHT_DIGEST : "owns"
     TENANT ||--o{ GROUNDING_REJECTION : "owns"
     TENANT ||--o{ COVERAGE_PROPOSAL : "owns"
+    TENANT ||--o{ COVERAGE_ADVISORY_GAP : "owns"
     TENANT ||--o{ RESOURCE_METRIC : "owns"
     TENANT ||--o{ FORECAST : "owns"
     TENANT ||--o{ RIGHTSIZING_RECOMMENDATION : "owns"
@@ -53,6 +54,8 @@ erDiagram
     AGENT_RUN ||--o{ COVERAGE_PROPOSAL : "proposed (spec 006, P2)"
     CLOUD_ACCOUNT ||--o{ COVERAGE_PROPOSAL : "revealed the gap (evidence, not scope)"
     APP_USER ||--o{ COVERAGE_PROPOSAL : "decided"
+    AGENT_RUN ||--o{ COVERAGE_ADVISORY_GAP : "observed (spec 006, P2)"
+    CLOUD_ACCOUNT ||--o{ COVERAGE_ADVISORY_GAP : "revealed the gap (evidence, not scope)"
     RESOURCE ||--o{ RESOURCE_METRIC : "measured (spec 006, P2)"
     RESOURCE ||--o{ RIGHTSIZING_RECOMMENDATION : "recommended for (spec 006, P2)"
     SDA ||--o{ FORECAST : "projected (spec 006, P2)"
@@ -270,6 +273,15 @@ erDiagram
         uuid decided_by FK "app_user, null exactly while pending"
         timestamptz decided_at
         timestamptz applied_at
+    }
+    COVERAGE_ADVISORY_GAP {
+        uuid id PK
+        uuid tenant_id FK
+        uuid agent_run_id FK
+        string resource_type "unique per tenant -- each run refreshes the standing gap in place"
+        uuid evidence_account_id FK "which account revealed it"
+        text reason "the advisor's finding, stored rather than re-derived: FR-015a"
+        timestamptz observed_at
     }
     RESOURCE_METRIC {
         uuid id PK
