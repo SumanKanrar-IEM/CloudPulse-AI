@@ -90,7 +90,7 @@ def test_one_failing_account_does_not_stop_the_next(
     assert result["collected"] == [str(seed["healthy"])]
 
     with tenant_session(real_tenant_id) as session:
-        per_account = dict(
+        per_account: dict[uuid.UUID, int] = dict(
             session.raw.execute(
                 session.scoped(
                     select(Resource.cloud_account_id, func.count(ResourceMetric.id)),
