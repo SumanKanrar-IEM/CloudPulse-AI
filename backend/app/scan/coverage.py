@@ -24,6 +24,7 @@ from pathlib import Path
 from typing import Any
 
 DEFAULT_DEFINITIONS_PATH = Path(__file__).with_name("coverage_definitions.json")
+DEFAULT_CANDIDATES_PATH = Path(__file__).with_name("enricher_candidates.json")
 
 
 @dataclass(frozen=True, slots=True)
@@ -37,12 +38,23 @@ class CoverageDefinition:
 
 def load_coverage_definitions(
     path: Path = DEFAULT_DEFINITIONS_PATH,
+    *,
+    overrides: dict[str, str] | None = None,
 ) -> dict[str, CoverageDefinition]:
-    """Read the coverage-definition file fresh (FR-021, FR-022).
+    """Read the coverage-definition file fresh (FR-021, FR-022), then lay a
+    tenant's accepted coverage proposals over it (spec 006, FR-017).
 
     Raises ``ValueError`` on a malformed entry rather than skipping it silently -- a
     scan that silently drops enrichment for a resource type is worse than one that
     fails loudly at orchestration time, before any AWS call is made.
+
+    `overrides` maps resource type to enrichment-function name, from
+    `governance.coverage_advisor.accepted_coverage_overrides`. Merged at read time
+    rather than written into the file: the file ships in the deployment package and
+    is the same for every tenant, and an accepted proposal is one tenant's decision.
+    The file wins on conflict -- an override for a type already covered would be a
+    proposal the advisor should never have raised, and the shipped definition is the
+    one with a reviewer attached.
     """
     raw: dict[str, Any] = json.loads(path.read_text(encoding="utf-8"))
     definitions: dict[str, CoverageDefinition] = {}
@@ -57,7 +69,40 @@ def load_coverage_definitions(
             enrichment_function=entry["enrichment_function"],
             fields=tuple(entry["fields"]),
         )
+    for resource_type, function_name in (overrides or {}).items():
+        # `fields` is what the shipped definition documents about its enricher;
+        # an accepted proposal names only the function. Empty is honest here --
+        # nothing reads `fields` at enrichment time, and inventing a list would
+        # document coverage nobody reviewed.
+        definitions.setdefault(
+            resource_type,
+            CoverageDefinition(
+                resource_type=resource_type, enrichment_function=function_name, fields=()
+            ),
+        )
     return definitions
+
+
+def load_enricher_candidates(path: Path = DEFAULT_CANDIDATES_PATH) -> dict[str, str]:
+    """Resource types an *existing* enricher would suit but that are not yet in
+    `coverage_definitions.json` (spec 006, FR-015, R-603 class 2).
+
+    This is the coverage advisor's only source of proposable gaps: a type here
+    whose function is in the registry becomes a proposal an admin can accept,
+    and acceptance lands as an override on the next scan (FR-017). Coverage as
+    data, same as the definitions file -- an entry is a reviewed statement that
+    "this routine fits this type", not something inferred from a function name.
+
+    Empty today, and honestly so: `connectors/aws.py`'s enrichers are tied 1:1
+    to the types the definitions file already covers. An entry appears here the
+    day someone adds an enricher without mapping it, which is the normal way a
+    proposable gap comes to exist.
+    """
+    raw: dict[str, Any] = json.loads(path.read_text(encoding="utf-8"))
+    for resource_type, function_name in raw.items():
+        if not isinstance(function_name, str) or not function_name:
+            raise ValueError(f"enricher candidate for {resource_type!r} must name a function")
+    return {str(k): str(v) for k, v in raw.items()}
 
 
 def resolve_enrichment_function(
@@ -80,6 +125,7 @@ def resolve_enrichment_function(
 __all__ = [
     "CoverageDefinition",
     "load_coverage_definitions",
+    "load_enricher_candidates",
     "resolve_enrichment_function",
     "DEFAULT_DEFINITIONS_PATH",
 ]

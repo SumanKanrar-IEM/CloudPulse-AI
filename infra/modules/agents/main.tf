@@ -626,3 +626,89 @@ resource "aws_lambda_function" "suggester_worker" {
 
   depends_on = [aws_cloudwatch_log_group.suggester_worker]
 }
+
+# --- advisor worker (T038; S43, FR-015, FR-015a, FR-018) ----------------------
+#
+# A worker and a schedule, and no agent. The advisor run is deterministic --
+# `app/governance/advisor.py` says why -- so there is no `aws_bedrockagent_agent`
+# here, no alias, no action-group Lambda and no `bedrock:InvokeAgent` grant.
+# Deploying an agent nothing invokes would be clutter that reads as a
+# capability; the definition files stay in `agents/` as the contract the run
+# hashes, and are the seam if narration is ever wanted.
+#
+# This is also the one spec 006 worker R-605's VPC-reachability gap does not
+# touch: it reads the database and writes the database, nothing else.
+
+resource "aws_iam_role" "advisor_worker" {
+  name               = "${local.name}-advisor-worker"
+  assume_role_policy = data.aws_iam_policy_document.lambda_assume.json
+}
+
+resource "aws_iam_role_policy_attachment" "advisor_worker_vpc" {
+  role       = aws_iam_role.advisor_worker.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
+}
+
+resource "aws_cloudwatch_log_group" "advisor_worker" {
+  name              = "/aws/lambda/${local.name}-advisor-worker"
+  retention_in_days = var.log_retention_days
+}
+
+data "aws_iam_policy_document" "advisor_worker_runtime" {
+  statement {
+    sid       = "ReadDatabaseCredential"
+    effect    = "Allow"
+    actions   = ["secretsmanager:GetSecretValue", "secretsmanager:DescribeSecret"]
+    resources = [var.db_secret_arn]
+  }
+
+  statement {
+    sid       = "WriteOwnLogs"
+    effect    = "Allow"
+    actions   = ["logs:CreateLogStream", "logs:PutLogEvents"]
+    resources = ["${aws_cloudwatch_log_group.advisor_worker.arn}:*"]
+  }
+}
+
+resource "aws_iam_role_policy" "advisor_worker_runtime" {
+  name   = "runtime"
+  role   = aws_iam_role.advisor_worker.id
+  policy = data.aws_iam_policy_document.advisor_worker_runtime.json
+}
+
+resource "aws_lambda_function" "advisor_worker" {
+  function_name = "${local.name}-advisor-worker"
+  role          = aws_iam_role.advisor_worker.arn
+  handler       = "handlers.advisor_worker_handler.handler"
+  runtime       = "python3.12"
+  architectures = ["arm64"]
+  # One grouped query over `resource` and a handful of writes. Nothing here
+  # waits on a model.
+  timeout     = 120
+  memory_size = 512
+
+  filename         = var.package_path
+  source_code_hash = var.package_hash
+
+  vpc_config {
+    subnet_ids = var.private_subnet_ids
+    # The digest worker's group: same egress need (the database), and a third
+    # group with identical rules would be a third thing to keep identical.
+    security_group_ids = [aws_security_group.digest_worker.id]
+  }
+
+  environment {
+    variables = {
+      CLOUDPULSE_ENVIRONMENT   = var.environment
+      CLOUDPULSE_AWS_REGION    = data.aws_region.current.name
+      CLOUDPULSE_DB_HOST       = var.db_host
+      CLOUDPULSE_DB_NAME       = var.db_name
+      CLOUDPULSE_DB_USER       = var.db_user
+      CLOUDPULSE_DB_SECRET_ARN = var.db_secret_arn
+      POWERTOOLS_SERVICE_NAME  = "cloudpulse-advisor-worker"
+      POWERTOOLS_LOG_LEVEL     = "INFO"
+    }
+  }
+
+  depends_on = [aws_cloudwatch_log_group.advisor_worker]
+}

@@ -2,8 +2,8 @@
 (T032; spec 006, FR-015, FR-015a, research.md R-603).
 
 The rule this file exists to pin: **a gap is proposable only when accepting it
-would actually take effect.** A rule extension and an already-existing enricher
-both take effect as configuration on the next scan. A resource type nobody has
+would actually take effect for that type.** Enabling an already-existing
+enricher does, as configuration on the next scan. A resource type nobody has
 written an enricher for does not, so it is advisory content and never an
 acceptable proposal — an accept button that could not take effect misrepresents
 what the platform can do, which the spec judges worse than not surfacing the gap
@@ -205,3 +205,50 @@ def test_detection_is_deterministic_for_the_same_inventory() -> None:
     second = detect_gaps(inventory, **args)  # type: ignore[arg-type]
 
     assert first == second
+
+
+# --- FR-017: the scan path reads accepted overrides as configuration ----------
+
+
+def test_an_accepted_override_resolves_to_its_enricher_on_the_next_scan(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    """The whole of FR-017's "no code deployment": the override is a mapping
+    merged over the shipped file at read time, and `resolve_enrichment_function`
+    finds it the same way it finds a shipped entry."""
+    from app.scan.coverage import load_coverage_definitions, resolve_enrichment_function
+
+    shipped = tmp_path / "coverage_definitions.json"
+    shipped.write_text('{"AWS::S3::Bucket": {"enrichment_function": "enrich_s3", "fields": []}}')
+
+    def enrich_s3(*_: object) -> dict[str, object]:
+        return {}
+
+    def enrich_cache(*_: object) -> dict[str, object]:
+        return {"engine": "redis"}
+
+    registry = {"enrich_s3": enrich_s3, "enrich_cache": enrich_cache}
+    definitions = load_coverage_definitions(
+        shipped, overrides={"AWS::ElastiCache::CacheCluster": "enrich_cache"}
+    )
+
+    assert (
+        resolve_enrichment_function("AWS::ElastiCache::CacheCluster", definitions, registry)
+        is enrich_cache
+    )
+    # And the shipped entry is untouched by the merge.
+    assert resolve_enrichment_function("AWS::S3::Bucket", definitions, registry) is enrich_s3
+
+
+def test_the_shipped_file_wins_over_an_override_for_a_covered_type(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    """An override for a type already covered is a proposal the advisor should
+    never have raised. The shipped definition has a reviewer attached; the
+    override does not get to replace it."""
+    from app.scan.coverage import load_coverage_definitions
+
+    shipped = tmp_path / "coverage_definitions.json"
+    shipped.write_text('{"AWS::S3::Bucket": {"enrichment_function": "enrich_s3", "fields": []}}')
+
+    definitions = load_coverage_definitions(
+        shipped, overrides={"AWS::S3::Bucket": "something_else"}
+    )
+
+    assert definitions["AWS::S3::Bucket"].enrichment_function == "enrich_s3"

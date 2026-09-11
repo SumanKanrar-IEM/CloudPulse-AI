@@ -21,6 +21,7 @@ from sqlalchemy import select
 
 from app.core.db import tenant_session
 from app.core.logging import logger
+from app.governance.coverage_advisor import accepted_coverage_overrides
 from app.models.core import CloudAccount, Scan
 from app.models.enums import ConnectionMode
 from app.scan import discovery, enrichment, orchestrator
@@ -88,6 +89,11 @@ def _handle_scan_unit(event: dict[str, Any]) -> dict[str, Any]:
             external_id = read_external_id(account.external_id_ref)
 
         connector = AwsConnector()
+        # FR-017 (spec 006): an accepted coverage proposal takes effect on the
+        # next scan as configuration. Read once per unit of work, so a proposal
+        # accepted mid-scan waits for the next one (the same guarantee FR-022
+        # gives the shipped file).
+        connector.coverage_overrides = accepted_coverage_overrides(session)
         resources = discovery.discover_account_region(
             aws_account_id=account.aws_account_id,
             connection_mode=account.connection_mode.value,

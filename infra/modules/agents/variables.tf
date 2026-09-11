@@ -50,6 +50,12 @@ variable "digest_schedule_expression" {
   default     = "cron(0 9 * * ? *)"
 }
 
+variable "advisor_schedule_expression" {
+  type        = string
+  description = "FR-015: one daily advisor pass, after the 06:00 scan so it reads today's inventory. Deterministic and cheap -- no model call."
+  default     = "cron(0 8 * * ? *)"
+}
+
 variable "suggester_schedule_expression" {
   type        = string
   description = "FR-011: one daily suggester pass, after the digest's. Both read the same findings, and the digest reports on findings rather than on their suggestions, so there is nothing to gain from running the suggester first."

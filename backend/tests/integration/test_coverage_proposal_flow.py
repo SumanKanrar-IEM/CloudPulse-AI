@@ -57,6 +57,7 @@ from app.models.enums import (
     ConnectionMode,
     CoverageProposalKind,
 )
+from app.scan.coverage import load_coverage_definitions
 
 pytestmark = pytest.mark.integration
 
@@ -208,6 +209,12 @@ def test_accepting_a_proposal_applies_tenant_wide_with_no_code_change(
     assert seed["evidence"] not in overrides.values()
     assert str(seed["evidence"]) not in str(overrides)
 
+    # And the scan path actually reads it: the same loader the connector calls,
+    # given these overrides, now resolves the type. This is the assertion that
+    # would have caught the override function existing with no caller.
+    definitions = load_coverage_definitions(overrides=overrides)
+    assert definitions[GAP_TYPE].enrichment_function == ENRICHER
+
 
 # --- FR-018: a rejected proposal does not come back --------------------------
 
@@ -225,9 +232,12 @@ def test_a_rejected_proposal_is_not_re_proposed_on_the_next_run(
             gaps=[
                 ProposableGap(
                     resource_type=REJECTED_TYPE,
-                    kind=CoverageProposalKind.RULE_EXTENSION,
+                    kind=CoverageProposalKind.ENABLE_EXISTING_ENRICHER,
                     evidence_account_id=seed["evidence"],
-                    proposed_change={"resource_type": REJECTED_TYPE},
+                    proposed_change={
+                        "resource_type": REJECTED_TYPE,
+                        "enrichment_function": "enrich_redshift_cluster",
+                    },
                 )
             ],
         )
@@ -251,9 +261,12 @@ def test_a_rejected_proposal_is_not_re_proposed_on_the_next_run(
             gaps=[
                 ProposableGap(
                     resource_type=REJECTED_TYPE,
-                    kind=CoverageProposalKind.RULE_EXTENSION,
+                    kind=CoverageProposalKind.ENABLE_EXISTING_ENRICHER,
                     evidence_account_id=seed["evidence"],
-                    proposed_change={"resource_type": REJECTED_TYPE},
+                    proposed_change={
+                        "resource_type": REJECTED_TYPE,
+                        "enrichment_function": "enrich_redshift_cluster",
+                    },
                 )
             ],
         )

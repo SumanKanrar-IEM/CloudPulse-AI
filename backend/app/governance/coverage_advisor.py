@@ -2,19 +2,20 @@
 FR-015a, FR-016, FR-017, FR-018, research.md R-603).
 
 **The split this module exists to enforce.** A gap is only proposable when
-accepting it could actually take effect as configuration:
+accepting it could actually take effect as configuration for *that type*:
 
-* **A rule extension** is genuinely code-free. `rule.definition` is JSONB and
-  spec 003's engine evaluates it as data, so an accepted proposal changes
-  behaviour on the next scan with no deployment.
-* **Enabling an existing enricher** is code-free for the same reason:
-  `coverage_definitions.json` maps a resource type to an enrichment function
-  *name*, and the function already exists.
+* **Enabling an existing enricher** is code-free: `coverage_definitions.json`
+  maps a resource type to an enrichment function *name*, and the function
+  already exists. This is the one proposable kind (FR-015, narrowed 2026-09-12).
 * **A resource type nobody has written an enricher for is not proposable at
   all.** Accepting it could not take effect without a code change, so FR-015a
-  makes it read-only advisory content. `CoverageProposalKind` has exactly two
-  members for this reason -- there is no third value to tempt a writer, and the
+  makes it read-only advisory content. There is no enum value for it, and the
   absence is the enforcement.
+* **A rule extension is not proposable either**, though it was going to be.
+  A spec 003 rule has no resource-type scope, so no rule covers one uncovered
+  type without changing what is checked on every resource. R-603 class 1 is
+  struck; `CoverageProposalKind.RULE_EXTENSION` is retired and nothing here
+  writes it.
 
 An acceptance control that could not take effect would misrepresent what the
 platform can do, which the spec judges worse than not surfacing the gap at all.

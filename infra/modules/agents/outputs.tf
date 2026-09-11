@@ -27,3 +27,7 @@ output "suggester_agent_alias_id" {
 output "suggester_worker_function_name" {
   value = aws_lambda_function.suggester_worker.function_name
 }
+
+output "advisor_worker_function_name" {
+  value = aws_lambda_function.advisor_worker.function_name
+}

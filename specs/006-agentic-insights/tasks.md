@@ -712,16 +712,16 @@ here starts wanting to change one, that is the signal the migration has slipped 
 - [X] T037 [P] [US3] **[P2]** Write `frontend/src/app/features/coverage-proposals/` — proposals
       with accept/reject for admins, advisory gaps rendered distinctly with no control at all;
       wire the route into `app.config.ts` — S43, FR-016, FR-015a
-- [ ] T038 [US3] **[P2]** Extend `infra/modules/agents/` with the advisor agent and its schedule —
+- [X] T038 [US3] **[P2]** Extend `infra/modules/agents/` with the advisor agent and its schedule —
       S43, R-606
-- [ ] T038b [US3] **[P2]** Write `backend/app/governance/advisor.py` and
+- [X] T038b [US3] **[P2]** Write `backend/app/governance/advisor.py` and
       `backend/handlers/advisor_worker_handler.py` — the run that assembles inventory, calls
       `detect_gaps`, invokes the agent for the prose, and persists proposals and advisory gaps.
       **Blocks T038**: Phase 6 as generated has no advisor worker anywhere, and T038's schedule
       needs a Lambda to target. The enrichment registry is read in the handler, which
       `check_connector_boundary.py` already permits, and passed into `detect_gaps` as names — the
       shape T034 was written for — S43, FR-015, FR-015a, FR-003
-- [ ] T038c [US3] **[P2]** Resolve how a **rule-extension** coverage gap is detected, or narrow
+- [X] T038c [US3] **[P2]** Resolve how a **rule-extension** coverage gap is detected, or narrow
       FR-015 to drop the class. **Blocked, needs a decision, not code.** R-603 class 1 says a gap
       can be closed by "a new or widened rule over already-collected fields", and `advisor.md`
       instructs the agent to draft that rule. But a spec 003 rule (`RuleDefinition`: `required`,
@@ -731,7 +731,10 @@ here starts wanting to change one, that is the signal the migration has slipped 
       that emits `RULE_EXTENSION`. Either spec 003's rule model gains a resource-type scope (a
       cross-spec schema change), or FR-015 narrows to the enricher class and R-603's class 1 is
       struck — S43, FR-015, R-603
-- [ ] T038d [US3] **[P2]** Decide where the enricher-candidate map lives, or record that the class
+      **Resolved 2026-09-12: narrowed.** FR-015 keeps the enricher kind only; R-603 class 1
+      struck; rule drafting and the `/rules` read removed from the advisor agent;
+      `RULE_EXTENSION` retired in place (Clarifications, 2026-09-12).
+- [X] T038d [US3] **[P2]** Decide where the enricher-candidate map lives, or record that the class
       is currently empty. `detect_gaps` takes `enricher_for_type` — which existing enrichment
       routine would suit a type not yet mapped to one — and nothing in the repository supplies it.
       Today it would legitimately be empty: `connectors/aws.py` notes its ten enrichers are tied
@@ -740,6 +743,9 @@ here starts wanting to change one, that is the signal the migration has slipped 
       advisory gaps, and SC-003's accept path has no live source of proposals — which T058 half
       anticipates ("runs against seeded fixture inventory"). Worth stating in the spec rather than
       discovering at live verification — S43, FR-015, SC-003
+      **Resolved 2026-09-12**: `backend/app/scan/enricher_candidates.json`, loaded by
+      `load_enricher_candidates`, coverage-as-data beside the definitions file. Empty today and
+      the loader's docstring says why.
 - [X] T038a [US3] **[P2]** Add the `coverage_advisory_gap` entity — model in
       `backend/app/models/core.py`, its migration, the ERD regeneration, and the table's row in
       `specs/006-agentic-insights/data-model.md`. Surfaced by T036: FR-015a requires advisory gaps
@@ -755,6 +761,22 @@ here starts wanting to change one, that is the signal the migration has slipped 
       insert failed the whole advisor run on a duplicate rather than on anything wrong. Found in
       self-review after CI was green; `record_proposals` already guarded the same case with its
       `pending` set — S43, FR-015a
+- [X] T038f [US3] **[P2]** **Decision: the advisor run is deterministic and invokes no model.**
+      Every column the API serves — `proposed_change`, `proposal_kind`, `resource_type`, an
+      advisory gap's `reason` — is fully determined by `detect_gaps` before a model could be
+      asked anything, and neither table has a column for prose. Invoking the agent would spend
+      tokens and open a grounding surface to produce a summary with nowhere to be stored. R-606a's
+      line for the digest applies with more force. `agents/definitions/advisor.json` and
+      `agents/prompts/advisor.md` stay as the capability's contract (hashed onto the run row) and
+      are the seam if a stored, validated per-gap summary is ever wanted; T038 deploys the worker
+      and schedule only, no agent resources — S43, FR-015, R-606a
+- [X] T038g [US3] **[P2]** Wire accepted overrides into the scan path. `accepted_coverage_overrides`
+      existed with no caller: `AwsConnector.enrich()` loaded the shipped file only, so FR-017's
+      "takes effect on the next scan" was proven at the query and not at the scan. Now
+      `load_coverage_definitions(overrides=...)` merges at read time (file wins on conflict), the
+      scan worker sets `connector.coverage_overrides` once per unit of work, and the T033 flow test
+      asserts the merged definitions resolve the accepted type — S43, FR-017, SC-003
+
 
 **Checkpoint**: SC-003 provable.
 
