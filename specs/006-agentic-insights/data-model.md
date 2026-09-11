@@ -70,7 +70,7 @@ exists to prevent. The reference that failed is enough to diagnose.
 | `id` | UUID | PK |
 | `tenant_id` | UUID | FK, NOT NULL |
 | `agent_run_id` | UUID | FK → `agent_run.id`, NOT NULL |
-| `proposal_kind` | ENUM `coverage_proposal_kind` (`rule_extension`, `enable_existing_enricher`) | NOT NULL |
+| `proposal_kind` | ENUM `coverage_proposal_kind` (`rule_extension` — **retired 2026-09-12, nothing writes it**, `enable_existing_enricher`) | NOT NULL |
 | `resource_type` | VARCHAR(200) | NOT NULL — the type whose gap was detected |
 | `evidence_account_id` | UUID | FK → `cloud_account.id`, NOT NULL — which account revealed it |
 | `proposed_change` | JSONB | NOT NULL — the configuration to apply |
@@ -83,10 +83,12 @@ exists to prevent. The reference that failed is enough to diagnose.
 partial index, so the advisor cannot raise the same pending proposal twice while keeping every
 decided one as history. Same shape as `iam_hygiene_flag`'s active-flag index (spec 005).
 
-**`proposal_kind` has exactly two values, deliberately.** R-603: a resource type with no existing
-enricher cannot be proposed at all, because accepting it could not take effect without a code
-change — FR-017 would be unsatisfiable. Those gaps surface as read-only advisory content, never
-as an acceptable row.
+**`proposal_kind` has exactly two values, deliberately — and only one is live.** R-603: a resource
+type with no existing enricher cannot be proposed at all, because accepting it could not take
+effect without a code change — FR-017 would be unsatisfiable. Those gaps surface as read-only
+advisory content, never as an acceptable row. `rule_extension` was retired on 2026-09-12 (R-603,
+class 1 struck) and no code path writes it; the value is kept rather than dropped because removing
+a native enum value is the rename-create-recast-drop dance migration 0014 already paid for.
 
 `evidence_account_id` is evidence, not scope: acceptance applies tenant-wide (Clarifications,
 2026-09-05).
@@ -192,8 +194,11 @@ without the measurements behind it, is a guess presented as a fact.
 * **`finding_remediation_suggestion`** (spec 003, rendered by spec 004) — this spec finally writes
   `source = 'ai_generated'`, the value spec 003 defined and nothing has ever produced. **No shape
   change.** FR-013's "must not overwrite an admin-seeded suggestion" is enforced on write.
-* **`rule`** (spec 003) — an accepted `rule_extension` proposal writes a new rule version through
-  spec 003's existing versioning. No shape change.
+* ~~**`rule`** (spec 003) — an accepted `rule_extension` proposal writes a new rule version through
+  spec 003's existing versioning. No shape change.~~ **Retired 2026-09-12**: a spec 003 rule has
+  no resource-type scope, so no rule version can cover one uncovered type. R-603's class 1 is
+  struck; `rule` is not touched by this spec. The enum value stays because removing one is
+  migration 0014's dance, and a value nothing writes costs nothing.
 * **`app/scan/coverage_definitions.json`** (spec 002) — an accepted `enable_existing_enricher`
   proposal adds an entry mapping a type to an **already-existing** enricher. See R-603.
 

@@ -28,6 +28,7 @@ data "aws_iam_policy_document" "scheduler_runtime" {
     resources = [
       aws_lambda_function.digest_worker.arn,
       aws_lambda_function.suggester_worker.arn,
+      aws_lambda_function.advisor_worker.arn,
     ]
   }
 }
@@ -87,6 +88,33 @@ resource "aws_scheduler_schedule" "suggester_daily" {
     # reach findings tomorrow's pass will reach anyway.
     retry_policy {
       maximum_retry_attempts = 0
+    }
+  }
+}
+
+# T038. After the daily scan (06:00), so the inventory it reads is today's, and
+# before the digest (09:00) -- the digest does not report on coverage gaps, but
+# running the cheapest worker first costs nothing and keeps the order legible.
+resource "aws_scheduler_schedule" "advisor_daily" {
+  name       = "${local.name}-advisor-daily"
+  group_name = "default"
+
+  flexible_time_window {
+    mode = "OFF"
+  }
+
+  schedule_expression = var.advisor_schedule_expression
+
+  target {
+    arn      = aws_lambda_function.advisor_worker.arn
+    role_arn = aws_iam_role.scheduler.arn
+    input    = jsonencode({ action = "trigger_daily" })
+
+    # Two retries, like the database-only workers elsewhere. No model call means
+    # a retry re-spends nothing but a query, and a transient database error is
+    # the kind that is gone a minute later.
+    retry_policy {
+      maximum_retry_attempts = 2
     }
   }
 }

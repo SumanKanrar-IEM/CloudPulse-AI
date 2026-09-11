@@ -21,6 +21,10 @@
 - Q: Who decides which findings are the digest's "top" findings? → A: The platform ranks deterministically (severity, then escalated, then oldest) and selects before the agent sees them; the agent explains, it does not rank
 - Q: When a run stops at its cost cap, is already-produced output displayed or discarded? → A: Item-wise outputs keep every validated item; whole-artifact outputs (digest, narrative) discard partial output. The run is marked truncated either way
 
+### Session 2026-09-12
+
+- Q: FR-015's "new or widened rule over already-collected fields" cannot be expressed: a spec 003 rule is keyed by tag key with no resource-type scope, so it governs every resource in the tenant and no rule can cover *one* uncovered type. Widen spec 003's rule model, or narrow FR-015? → A: Narrow FR-015 to the enricher kind. Type-scoped rules are a spec 003 product question in their own right, not something the advisor should force; if they are wanted later, the proposal kind can be reinstated then.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - An operator reads one paragraph instead of five dashboards (Priority: P1)
@@ -345,10 +349,12 @@ figure in the prose matches the corresponding chart value exactly.
 **Coverage advisor (User Story 3)**
 
 - **FR-015** `[P2]`: The system MUST detect resource types present in a tenant's inventory that
-  are not covered by existing enrichment or governance configuration, and propose the
-  configuration change that would cover them — limited to the two kinds that take effect as
-  configuration: a new or widened **rule** over already-collected fields, and **enabling an
-  enrichment routine that already exists** but is not yet mapped to that type.
+  are not covered by existing enrichment configuration, and propose the configuration change
+  that would cover them — limited to the one kind that takes effect as configuration for a
+  single resource type: **enabling an enrichment routine that already exists** but is not yet
+  mapped to that type. *(Narrowed 2026-09-12: a rule extension was the second kind, but spec
+  003's rules carry no resource-type scope, so no rule can cover one type without changing what
+  is checked on every resource — see Clarifications.)*
 - **FR-015a** `[P2]`: A detected gap that cannot be closed by configuration alone — a resource
   type for which no enrichment routine exists — MUST be surfaced as read-only advisory content
   and MUST NOT be offered as an acceptable proposal. Offering an acceptance control that could

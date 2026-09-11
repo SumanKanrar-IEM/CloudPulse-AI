@@ -204,9 +204,16 @@ class CoverageProposalKind(StrEnum):
     could not take effect without a code change and FR-017 would be
     unsatisfiable. Those gaps surface as read-only advisory content (FR-015a),
     never as a row -- which is why there is no third member here to tempt one.
+
+    Only one member is live. `RULE_EXTENSION` was retired on 2026-09-12 (R-603,
+    class 1 struck): a spec 003 rule has no resource-type scope, so no rule can
+    cover one uncovered type without changing what is checked on every resource.
+    No code path writes it. It stays because removing a native Postgres enum
+    value is the rename-create-recast-drop dance migration 0014 already paid
+    for, and a value nothing writes costs nothing to keep.
     """
 
-    RULE_EXTENSION = "rule_extension"
+    RULE_EXTENSION = "rule_extension"  # retired -- see docstring
     ENABLE_EXISTING_ENRICHER = "enable_existing_enricher"
 
 

@@ -615,6 +615,9 @@ class AwsConnector:
 
     def __init__(self) -> None:
         self._session: Any = None
+        # Spec 006, FR-017: a tenant's accepted coverage proposals, set by the
+        # scan worker once per unit of work. Plain data, read by `enrich()`.
+        self.coverage_overrides: dict[str, str] = {}
 
     def discover(self, account: ConnectorAccount, region: str) -> list[NormalizedResource]:
         self._session = _build_session(account, session_name="cloudpulse-scan")
@@ -638,7 +641,7 @@ class AwsConnector:
 
         from app.scan.coverage import load_coverage_definitions, resolve_enrichment_function
 
-        definitions = load_coverage_definitions()
+        definitions = load_coverage_definitions(overrides=self.coverage_overrides)
         fn = resolve_enrichment_function(resource.resource_type, definitions, ENRICHMENT_FUNCTIONS)
         if fn is None:
             return resource

@@ -43,7 +43,7 @@ would bypass tenant scoping, the read-only method filter, and the audit trail in
 **Consequence worth stating**: the action-group Lambdas need network egress to API Gateway. That
 is the same egress constraint every other worker has (see R-605).
 
-## R-603 — The coverage advisor can propose *rules* as data, but not *enrichment* as data
+## R-603 — The coverage advisor can propose *existing enrichers* as data, and nothing else
 
 **Decision**: The advisor's P2 scope is split, and the split is a real constraint rather than a
 staging choice:
@@ -58,7 +58,8 @@ staging choice:
 
 So the advisor proposes three classes, and only the first two satisfy "no code change":
 
-1. a new or widened **rule** over already-collected fields — data only;
+1. ~~a new or widened **rule** over already-collected fields — data only;~~ **Struck 2026-09-12,
+   see below.**
 2. **enabling enrichment for a type whose enricher already exists** but is not in the coverage
    map — data only;
 3. a type with **no existing enricher** — surfaced as a *documented gap for a human*, explicitly
@@ -73,6 +74,33 @@ implementation — the lesson playbook §0.5.5 records about assumptions that re
 originally written contradicted this finding. FR-015 is now narrowed to classes 1 and 2, and a
 new FR-015a makes class 3 read-only advisory content that is never offered for acceptance. SC-003
 therefore stays an absolute claim rather than gaining an exception clause.
+
+**Class 1 struck (2026-09-12, implementation of T034/T035)**: the "genuinely code-free" claim
+above was true and beside the point. A rule extension *is* data — but a spec 003 rule is keyed by
+tag key and carries `required`, `allowedValues`, `formatPattern` and `severity`, with **no
+resource-type scope**. It governs every resource in the tenant. So there is no rule a proposal
+could carry that covers *one uncovered resource type*; accepting it would change what is checked
+on every EC2 instance, bucket and database, which is not "covering the gap" in any sense an admin
+would recognise. `detect_gaps` never had a `RULE_EXTENSION` path for exactly this reason, and
+`advisor.md` was instructing the agent to draft something no proposal could carry.
+
+Resolved by narrowing FR-015 to class 2 (Clarifications, 2026-09-12) rather than by giving spec
+003's rules a type scope. Type-scoped rules may well be wanted, but that is a spec 003 product
+question with its own consequences for the validation engine and every existing rule row — not
+something the advisor should force through as a side effect of needing a second proposal kind.
+If they arrive, class 1 can be reinstated then.
+
+`CoverageProposalKind.RULE_EXTENSION` stays in the enum and the migration. No code path writes it,
+and removing a value from a native Postgres enum is the rename-create-recast-drop dance migration
+0014 already paid for once. A retired value that nothing writes is cheaper than a migration that
+exists only to delete it.
+
+**Consequence worth stating plainly**: with class 1 struck and `connectors/aws.py`'s ten enrichers
+tied 1:1 to the ten types `coverage_definitions.json` already covers, class 2 is *also* empty
+today. The advisor currently produces only advisory gaps (FR-015a). Proposals become possible the
+moment someone adds an enricher without mapping it — a normal thing to happen — but until then
+SC-003's accept path has no live source of proposals, which is why T058 verifies it against seeded
+fixture inventory. Recorded here so live verification finds a stated fact rather than a surprise.
 
 **Alternatives considered**: A generic data-driven enricher (a declarative field-extraction DSL
 over Cloud Control payloads) — genuinely would make class 3 data-only, and is real unplanned
