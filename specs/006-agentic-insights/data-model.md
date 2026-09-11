@@ -150,6 +150,20 @@ The `value`/`is_unavailable` pairing is the same discipline `spend_record.amount
 already uses (spec 005): a missing measurement is recorded as missing, never as a zero that would
 drag an average down and understate utilization.
 
+**Units are declared per query, not per column.** NUMERIC(12,4) holds eight integer digits, and
+CloudWatch reports memory, storage and network in bytes — 100 GB of free RDS storage is 1e11,
+three digits past the column. `governance/metrics.py::METRIC_QUERIES` therefore states the stored
+unit for each metric (`percent` for CPU, `GB free` for memory and storage, `MB` for network) and
+the scale that gets it there. A consumer reads the unit from the query table, never assumes bytes.
+
+**Conditional upsert, not plain do-nothing.** A re-run for a collected period is refused — except
+that a row recorded as unavailable is replaced when a later run has a value. CloudWatch publishes
+with a lag, so the first run after midnight can honestly find nothing and the next day's run
+honestly find the number; keeping the earlier "unknown" would make the lag permanent, replacing a
+measurement with a different measurement would make the store disagree with itself. The `WHERE`
+on the upsert is what makes "updates rather than appends" above true in the one direction that is
+safe.
+
 **Retention**: 30 days (FR-006a), which also bounds the forecast window.
 
 ## `forecast` — a projected figure (P2)

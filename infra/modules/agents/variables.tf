@@ -56,6 +56,12 @@ variable "advisor_schedule_expression" {
   default     = "cron(0 8 * * ? *)"
 }
 
+variable "metrics_schedule_expression" {
+  type        = string
+  description = "FR-019: one daily metrics collection for the previous UTC day, after the 06:00 scan. Cost tracks inventory size (R-606) -- the lever is METRIC_QUERIES, not this schedule."
+  default     = "cron(30 7 * * ? *)"
+}
+
 variable "suggester_schedule_expression" {
   type        = string
   description = "FR-011: one daily suggester pass, after the digest's. Both read the same findings, and the digest reports on findings rather than on their suggestions, so there is nothing to gain from running the suggester first."

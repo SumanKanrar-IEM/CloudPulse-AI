@@ -784,20 +784,26 @@ here starts wanting to change one, that is the signal the migration has slipped 
 
 ## Phase 7: User Story 4 — Metrics Collection (Priority: P2)
 
-- [ ] T039 [P] [US4] **[P2]** Write `backend/tests/unit/test_metrics_collection.py` — a period
+- [X] T039 [P] [US4] **[P2]** Write `backend/tests/unit/test_metrics_collection.py` — a period
       already collected is not duplicated; a resource with no measurement is recorded as unknown,
       never zero (FR-020) — S50, FR-019, FR-020
-- [ ] T040 [US4] **[P2]** Write `backend/app/governance/metrics.py` — normalise and persist
+- [X] T040 [US4] **[P2]** Write `backend/app/governance/metrics.py` — normalise and persist
       `resource_metric` rows per resource and period — S50, FR-019, FR-020
-- [ ] T041 [US4] **[P2]** Extend `backend/connectors/aws.py` with `get_metric_data(...)` —
+- [X] T041 [US4] **[P2]** Extend `backend/connectors/aws.py` with `get_metric_data(...)` —
       CloudWatch `GetMetricData`, the only place that SDK call appears — S50, FR-019, R-606
-- [ ] T042 [US4] **[P2]** Write `backend/handlers/metrics_collector_handler.py` — scheduled
+- [X] T042 [US4] **[P2]** Write `backend/handlers/metrics_collector_handler.py` — scheduled
       collection; per-account failure isolated so one account's failure does not stop others —
       S50, FR-019
-- [ ] T043 [US4] **[P2]** Extend `infra/modules/agents/` with the collector Lambda, its schedule
+- [X] T043 [US4] **[P2]** Extend `infra/modules/agents/` with the collector Lambda, its schedule
       and `cloudwatch:GetMetricData` — S50, R-606
       Note R-606: this is the one P2 cost that grows with inventory (resources × metrics ×
       periods). State the dev posture explicitly in the module.
+- [X] T043a [US4] **[P2]** Scale byte-denominated metrics into `NUMERIC(12,4)`'s range. Found in
+      self-review: `FreeStorageSpace`, `FreeableMemory` and the network metrics are reported in
+      bytes, and 100 GB is 1e11 — three digits past the column's eight, so the first RDS instance
+      with real storage would have failed the whole account's collection with a database error
+      rather than a wrong number. Each `MetricQuery` now declares its stored unit and scale; the
+      data model records the units — S50, FR-019
 
 ---
 
