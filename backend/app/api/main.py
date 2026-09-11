@@ -30,6 +30,7 @@ from app.api.routers import (
     budget_overruns,
     budgets,
     compliance,
+    coverage_proposals,
     findings,
     health,
     iam_hygiene,
@@ -112,6 +113,7 @@ def create_app() -> FastAPI:
     app.include_router(utilization.router)
     app.include_router(iam_hygiene.router)
     app.include_router(insights.router)
+    app.include_router(coverage_proposals.router)
     # Routers added by later specs: dashboard reads (004), cost (005),
     # agent-facing reads (006, FR-056).
 

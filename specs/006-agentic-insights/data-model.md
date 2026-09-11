@@ -94,6 +94,40 @@ as an acceptable row.
 **Retention**: not expired. A proposal is a governance decision record, not an operational one —
 the same reason a finding's suggestion is excluded from FR-006a.
 
+## `coverage_advisory_gap` — a gap that needs code, and so can never be a proposal (P2)
+
+| Column | Type | Constraints |
+|---|---|---|
+| `id` | UUID | PK |
+| `tenant_id` | UUID | FK → `tenant.id`, NOT NULL |
+| `agent_run_id` | UUID | FK → `agent_run.id`, NOT NULL — which advisor run observed it |
+| `resource_type` | TEXT | NOT NULL |
+| `evidence_account_id` | UUID | FK → `cloud_account.id`, NOT NULL — which account revealed it |
+| `reason` | TEXT | NOT NULL — why closing it needs code |
+| `observed_at` | TIMESTAMPTZ | NOT NULL, default `now()` |
+
+**Unique on** `(tenant_id, resource_type)` — each advisor run refreshes the standing gap in place
+rather than stacking a daily copy of the same unchanged finding. Unlike a proposal there is no
+decision history worth keeping, because there is no decision.
+
+**A separate table, not a third `coverage_proposal_kind` or a fourth `proposal_review_state`.**
+FR-015a's rule is that these gaps are not decidable at all. Giving them a row shape with no
+`review_state`, no `decided_by` and no `applied_at` is what makes that structural rather than a
+convention someone has to remember: there is no column here to fill in, so no code path can
+accidentally decide one. It is the same argument `proposal_kind`'s two values rest on — the
+absence is the enforcement.
+
+**`reason` is stored, not derived.** It is the advisor's finding. Recomputing it when the API is
+asked would need the enrichment registry, which lives behind the connector boundary (Principle V);
+inferring it from "uncovered and not proposed" would put text the platform invented in front of a
+user as though the platform had determined it, which is the failure mode this spec's grounding
+rules exist to prevent.
+
+**Retention**: no time-based expiry, but each advisor run replaces the tenant's whole set — a gap
+closed by a later release stops being observed and its row is deleted in the same run. This is the
+one place a stale row would be an active lie ("no enrichment routine exists" about a type that now
+has one), so the set is rewritten rather than appended to.
+
 ## `resource_metric` — one utilization measurement (P2)
 
 | Column | Type | Constraints |

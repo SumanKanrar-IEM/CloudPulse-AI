@@ -839,6 +839,53 @@ class CoverageProposal(UUIDPrimaryKey, TenantScoped, Base):
     )
 
 
+class CoverageAdvisoryGap(UUIDPrimaryKey, TenantScoped, Base):
+    """A coverage gap that needs a code change, so it can never be a proposal
+    (spec 006, T038a; FR-015a).
+
+    A separate table rather than a `review_state` value on `coverage_proposal`,
+    for the reason `CoverageProposalKind` has exactly two members: nothing here
+    is decidable, so there is no column to hold a decision and no row shape that
+    could accidentally acquire one. An accept control that could not take effect
+    would misrepresent what the platform can do, which FR-015a judges worse than
+    not surfacing the gap at all.
+
+    `reason` is stored rather than derived at read time because it is the
+    advisor's finding, not the API's inference. Recomputing it in the API would
+    need the enrichment registry, which lives behind the connector boundary
+    (Principle V); guessing it from "uncovered and unproposed" would display
+    text the platform invented as though it had determined it -- the failure
+    mode this spec's grounding rules exist to prevent.
+    """
+
+    __tablename__ = "coverage_advisory_gap"
+
+    agent_run_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("agent_run.id", ondelete="CASCADE"), nullable=False
+    )
+    resource_type: Mapped[str] = mapped_column(String(200), nullable=False)
+    # Evidence, not scope -- the same meaning it carries on `coverage_proposal`.
+    evidence_account_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("cloud_account.id", ondelete="CASCADE"), nullable=False
+    )
+    reason: Mapped[str] = mapped_column(Text, nullable=False)
+    observed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=text("now()")
+    )
+
+    __table_args__ = (
+        # One row per type per tenant, refreshed in place by each advisor run.
+        # A daily run must not stack a new copy of the same standing gap, and
+        # unlike a proposal there is no decision history worth keeping.
+        Index(
+            "uq_coverage_advisory_gap_type",
+            "tenant_id",
+            "resource_type",
+            unique=True,
+        ),
+    )
+
+
 class ResourceMetric(UUIDPrimaryKey, TenantScoped, Base):
     """One utilization measurement for one resource over one period (P2)."""
 

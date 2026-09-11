@@ -1,0 +1,69 @@
+{
+  "capability": "advisor",
+  "description": "The coverage advisor (spec 006, FR-015, FR-015a). Explains gaps the platform already detected and drafts the rule text for the ones a rule could close; detects nothing and decides nothing.",
+  "promptFile": "agents/prompts/advisor.md",
+  "foundationModel": "anthropic.claude-3-5-haiku-20241022-v1:0",
+  "idleSessionTTLInSeconds": 300,
+  "guardrail": {
+    "required": true,
+    "note": "Attached by infra (T038). Principle II names guardrails as part of the GenAI layer, and the advisor's input is a tenant's resource inventory."
+  },
+  "actionGroups": [
+    {
+      "name": "coverage-read",
+      "description": "Read-only inventory and rule lookups through the platform HTTP API. Every operation is a GET; the agent principal is refused on every other method (FR-056, R-602).",
+      "lambda": "agents/action-groups/advisor_tools.py",
+      "apiSchema": {
+        "openapi": "3.0.0",
+        "info": {
+          "title": "Coverage advisor reads",
+          "version": "1.0.0",
+          "description": "Two operations, and no coverage-proposal endpoint among them. The advisor cannot read the proposal list, so it cannot learn which gaps an admin has already rejected and cannot argue with that decision; deduplication against decided types is the platform's job (FR-018), performed before this agent is called."
+        },
+        "paths": {
+          "/resources": {
+            "get": {
+              "operationId": "listResources",
+              "summary": "Resources in this tenant's inventory.",
+              "description": "Use this to see what a resource type actually looks like in this tenant before describing a gap in it — which regions it appears in, which tags it already carries. The gap list itself is supplied in the prompt; this endpoint returning other types does not add them to it.",
+              "parameters": [
+                {
+                  "name": "service",
+                  "in": "query",
+                  "required": false,
+                  "schema": {"type": "string"},
+                  "description": "Narrow to one service, so a single call answers a single gap."
+                },
+                {
+                  "name": "region",
+                  "in": "query",
+                  "required": false,
+                  "schema": {"type": "string"}
+                }
+              ],
+              "responses": {
+                "200": {
+                  "description": "Resources with their type, region and tags.",
+                  "content": {"application/json": {"schema": {"type": "object"}}}
+                }
+              }
+            }
+          },
+          "/rules": {
+            "get": {
+              "operationId": "listRules",
+              "summary": "The tagging rules already configured for this tenant.",
+              "description": "Read this before drafting a rule extension. A draft that restates a rule already in force is noise an admin has to read and reject, and widening an existing rule is a different proposal from adding a new one.",
+              "responses": {
+                "200": {
+                  "description": "Rules with their key, version and definition.",
+                  "content": {"application/json": {"schema": {"type": "object"}}}
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

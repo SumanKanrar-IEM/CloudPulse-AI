@@ -35,7 +35,7 @@ Numbered T061+ rather than inserted at T032: P2 already owns T032–T060, and re
 that other documents cite would break every reference to buy nothing. The higher numbers also
 match execution order, since this phase runs last.
 
-**P2 (stretch)**: Phases 6–10, T032–T060. Every P2 task is marked **[P2]** in its description. Every P2 task is marked **[P2]** in its description.
+**P2 (stretch)**: Phases 6–10, T032–T060. Every P2 task is marked **[P2]** in its description.
 Dropping all five P2 stories leaves both P1 stories and their success criteria intact — only
 SC-003, SC-006, SC-007 and FR-015–FR-024 go with them.
 
@@ -692,28 +692,69 @@ here starts wanting to change one, that is the signal the migration has slipped 
 
 **⚠️ P2 — STRETCH ONLY**: Per Principle VIII, nothing here may block or destabilise the P1 path.
 
-- [ ] T032 [P] [US3] **[P2]** Write `backend/tests/unit/test_coverage_advisor.py` — a gap
+- [X] T032 [P] [US3] **[P2]** Write `backend/tests/unit/test_coverage_advisor.py` — a gap
       closeable by a rule extension is proposed; one closeable by enabling an existing enricher is
       proposed; a type with **no** existing enrichment routine is surfaced as advisory only and
       never as an acceptable proposal (FR-015a, R-603) — S43, FR-015, FR-015a
-- [ ] T033 [P] [US3] **[P2]** Write `backend/tests/integration/test_coverage_proposal_flow.py` —
+- [X] T033 [P] [US3] **[P2]** Write `backend/tests/integration/test_coverage_proposal_flow.py` —
       accept applies tenant-wide on the next scan with no code change; reject is not re-proposed;
       a non-admin can read but not decide; an advisory gap has no decision endpoint at all — S43,
       FR-016, FR-017, FR-018
-- [ ] T034 [US3] **[P2]** Write `backend/app/governance/coverage_advisor.py` — gap detection
+- [X] T034 [US3] **[P2]** Write `backend/app/governance/coverage_advisor.py` — gap detection
       against `coverage_definitions.json` and the rule registry, proposal creation, and the
       accept/reject transition — S43, FR-015, FR-016, FR-017, FR-018
-- [ ] T035 [US3] **[P2]** Write `agents/definitions/advisor.json`, `agents/prompts/advisor.md`
+- [X] T035 [US3] **[P2]** Write `agents/definitions/advisor.json`, `agents/prompts/advisor.md`
       and `agents/action-groups/advisor_tools.py` — S43, FR-003
-- [ ] T036 [US3] **[P2]** Write `backend/app/api/routers/coverage_proposals.py` —
+- [X] T036 [US3] **[P2]** Write `backend/app/api/routers/coverage_proposals.py` —
       `GET /coverage-proposals`, `GET /coverage-proposals/advisory-gaps` (no decision endpoint, by
       design), `POST /coverage-proposals/{proposalId}/decision` admin-gated. Regenerate the
       contract and client — S43, FR-016, FR-017, FR-015a
-- [ ] T037 [P] [US3] **[P2]** Write `frontend/src/app/features/coverage-proposals/` — proposals
+- [X] T037 [P] [US3] **[P2]** Write `frontend/src/app/features/coverage-proposals/` — proposals
       with accept/reject for admins, advisory gaps rendered distinctly with no control at all;
       wire the route into `app.config.ts` — S43, FR-016, FR-015a
 - [ ] T038 [US3] **[P2]** Extend `infra/modules/agents/` with the advisor agent and its schedule —
       S43, R-606
+- [ ] T038b [US3] **[P2]** Write `backend/app/governance/advisor.py` and
+      `backend/handlers/advisor_worker_handler.py` — the run that assembles inventory, calls
+      `detect_gaps`, invokes the agent for the prose, and persists proposals and advisory gaps.
+      **Blocks T038**: Phase 6 as generated has no advisor worker anywhere, and T038's schedule
+      needs a Lambda to target. The enrichment registry is read in the handler, which
+      `check_connector_boundary.py` already permits, and passed into `detect_gaps` as names — the
+      shape T034 was written for — S43, FR-015, FR-015a, FR-003
+- [ ] T038c [US3] **[P2]** Resolve how a **rule-extension** coverage gap is detected, or narrow
+      FR-015 to drop the class. **Blocked, needs a decision, not code.** R-603 class 1 says a gap
+      can be closed by "a new or widened rule over already-collected fields", and `advisor.md`
+      instructs the agent to draft that rule. But a spec 003 rule (`RuleDefinition`: `required`,
+      `allowedValues`, `formatPattern`, `severity`, keyed by tag key) has no resource-type scope —
+      it applies to every resource in the tenant. So there is no rule a proposal could carry that
+      covers *one uncovered resource type*, and `detect_gaps` correspondingly has no code path
+      that emits `RULE_EXTENSION`. Either spec 003's rule model gains a resource-type scope (a
+      cross-spec schema change), or FR-015 narrows to the enricher class and R-603's class 1 is
+      struck — S43, FR-015, R-603
+- [ ] T038d [US3] **[P2]** Decide where the enricher-candidate map lives, or record that the class
+      is currently empty. `detect_gaps` takes `enricher_for_type` — which existing enrichment
+      routine would suit a type not yet mapped to one — and nothing in the repository supplies it.
+      Today it would legitimately be empty: `connectors/aws.py` notes its ten enrichers are tied
+      1:1 to the ten types `coverage_definitions.json` already covers, so no existing routine is
+      unmapped. With T038c open as well, this means the advisor currently produces **only**
+      advisory gaps, and SC-003's accept path has no live source of proposals — which T058 half
+      anticipates ("runs against seeded fixture inventory"). Worth stating in the spec rather than
+      discovering at live verification — S43, FR-015, SC-003
+- [X] T038a [US3] **[P2]** Add the `coverage_advisory_gap` entity — model in
+      `backend/app/models/core.py`, its migration, the ERD regeneration, and the table's row in
+      `specs/006-agentic-insights/data-model.md`. Surfaced by T036: FR-015a requires advisory gaps
+      be displayed with the reason the advisor computed, and there is nowhere to keep one.
+      `data-model.md` says advisory gaps are never a row in `coverage_proposal` and defines no
+      other home; they cannot be recomputed at request time because the deciding input is
+      `ENRICHMENT_FUNCTIONS` behind the connector boundary (Principle V), and deriving them from
+      "uncovered type with no proposal row" would mean displaying a reason the platform invented
+      rather than one it determined — S43, FR-015a
+- [X] T038e [US3] **[P2]** Fix `record_advisory_gaps` writing a duplicate row when one uncovered
+      resource type appears in two accounts. Inventory is per account, so `detect_gaps` returns one
+      `AdvisoryGap` per account per type, and the table's uniqueness is per tenant — the second
+      insert failed the whole advisor run on a duplicate rather than on anything wrong. Found in
+      self-review after CI was green; `record_proposals` already guarded the same case with its
+      `pending` set — S43, FR-015a
 
 **Checkpoint**: SC-003 provable.
 
