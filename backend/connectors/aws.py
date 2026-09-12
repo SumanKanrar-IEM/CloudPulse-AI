@@ -15,7 +15,7 @@ from __future__ import annotations
 import json
 from collections.abc import Callable
 from dataclasses import dataclass, replace
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from typing import Any, Literal
 
 from connectors.base import ConnectorAccount, NormalizedResource
@@ -754,6 +754,58 @@ def get_daily_spend(
     return _parse_cost_and_usage_response(response)
 
 
+def get_metric_data(
+    account: ConnectorAccount,
+    region: str,
+    queries: list[dict[str, Any]],
+    *,
+    start: datetime,
+    end: datetime,
+) -> list[dict[str, Any]]:
+    """`cloudwatch:GetMetricData` for one account and region -- the only place
+    that call appears (spec 006, T041; FR-019, Principle V).
+
+    `queries` is the `MetricDataQueries` list `governance/metrics.py::build_queries`
+    produces; the results go back to it as plain dicts. Chunked at the API's
+    500-query ceiling, and paginated, because a large account crosses both.
+
+    A failed call is not caught here, same as `get_daily_spend` -- the worker
+    isolates one account's failure from the next (FR-002a's discipline).
+    """
+    session = _build_session(account, session_name="cloudpulse-metrics")
+    client = session.client("cloudwatch", region_name=region)
+    results: list[dict[str, Any]] = []
+    for offset in range(0, len(queries), 500):
+        chunk = queries[offset : offset + 500]
+        token: str | None = None
+        while True:
+            kwargs: dict[str, Any] = {
+                "MetricDataQueries": chunk,
+                "StartTime": start,
+                "EndTime": end,
+                "ScanBy": "TimestampAscending",
+            }
+            if token:
+                kwargs["NextToken"] = token
+            response = client.get_metric_data(**kwargs)
+            results.extend(_parse_metric_data_response(response))
+            token = response.get("NextToken")
+            if not token:
+                break
+    return results
+
+
+def _parse_metric_data_response(response: dict[str, Any]) -> list[dict[str, Any]]:
+    """Just the id and the values. Timestamps, status codes and labels are
+    dropped -- the period is fixed by the caller, so a datapoint's own
+    timestamp adds nothing, and keeping only what the governance layer reads
+    keeps the boundary narrow."""
+    return [
+        {"Id": str(r.get("Id", "")), "Values": list(r.get("Values") or [])}
+        for r in response.get("MetricDataResults", [])
+    ]
+
+
 __all__ = [
     "VerificationOutcome",
     "verify_access",
@@ -765,6 +817,7 @@ __all__ = [
     "read_external_id",
     "delete_external_id",
     "get_daily_spend",
+    "get_metric_data",
 ]
 
 

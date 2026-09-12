@@ -31,3 +31,7 @@ output "suggester_worker_function_name" {
 output "advisor_worker_function_name" {
   value = aws_lambda_function.advisor_worker.function_name
 }
+
+output "metrics_collector_function_name" {
+  value = aws_lambda_function.metrics_collector.function_name
+}

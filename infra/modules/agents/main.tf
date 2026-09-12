@@ -712,3 +712,122 @@ resource "aws_lambda_function" "advisor_worker" {
 
   depends_on = [aws_cloudwatch_log_group.advisor_worker]
 }
+
+# --- metrics collector (T043; S50, FR-019, FR-020, R-606) --------------------
+#
+# The one P2 cost that grows with inventory. `GetMetricData` is billed per
+# metric-datapoint requested, and this worker requests
+# resources x metrics x periods every day -- so, unlike everything else in this
+# module, its bill tracks the size of the tenant's accounts rather than a fixed
+# schedule. Two things bound it, both stated here rather than left implicit:
+#
+#   * `governance/metrics.py::METRIC_QUERIES` names exactly which metrics are
+#     asked for (two for EC2, four for RDS), so the multiplier is small and
+#     visible in one place;
+#   * one period per day, so the periods term is 1 per run.
+#
+# Dev posture: identical to prod. At dev's inventory (tens of resources) the
+# daily cost is fractions of a cent; the lever that matters is the query list,
+# not this module. R-606 asked for the posture to be stated, and that is it.
+#
+# Same VPC-reachability caveat as the cost worker (R-605): cannot reach
+# CloudWatch from inside the VPC until R-407's endpoint gap is funded, and the
+# handler's per-account isolation turns that into a logged run, not a crash.
+
+resource "aws_iam_role" "metrics_collector" {
+  name               = "${local.name}-metrics-collector"
+  assume_role_policy = data.aws_iam_policy_document.lambda_assume.json
+}
+
+resource "aws_iam_role_policy_attachment" "metrics_collector_vpc" {
+  role       = aws_iam_role.metrics_collector.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
+}
+
+resource "aws_cloudwatch_log_group" "metrics_collector" {
+  name              = "/aws/lambda/${local.name}-metrics-collector"
+  retention_in_days = var.log_retention_days
+}
+
+data "aws_iam_policy_document" "metrics_collector_runtime" {
+  statement {
+    sid       = "ReadDatabaseCredential"
+    effect    = "Allow"
+    actions   = ["secretsmanager:GetSecretValue", "secretsmanager:DescribeSecret"]
+    resources = [var.db_secret_arn]
+  }
+
+  # The same ExternalId read and scanner-role assumption every other
+  # account-touching worker carries (R-206). Not a new role, not a wider one.
+  statement {
+    sid       = "ReadExternalIdSecrets"
+    effect    = "Allow"
+    actions   = ["secretsmanager:GetSecretValue"]
+    resources = ["arn:aws:secretsmanager:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:secret:cloudpulse/external-id/*"]
+  }
+
+  statement {
+    sid       = "AssumeScannerRole"
+    effect    = "Allow"
+    actions   = ["sts:AssumeRole"]
+    resources = ["arn:aws:iam::*:role/cloudpulse-scanner"]
+  }
+
+  # The one AWS read this worker performs, directly in local mode and through
+  # the assumed scanner role otherwise. GetMetricData has no resource-level
+  # ARN scoping.
+  statement {
+    sid       = "GetMetricData"
+    effect    = "Allow"
+    actions   = ["cloudwatch:GetMetricData"]
+    resources = ["*"]
+  }
+
+  statement {
+    sid       = "WriteOwnLogs"
+    effect    = "Allow"
+    actions   = ["logs:CreateLogStream", "logs:PutLogEvents"]
+    resources = ["${aws_cloudwatch_log_group.metrics_collector.arn}:*"]
+  }
+}
+
+resource "aws_iam_role_policy" "metrics_collector_runtime" {
+  name   = "runtime"
+  role   = aws_iam_role.metrics_collector.id
+  policy = data.aws_iam_policy_document.metrics_collector_runtime.json
+}
+
+resource "aws_lambda_function" "metrics_collector" {
+  function_name = "${local.name}-metrics-collector"
+  role          = aws_iam_role.metrics_collector.arn
+  handler       = "handlers.metrics_collector_handler.handler"
+  runtime       = "python3.12"
+  architectures = ["arm64"]
+  # One GetMetricData call per account per region, sequential. Long enough
+  # that a tenant with many accounts is bounded by the API, not by this.
+  timeout     = 300
+  memory_size = 512
+
+  filename         = var.package_path
+  source_code_hash = var.package_hash
+
+  vpc_config {
+    subnet_ids         = var.private_subnet_ids
+    security_group_ids = [aws_security_group.digest_worker.id]
+  }
+
+  environment {
+    variables = {
+      CLOUDPULSE_ENVIRONMENT   = var.environment
+      CLOUDPULSE_AWS_REGION    = data.aws_region.current.name
+      CLOUDPULSE_DB_HOST       = var.db_host
+      CLOUDPULSE_DB_NAME       = var.db_name
+      CLOUDPULSE_DB_USER       = var.db_user
+      CLOUDPULSE_DB_SECRET_ARN = var.db_secret_arn
+      POWERTOOLS_SERVICE_NAME  = "cloudpulse-metrics-collector"
+      POWERTOOLS_LOG_LEVEL     = "INFO"
+    }
+  }
+
+  depends_on = [aws_cloudwatch_log_group.metrics_collector]
+}

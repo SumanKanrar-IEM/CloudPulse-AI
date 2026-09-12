@@ -29,6 +29,7 @@ data "aws_iam_policy_document" "scheduler_runtime" {
       aws_lambda_function.digest_worker.arn,
       aws_lambda_function.suggester_worker.arn,
       aws_lambda_function.advisor_worker.arn,
+      aws_lambda_function.metrics_collector.arn,
     ]
   }
 }
@@ -113,6 +114,35 @@ resource "aws_scheduler_schedule" "advisor_daily" {
     # Two retries, like the database-only workers elsewhere. No model call means
     # a retry re-spends nothing but a query, and a transient database error is
     # the kind that is gone a minute later.
+    retry_policy {
+      maximum_retry_attempts = 2
+    }
+  }
+}
+
+# T043. Collects yesterday's period. After the 06:00 scan, so the resource
+# table it selects from is today's; before the 08:00 advisor for no reason
+# beyond keeping the morning's order legible. The hour matters more than the
+# neighbours: CloudWatch publishes with a lag, and a run too soon after
+# midnight finds an honest nothing that the next day's run has to upgrade.
+resource "aws_scheduler_schedule" "metrics_daily" {
+  name       = "${local.name}-metrics-daily"
+  group_name = "default"
+
+  flexible_time_window {
+    mode = "OFF"
+  }
+
+  schedule_expression = var.metrics_schedule_expression
+
+  target {
+    arn      = aws_lambda_function.metrics_collector.arn
+    role_arn = aws_iam_role.scheduler.arn
+    input    = jsonencode({ action = "trigger_daily" })
+
+    # Two retries. The upsert makes a retry idempotent -- a period already
+    # written is refused, an unavailable one is upgraded -- so a retry costs
+    # one more round of GetMetricData and nothing else.
     retry_policy {
       maximum_retry_attempts = 2
     }
