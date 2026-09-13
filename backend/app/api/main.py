@@ -32,6 +32,7 @@ from app.api.routers import (
     compliance,
     coverage_proposals,
     findings,
+    forecasts,
     health,
     iam_hygiene,
     insights,
@@ -114,6 +115,7 @@ def create_app() -> FastAPI:
     app.include_router(iam_hygiene.router)
     app.include_router(insights.router)
     app.include_router(coverage_proposals.router)
+    app.include_router(forecasts.router)
     # Routers added by later specs: dashboard reads (004), cost (005),
     # agent-facing reads (006, FR-056).
 

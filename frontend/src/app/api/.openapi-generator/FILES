@@ -14,6 +14,8 @@ api/coverage-proposals.service.ts
 api/coverage-proposals.serviceInterface.ts
 api/findings.service.ts
 api/findings.serviceInterface.ts
+api/forecasts.service.ts
+api/forecasts.serviceInterface.ts
 api/iam-hygiene.service.ts
 api/iam-hygiene.serviceInterface.ts
 api/identity.service.ts
@@ -48,6 +50,7 @@ model/agent-capability.ts
 model/agent-run-list.ts
 model/agent-run-response.ts
 model/agent-run-status.ts
+model/backtest-response.ts
 model/budget-overrun.ts
 model/budget-overruns-list.ts
 model/budget.ts
@@ -69,6 +72,8 @@ model/finding-acknowledgment.ts
 model/finding-status.ts
 model/finding.ts
 model/findings-list.ts
+model/forecast-list.ts
+model/forecast-response.ts
 model/grounding-rejection-list.ts
 model/grounding-rejection-response.ts
 model/health-response.ts
@@ -85,6 +90,7 @@ model/owner-identity-override-body.ts
 model/owner-identity-overrides-list.ts
 model/owner-identity-pattern-body.ts
 model/ownership-evidence.ts
+model/project-forecasts.ts
 model/project-utilization.ts
 model/proposal-decision.ts
 model/remediation-suggestion-seed.ts
