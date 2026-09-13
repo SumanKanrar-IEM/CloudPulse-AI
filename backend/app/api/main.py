@@ -39,6 +39,7 @@ from app.api.routers import (
     me,
     ownership,
     resources,
+    rightsizing,
     rules,
     sdas,
     spend,
@@ -116,6 +117,7 @@ def create_app() -> FastAPI:
     app.include_router(insights.router)
     app.include_router(coverage_proposals.router)
     app.include_router(forecasts.router)
+    app.include_router(rightsizing.router)
     # Routers added by later specs: dashboard reads (004), cost (005),
     # agent-facing reads (006, FR-056).
 

@@ -838,15 +838,27 @@ here starts wanting to change one, that is the signal the migration has slipped 
 
 ## Phase 9: User Story 6 — Rightsizing (Priority: P2)
 
-- [ ] T048 [P] [US6] **[P2]** Write `backend/tests/unit/test_rightsizing.py` — a persistently
+- [X] T048 [P] [US6] **[P2]** Write `backend/tests/unit/test_rightsizing.py` — a persistently
       low-utilization resource is recommended down with its evidence and an estimated monthly
       saving; a high or variable resource is never recommended down (FR-023) — S52, FR-023
-- [ ] T049 [US6] **[P2]** Write `backend/app/governance/rightsizing.py` — S52, FR-023
-- [ ] T050 [US6] **[P2]** Write `backend/app/api/routers/rightsizing.py` — `GET /rightsizing`,
+- [X] T049 [US6] **[P2]** Write `backend/app/governance/rightsizing.py` — S52, FR-023
+- [X] T050 [US6] **[P2]** Write `backend/app/api/routers/rightsizing.py` — `GET /rightsizing`,
       `require_viewer`-gated, no apply control (FR-002). Regenerate the contract and client — S52,
       FR-023, FR-002
-- [ ] T051 [P] [US6] **[P2]** Write `frontend/src/app/features/insights/` — rightsizing
+- [X] T051 [P] [US6] **[P2]** Write `frontend/src/app/features/insights/` — rightsizing
       recommendations with their evidence inline; wire the route — S52, FR-023
+- [X] T050a [US6] **[P2]** **Decision: recommendations are computed on request; the
+      `rightsizing_recommendation` table is not written.** Same reasoning as T047a: the list has
+      no worker to produce rows or supersede them, and the calculation is deterministic arithmetic
+      over collected metrics. A stored row would be a snapshot of what the endpoint returns now;
+      the table stays for the day a history of what was recommended is wanted — S52, FR-023
+- [X] T049a [US6] **[P2]** Class ladders and prices as data: `backend/app/governance/
+      rightsizing_classes.json`. FR-023 needs a smaller class to name and a saving to estimate,
+      and neither is derivable from a class string. Prices are structural, not quotes (R-606's
+      framing) and the endpoint says so in `pricingNote`; a class the file does not know gets no
+      recommendation rather than a guessed one. A unit test checks every rung on a shipped ladder
+      has a price and every ladder is smallest-first, since a rung without a price silently
+      produces no recommendation — right at runtime, wrong to ship — S52, FR-023
 
 ---
 

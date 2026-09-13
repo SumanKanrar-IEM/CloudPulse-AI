@@ -57,6 +57,8 @@ export * from './resource-detail';
 export * from './resource-ownership';
 export * from './resource-summary';
 export * from './resources-page';
+export * from './rightsizing-list';
+export * from './rightsizing-recommendation-response';
 export * from './rule';
 export * from './rule-create';
 export * from './rule-definition';

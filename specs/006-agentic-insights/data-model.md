@@ -210,6 +210,10 @@ resource, earlier ones kept as history.
 `evidence` is NOT NULL because FR-023 requires it: a recommendation to downsize something,
 without the measurements behind it, is a guess presented as a fact.
 
+**Not written by Phase 9 (T050a, 2026-09-13).** `GET /rightsizing` computes on request, for the
+reasons `forecast` records under T047a. `evidence` as served carries the measurements *and* the
+thresholds they were judged against, so a reader can recompute the verdict from the row alone.
+
 ## Reused, unchanged
 
 * **`finding_remediation_suggestion`** (spec 003, rendered by spec 004) — this spec finally writes
