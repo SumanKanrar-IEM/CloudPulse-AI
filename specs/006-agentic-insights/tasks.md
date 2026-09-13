@@ -864,14 +864,26 @@ here starts wanting to change one, that is the signal the migration has slipped 
 
 ## Phase 10: User Story 7 — Forecast Narratives (Priority: P2)
 
-- [ ] T052 [P] [US7] **[P2]** Write `backend/tests/unit/test_narrative_validation.py` — a
+- [X] T052 [P] [US7] **[P2]** Write `backend/tests/unit/test_narrative_validation.py` — a
       narrative whose figures match the chart passes; one introducing any figure the deterministic
       calculation did not produce is rejected and not displayed (FR-024) — S53, FR-024
-- [ ] T053 [US7] **[P2]** Write the narrator agent definition, prompt and action group in
+- [X] T053 [US7] **[P2]** Write the narrator agent definition, prompt and action group in
       `agents/`, reusing T007's validator with an exact-figure-match mode — S53, FR-024, FR-001
 - [ ] T054 [P] [US7] **[P2]** Render narratives on the cost and forecast pages in
       `frontend/src/app/features/cost/`, suppressed entirely when validation fails — S53, FR-024,
       SC-007
+- [ ] T054a [US7] **[P2]** **Blocked, needs a decision.** Phase 10 as generated has nothing
+      between T053's agent and T054's rendering: no table stores a narrative, no worker invokes the
+      narrator, no endpoint serves one. Unlike the advisor (T038f) this run genuinely needs a
+      model — there is nothing to narrate deterministically — so it needs the same Bedrock wiring
+      the digest and suggester have (agent, alias, action-group Lambda, worker, schedule), all
+      unlisted. And because forecasts are computed on request (T047a), a stored narrative's
+      figures can drift from the chart as history grows; FR-024 then requires the narrative be
+      suppressed at *display* time by re-validating against the current figures. The honest shape
+      is: store narrative + the figures it was validated against; `GET /forecasts` recomputes the
+      chart and serves the narrative only when the stored figures equal the current ones. Also:
+      T054 names a forecast page that Phase 8 never had a frontend task for. Options recorded in
+      the PR — S53, FR-024, SC-007
 
 **Checkpoint**: SC-007 provable. P2 scope complete.
 
