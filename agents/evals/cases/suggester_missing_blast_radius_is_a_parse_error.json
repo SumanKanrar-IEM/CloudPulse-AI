@@ -1,0 +1,14 @@
+{
+  "capability": "suggester",
+  "why": "FR-011 asks for both halves. A suggestion with an empty blast-radius note skipped the half a reader consults before changing something live.",
+  "known_references": {
+    "resource": [
+      "arn:aws:s3:::payments-archive"
+    ]
+  },
+  "known_figures": [],
+  "model_output": "{\"suggestion\": \"Add an Owner tag.\", \"blastRadius\": \"\", \"references\": []}",
+  "expect": {
+    "verdict": "parse_error"
+  }
+}

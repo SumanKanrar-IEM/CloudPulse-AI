@@ -1,0 +1,14 @@
+{
+  "capability": "narrator",
+  "why": "FR-024: 'about $940' is a figure the chart does not show. Rounding is the most natural thing a model does and the first thing this mode must refuse.",
+  "known_references": {},
+  "known_figures": [
+    "937.50",
+    "30"
+  ],
+  "model_output": "{\"body\": \"Spend is projected at about $940 over the next 30 days.\", \"figures\": [{\"label\": \"horizonDays\", \"value\": \"30\"}]}",
+  "expect": {
+    "verdict": "reject",
+    "rejected_reference": "940"
+  }
+}

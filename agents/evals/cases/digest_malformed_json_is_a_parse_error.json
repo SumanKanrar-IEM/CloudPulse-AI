@@ -1,0 +1,10 @@
+{
+  "capability": "digest",
+  "why": "Fail-closed parsing: a reply that is not the contract is refused whole, never read best-effort with the fabricated part dropped.",
+  "known_references": {},
+  "known_figures": [],
+  "model_output": "Here is your digest: {\"sections\": [",
+  "expect": {
+    "verdict": "parse_error"
+  }
+}

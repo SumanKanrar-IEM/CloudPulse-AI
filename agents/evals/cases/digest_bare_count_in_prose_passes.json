@@ -1,0 +1,10 @@
+{
+  "capability": "digest",
+  "why": "FR-001a's exemption: a bare integer is a count, not a platform figure. 'Three of the 7 findings' must not be refused, or grounding becomes a ban on arithmetic prose.",
+  "known_references": {},
+  "known_figures": [],
+  "model_output": "{\"sections\": [{\"heading\": \"Findings\", \"body\": \"Three of the 7 open findings are on one bucket.\", \"references\": [], \"figures\": []}]}",
+  "expect": {
+    "verdict": "accept"
+  }
+}

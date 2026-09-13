@@ -310,6 +310,25 @@ jobs:
       # gate, not a README. The product GenAI layer is Amazon Bedrock Agents only.
       - run: python ops/scripts/check_dependencies.py
 
+  # --- 9c. Agent evals (spec 006 T055; FR-005, R-609) ----------------------
+  agent-evals:
+    name: agent-evals
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+      - run: pip install -e "./backend[dev]"
+      # Recorded model output through the real parsers and the real grounding
+      # validator. Never calls Bedrock: CI stays deterministic and free, and a
+      # prompt change that breaks a grounding expectation fails here, before it
+      # ships with a new definition hash nobody can trace to a behaviour change.
+      - run: python ../agents/evals/run_evals.py
+        working-directory: backend
+
   # --- 9b. Connector boundary (FR-054, SC-016) -----------------------------
   connector-boundary:
     name: connector-boundary

@@ -1,0 +1,10 @@
+{
+  "capability": "digest",
+  "why": "FR-010: a nothing-notable day is a valid digest with no sections, not a validation failure.",
+  "known_references": {},
+  "known_figures": [],
+  "model_output": "{\"sections\": []}",
+  "expect": {
+    "verdict": "accept"
+  }
+}

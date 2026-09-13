@@ -901,7 +901,7 @@ here starts wanting to change one, that is the signal the migration has slipped 
 
 ## Final Phase: Polish & Cross-Cutting
 
-- [ ] T055 [P] Write `agents/evals/` cases and wire the eval suite into `.github/workflows/ci.yml`
+- [X] T055 [P] Write `agents/evals/` cases and wire the eval suite into `.github/workflows/ci.yml`
       — runs against recorded fixtures, never live Bedrock, so CI stays deterministic and free
       (R-609). A prompt change that breaks a grounding expectation must fail the PR — S43, S44,
       FR-005, R-609

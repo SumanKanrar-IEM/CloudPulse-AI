@@ -1,0 +1,15 @@
+{
+  "capability": "narrator",
+  "why": "FR-024: every number in the narrative is one of the chart's figures, stated as given, including the bare 30 and 20 that FR-001a would have exempted.",
+  "known_references": {},
+  "known_figures": [
+    "937.50",
+    "30",
+    "20",
+    "4.2"
+  ],
+  "model_output": "{\"body\": \"Spend is projected at $937.50 over the next 30 days, from 20 days of history. The backtest error was 4.2%, low enough to plan against.\", \"figures\": [{\"label\": \"projected\", \"value\": \"937.50\"}, {\"label\": \"horizonDays\", \"value\": \"30\"}, {\"label\": \"historyDays\", \"value\": \"20\"}, {\"label\": \"backtestError\", \"value\": \"4.2\"}]}",
+  "expect": {
+    "verdict": "accept"
+  }
+}

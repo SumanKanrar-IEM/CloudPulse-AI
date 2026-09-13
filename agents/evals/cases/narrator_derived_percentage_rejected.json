@@ -1,0 +1,13 @@
+{
+  "capability": "narrator",
+  "why": "FR-024: '12% higher than last month' is a number the model computed, not one it was given. Even if right, it was not checked.",
+  "known_references": {},
+  "known_figures": [
+    "937.50"
+  ],
+  "model_output": "{\"body\": \"Projected at $937.50, roughly 12% higher than last month.\", \"figures\": [{\"label\": \"projected\", \"value\": \"937.50\"}]}",
+  "expect": {
+    "verdict": "reject",
+    "rejected_reference": "12"
+  }
+}
