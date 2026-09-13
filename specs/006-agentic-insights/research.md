@@ -237,6 +237,61 @@ which is the thing this spec exists to demonstrate. Requesting Bedrock Agents ac
 unknown feasibility and unknown timeline, so not something to plan around; still worth doing in
 parallel if the maintainer wants it.
 
+## R-613a — VERIFIED (T061, 2026-09-14): AgentCore Runtime deploys and answers, from a code zip
+
+**Result: passed, twice** — once to find a CLI quirk, once end to end. Account 767828743440,
+us-east-1. Script and agent: `ops/spikes/agentcore/`. Everything created was torn down in the
+same run and the post-teardown sweep is empty across runtimes, buckets, roles and log groups.
+
+**What was proven, exactly:**
+
+1. `create-agent-runtime` with `codeConfiguration` — a **1.2 KB zip in S3**, `runtime:
+   PYTHON_3_12`, `entryPoint: ["main.py"]` — created a runtime. **No container, no ECR, no
+   Docker.** This is the finding that changes T065's shape most: the runtime artefact is packaged
+   the way every Lambda in this repository already is.
+2. `CREATING` → `READY` in **under 20 seconds** (one poll at 10 s).
+3. `invoke-agent-runtime` returned `statusCode: 200` with the agent's own body: the payload
+   echoed back, `python: 3.12.12`, and `AWS_REGION`/`AWS_EXECUTION_ENV` present in the
+   environment. The agent was **standard library only** — `http.server` on port 8080 serving
+   `GET /ping` and `POST /invocations`. No AgentCore SDK was needed to satisfy the contract.
+4. `networkMode: PUBLIC` worked. `VPC` is also offered (`securityGroups`, `subnets`).
+
+**Two quirks worth a line each, so T063/T067 do not rediscover them:**
+
+* The CLI's `--payload` is a blob: pass `--cli-binary-format raw-in-base64-out` or it rejects
+  plain JSON as "Invalid base64". boto3 takes bytes directly.
+* `--runtime-session-id` must be at least 33 characters.
+
+**The orphan, found by sweeping:** the runtime creates
+`/aws/bedrock-agentcore/runtimes/<id>-DEFAULT` itself, with **no retention**, and
+`delete-agent-runtime` leaves it behind. Two were found after the first run (0 bytes each),
+deleted, and the spike's teardown now removes them by prefix. Same class as the RDS log group
+spec 005's teardown found (playbook §0.5.3); recorded here so T065 declares the log group in
+Terraform with a retention rather than letting the service create it.
+
+**Cost:** IAM and the control-plane calls are free; the S3 object existed for about two minutes
+at 1.2 KB; the runtime was billed per second for one lifecycle and one invocation. Below a cent,
+and stated as an estimate rather than a bill — the pricing page is the source, not this note.
+
+**What was deliberately not tested, and why:**
+
+* **No model call.** T061 asks whether a runtime deploys and answers; a model call is a second
+  question with its own IAM answer (`bedrock:InvokeModel` on the execution role, model access in
+  the account — R-604 verified 123 foundation models available). Keeping them apart is what made the first
+  run's failure diagnosable in one line. T063 owns that call.
+* **Egress from the runtime to the platform API.** `PUBLIC` mode implies internet egress, which
+  would let the agent's tool calls reach the API Gateway without a VPC endpoint — **that would
+  sidestep R-605's gap for the agent's own reads**, and is worth one more spike step before T064
+  commits to it. Not asserted here because it was not exercised.
+* **The execution role's credentials inside the runtime.** No `AWS_ACCESS_KEY_ID` in the
+  environment, consistent with the `workloadIdentityDetails` the create call returned — AgentCore
+  has its own identity path. T064 must find out how the agent obtains its Cognito client secret
+  under that model; the Lambda Secrets extension `_platform_api.py` uses today is Lambda-only.
+
+**Consequence for T062–T067:** proceed. The runtime this account can create is real, cheap, and
+packages like a Lambda. The three open questions above are T063's and T064's to answer with the
+same discipline — exercised, not inferred.
+
 ## R-605 — Every new compute is VPC-attached, and inherits the standing R-407 gap
 
 **Decision**: The action-group Lambdas, the digest worker, the suggester worker, and the metrics

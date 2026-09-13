@@ -654,7 +654,7 @@ does not depend on it, and T061's outcome could still change the shape of T062�
 `frontend/`, or `backend/tests/`. Those are runtime-agnostic and stay untouched (R-613). If a task
 here starts wanting to change one, that is the signal the migration has slipped its boundary.
 
-- [ ] T061 **Spike, before anything is rewritten.** Deploy a minimal agent to AgentCore Runtime in
+- [X] T061 **Spike, before anything is rewritten.** Deploy a minimal agent to AgentCore Runtime in
       dev and invoke it once, end to end. Record the result in research.md as R-613a **whether it
       works or not** — S43, R-613
       This is the task that stops R-503's error from repeating. AgentCore's control plane answering
@@ -662,6 +662,10 @@ here starts wanting to change one, that is the signal the migration has slipped 
       somebody once recorded a capability claim nobody had exercised. **No T062–T067 work starts
       until this returns.** Deploy the smallest possible runtime, invoke it, tear it down in the
       same session per playbook §0.5.3, and state the cost.
+      **Returned 2026-09-14: passed.** Code-zip deploy (no container), READY in <20 s, 200 with
+      the echoed payload, stdlib-only agent. Two service-created log groups found orphaned after
+      teardown and deleted; the spike's teardown now sweeps them. R-613a records the result, the
+      two CLI quirks, and the three questions T063/T064 must exercise before committing.
 - [ ] T062 [P] Rewrite `agents/definitions/{digest,suggester}.json` for AgentCore's definition
       format; keep R-608's content-hash contract intact — S43, S44, FR-005, R-608, R-613
 - [ ] T063 Replace `connectors/aws.py::invoke_agent` with its AgentCore equivalent — still the only
