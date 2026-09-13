@@ -909,7 +909,7 @@ here starts wanting to change one, that is the signal the migration has slipped 
       `infra/README.md` and `agents/README.md` — the new governance modules, the three worker
       handlers, `infra/modules/agents/`, the new frontend areas, and what `agents/` now holds —
       Principle I
-- [ ] T057 Add the spec 006 section to `AI_WORKFLOW_JOURNAL.md`. Spec 003's second analyze pass
+- [X] T057 Add the spec 006 section to `AI_WORKFLOW_JOURNAL.md`. Spec 003's second analyze pass
       raised a missing journal section as **H1 CRITICAL** (a Principle I violation) and spec 002's
       H1 caught it before that; spec 005 had to add it retroactively as T026a. Written as its own
       task this time rather than discovered a fourth time — Principle I
