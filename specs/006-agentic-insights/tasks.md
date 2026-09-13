@@ -666,6 +666,14 @@ here starts wanting to change one, that is the signal the migration has slipped 
       the echoed payload, stdlib-only agent. Two service-created log groups found orphaned after
       teardown and deleted; the spike's teardown now sweeps them. R-613a records the result, the
       two CLI quirks, and the three questions T063/T064 must exercise before committing.
+      **Extended 2026-09-14, four more runs (R-613b).** Egress from PUBLIC mode: PASS — the agent's
+      platform-API reads need no VPC endpoint. Credentials: PASS — the role reaches boto3 with no
+      env vars and reads Secrets Manager directly, replacing the Lambda extension. Model: FAIL
+      three ways — boto3 must be vendored and bytecode stripped (runtime facts); the definitions'
+      `claude-3-5-haiku` is **EOL**; Haiku 4.5 is profile-only; and the profile is blocked by
+      `INVALID_PAYMENT_INSTRUMENT` — a Marketplace subscription this account cannot complete.
+      **Account-level, maintainer's action, blocks T067.** R-604's "123 models available" was a
+      listing, not access; corrected.
 - [ ] T062 [P] Rewrite `agents/definitions/{digest,suggester}.json` for AgentCore's definition
       format; keep R-608's content-hash contract intact — S43, S44, FR-005, R-608, R-613
 - [ ] T063 Replace `connectors/aws.py::invoke_agent` with its AgentCore equivalent — still the only
@@ -687,6 +695,9 @@ here starts wanting to change one, that is the signal the migration has slipped 
 - [ ] T067 Live-verify the migrated layer and tear down immediately after, per playbook §0.5.3 and
       the T030/T031 pattern: baseline sweep first, check AWS directly rather than trusting a run
       label, and diff the after-sweep against the baseline — S43, S44, SC-001, SC-002, SC-004
+      **Blocked (R-613b, 2026-09-14)**: no Anthropic model can be invoked in this account until a
+      valid payment instrument completes the Marketplace subscription. A live pass without a
+      model call proves nothing R-613a did not.
 
 **Checkpoint**: the P1 stories run on a runtime this account can actually create.
 

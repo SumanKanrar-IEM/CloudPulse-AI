@@ -277,7 +277,7 @@ and stated as an estimate rather than a bill — the pricing page is the source,
 
 * **No model call.** T061 asks whether a runtime deploys and answers; a model call is a second
   question with its own IAM answer (`bedrock:InvokeModel` on the execution role, model access in
-  the account — R-604 verified 123 foundation models available). Keeping them apart is what made the first
+  the account — R-604 listed 123 foundation models; R-613b found that listing is not access). Keeping them apart is what made the first
   run's failure diagnosable in one line. T063 owns that call.
 * **Egress from the runtime to the platform API.** `PUBLIC` mode implies internet egress, which
   would let the agent's tool calls reach the API Gateway without a VPC endpoint — **that would
@@ -291,6 +291,74 @@ and stated as an estimate rather than a bill — the pricing page is the source,
 **Consequence for T062–T067:** proceed. The runtime this account can create is real, cheap, and
 packages like a Lambda. The three open questions above are T063's and T064's to answer with the
 same discipline — exercised, not inferred.
+
+## R-613b — VERIFIED (T061 extension, 2026-09-14): egress and credentials pass; the model call is blocked by the account, not the runtime
+
+Four runs of `ops/spikes/agentcore/spike2.sh`, each torn down with an empty five-way sweep.
+One runtime, three probes per run. Every run's failure was a different finding, and each
+finding changes a Phase 5a task.
+
+| Probe | Result | What it changes |
+| --- | --- | --- |
+| **egress** — `GET https://sts.us-east-1.amazonaws.com/` from `PUBLIC` mode | **PASS**, HTTP 200 | The agent's own reads to the platform API (an API Gateway HTTP API, same class of endpoint) **do not need a VPC interface endpoint**. R-605's gap applies to the worker Lambdas that *invoke* the runtime, not to the runtime's tool calls. T064 may rely on this |
+| **credentials** — `sts:GetCallerIdentity` and `secretsmanager:GetSecretValue` via boto3 | **PASS** — caller `assumed-role/cloudpulse-t061spike2-runtime/BedrockAgentCore-…`, secret marker read | The execution role's identity reaches boto3 with **no credential environment variables** (`credential_env: []`) — AgentCore's workload identity is transparent to the SDK. **T064 replaces the Lambda Secrets extension with a direct `GetSecretValue`**; nothing else in `_platform_api.py`'s credential story changes |
+| **model** — `Converse` on Haiku | **FAIL, three different ways** | See below |
+
+**Two runtime facts found on the way, both of which T065 must build in:**
+
+1. **boto3 is not in the managed Python runtime.** Run 1: `ModuleNotFoundError: No module named
+   'boto3'`. The zip must vendor its dependencies (`pip install --target`), the way the Lambda
+   package already vendors the backend's.
+2. **The runtime rejects bytecode from another Python.** Run 2: `CREATE_FAILED` — "Your artifact
+   contains Python cache files that are incompatible with the target runtime". Local pip was
+   3.14, the runtime 3.12. `--no-compile` and stripping `__pycache__` fixed it. The deploy
+   workflow's `cp -r app build/` carries local caches today and would fail the same way; T065's
+   packaging step strips them.
+
+**The model probe, run by run:**
+
+* Run 3 — `anthropic.claude-3-5-haiku-20241022-v1:0`, the id in all four
+  `agents/definitions/*.json`: `ResourceNotFoundException: This model version has reached the
+  end of its life.` **Every definition names an EOL model.** T062 changes the id.
+* `list-foundation-models`: only `anthropic.claude-haiku-4-5-20251001-v1:0` is ACTIVE among
+  Haiku, and its inference type is `INFERENCE_PROFILE` only — the bare id cannot be invoked. The
+  id is `us.anthropic.claude-haiku-4-5-20251001-v1:0`, and the execution role needs
+  `bedrock:InvokeModel` on both the profile ARN and the foundation model in every region the
+  profile routes to (`arn:aws:bedrock:*::foundation-model/…`).
+* Run 4 — the profile, with that policy: `AccessDeniedException: Model access is denied due to
+  INVALID_PAYMENT_INSTRUMENT: A valid payment instrument must be provided. Your AWS Marketplace
+  subscription for this model cannot be completed at this time.`
+
+**That last one is the finding.** Anthropic models on Bedrock are delivered through an AWS
+Marketplace subscription, and this account has no valid payment instrument for it. **No code,
+role, or configuration change resolves it**; it is an account-level action for the maintainer,
+and one this workflow cannot and must not take. Until it is done, no capability in this spec
+can invoke a model live — on AgentCore or anywhere else.
+
+**R-604 is corrected by this.** R-604 recorded "123 foundation models available" from
+`list-foundation-models`. That is a *listing*, not *access* — R-503's exact shape of error, in
+the entry that was written to correct R-503. A model is available when `Converse` returns text,
+and none has yet. The sentence in R-604 stands as what the call returned; this entry is what it
+meant.
+
+**Consequence for T062–T067:**
+
+* T062: model id becomes the Haiku 4.5 inference profile in all four definitions; R-608's hash
+  moves, as it should.
+* T063: `invoke_agent` becomes an `invoke-agent-runtime` call; a truncation signal, if AgentCore
+  exposes one, is wired through as the task already says.
+* T064: `_platform_api.py` drops the Lambda extension for a direct `GetSecretValue`; keeps
+  HTTPS-only, the read-only filter, the fail-closed allowlist; the platform API is reachable
+  from `PUBLIC` mode without an endpoint.
+* T065: code-zip artefact with vendored, bytecode-stripped dependencies; the log group declared
+  with a retention; the execution role carrying the profile *and* the regional model ARNs.
+* T066 unchanged.
+* **T067 is blocked on the payment instrument.** A live verification without a model call
+  proves the runtime deploys (R-613a already did) and nothing about the capabilities. Recorded
+  rather than attempted.
+
+**Cost:** four runtime lifecycles, nine invocations, one 16 MB S3 object for minutes each run,
+one throwaway secret. Below a few cents; the pricing page is the source.
 
 ## R-605 — Every new compute is VPC-attached, and inherits the standing R-407 gap
 
