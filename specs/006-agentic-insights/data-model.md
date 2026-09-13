@@ -185,6 +185,13 @@ No `agent_run_id`: forecasts are produced by deterministic calculation, not by a
 concern. Storing `history_days` is what makes FR-021's "not enough data" state auditable rather
 than a runtime-only decision.
 
+**Not written by Phase 8 (T047a, 2026-09-13).** `GET /forecasts` computes on request: the
+calculation is deterministic and cheap, and the backtest reproduces the forecast-versus-actual
+comparison from history on every call, which is SC-006's reproducibility delivered directly. The
+table stays for the day a *record* of what was forecast is wanted — a worker that writes rows and
+a follow-up that fills `actual_value` when the period closes — which the task list never had and
+which is a product question rather than a gap.
+
 ## `rightsizing_recommendation` — a proposed instance class (P2)
 
 | Column | Type | Constraints |

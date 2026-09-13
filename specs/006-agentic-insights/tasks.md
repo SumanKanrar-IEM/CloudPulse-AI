@@ -809,21 +809,30 @@ here starts wanting to change one, that is the signal the migration has slipped 
 
 ## Phase 8: User Story 5 — Forecasting (Priority: P2)
 
-- [ ] T044 [P] [US5] **[P2]** Write `backend/tests/unit/test_forecasting.py` — the calculation is
+- [X] T044 [P] [US5] **[P2]** Write `backend/tests/unit/test_forecasting.py` — the calculation is
       deterministic: the same history always yields the same forecast (FR-022); a project below
       FR-021a's configured minimum period count yields "not enough data", never a projection from
       too few points, and one exactly at the minimum does forecast — S51, FR-021, FR-021a,
       FR-022
-- [ ] T045 [P] [US5] **[P2]** Write `backend/tests/integration/test_forecast_backtest.py` —
+- [X] T045 [P] [US5] **[P2]** Write `backend/tests/integration/test_forecast_backtest.py` —
       backtesting against held-out actuals reports a measured error, and re-running reproduces it
       exactly — S51, FR-022, SC-006
-- [ ] T046 [US5] **[P2]** Write `backend/app/governance/forecasting.py` — the deterministic
+- [X] T046 [US5] **[P2]** Write `backend/app/governance/forecasting.py` — the deterministic
       calculation, with FR-021a's minimum-period threshold read from the environment per R-612.
       **No model
       call may produce or alter a forecast figure** (FR-021, Clarification 2026-09-05) — S51,
       FR-021, FR-021a, FR-022
-- [ ] T047 [US5] **[P2]** Write `backend/app/api/routers/forecasts.py` — `GET /forecasts`,
+- [X] T047 [US5] **[P2]** Write `backend/app/api/routers/forecasts.py` — `GET /forecasts`,
       `require_viewer`-gated. Regenerate the contract and client — S51, FR-021
+- [X] T047a [US5] **[P2]** **Decision: forecasts are computed on request; the `forecast` table is
+      not written.** Phase 8 as generated has no worker to produce forecast rows and no task to
+      fill `actual_value` once a period closes, and the calculation needs neither: it is
+      deterministic (FR-022), cheap (a least-squares line over at most thirty points per project),
+      and the backtest compares a forecast with actuals it never saw from the same history on
+      every request — reproducibly, which is what SC-006 asks for and what a stored forecast could
+      only approximate. The table stays for the day a *record* of what was forecast (as opposed
+      to what would be forecast now) is wanted; that is a worker task the list never had, and a
+      product question rather than a gap to fill — S51, FR-021, FR-022, SC-006
 
 ---
 

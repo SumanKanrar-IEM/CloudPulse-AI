@@ -2168,6 +2168,39 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
+  /forecasts:
+    get:
+      tags:
+      - forecasts
+      summary: Per-project spend and capacity forecasts, with backtested error
+      description: 'FR-021, FR-021a, FR-022. Every project, every kind, every time
+        -- a
+
+        project with no history is listed with the not-enough-data state rather
+
+        than left out.'
+      operationId: listForecasts
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ForecastList'
+        '401':
+          description: No valid identity presented.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Valid identity, but the caller's role does not permit the action
+            -- or the caller maps to zero or multiple directory groups and therefore
+            has no resolvable role (FR-032a, FR-034).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
 components:
   schemas:
     Account:
@@ -2419,6 +2452,35 @@ components:
         whole-artifact ones discard. `FAILED` is the unreachable-model case, which
 
         FR-007a treats as an expected steady state rather than an outage.'
+    BacktestResponse:
+      properties:
+        trainingDays:
+          type: integer
+          title: Trainingdays
+        heldOutDays:
+          type: integer
+          title: Heldoutdays
+        projectedValue:
+          type: string
+          pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
+          title: Projectedvalue
+        actualValue:
+          type: string
+          pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
+          title: Actualvalue
+        absolutePercentageError:
+          anyOf:
+          - type: string
+            pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
+          - type: 'null'
+          title: Absolutepercentageerror
+      type: object
+      required:
+      - trainingDays
+      - heldOutDays
+      - projectedValue
+      - actualValue
+      title: BacktestResponse
     Budget:
       properties:
         id:
@@ -2921,6 +2983,69 @@ components:
       required:
       - findings
       title: FindingsList
+    ForecastList:
+      properties:
+        generatedAt:
+          type: string
+          format: date-time
+          title: Generatedat
+        projects:
+          items:
+            $ref: '#/components/schemas/ProjectForecasts'
+          type: array
+          title: Projects
+      type: object
+      required:
+      - generatedAt
+      - projects
+      title: ForecastList
+    ForecastResponse:
+      properties:
+        kind:
+          type: string
+          title: Kind
+        insufficientHistory:
+          type: boolean
+          title: Insufficienthistory
+        historyDays:
+          type: integer
+          title: Historydays
+        requiredDays:
+          type: integer
+          title: Requireddays
+        periodStart:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          title: Periodstart
+        periodEnd:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          title: Periodend
+        projectedValue:
+          anyOf:
+          - type: string
+            pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
+          - type: 'null'
+          title: Projectedvalue
+        backtest:
+          anyOf:
+          - $ref: '#/components/schemas/BacktestResponse'
+          - type: 'null'
+      type: object
+      required:
+      - kind
+      - insufficientHistory
+      - historyDays
+      - requiredDays
+      title: ForecastResponse
+      description: 'One kind for one project. Either a projection or the reason there
+        is
+
+        none -- never both, never neither.'
     GroundingRejectionList:
       properties:
         rejections:
@@ -3246,6 +3371,25 @@ components:
       required:
       - kind
       title: OwnershipEvidence
+    ProjectForecasts:
+      properties:
+        sdaId:
+          type: string
+          title: Sdaid
+        sdaName:
+          type: string
+          title: Sdaname
+        forecasts:
+          items:
+            $ref: '#/components/schemas/ForecastResponse'
+          type: array
+          title: Forecasts
+      type: object
+      required:
+      - sdaId
+      - sdaName
+      - forecasts
+      title: ProjectForecasts
     ProjectUtilization:
       properties:
         sdaId:
