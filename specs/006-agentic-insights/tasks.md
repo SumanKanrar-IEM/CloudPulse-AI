@@ -905,7 +905,7 @@ here starts wanting to change one, that is the signal the migration has slipped 
       — runs against recorded fixtures, never live Bedrock, so CI stays deterministic and free
       (R-609). A prompt change that breaks a grounding expectation must fail the PR — S43, S44,
       FR-005, R-609
-- [ ] T056 [P] Update `backend/README.md`, `frontend/src/app/features/README.md`,
+- [X] T056 [P] Update `backend/README.md`, `frontend/src/app/features/README.md`,
       `infra/README.md` and `agents/README.md` — the new governance modules, the three worker
       handlers, `infra/modules/agents/`, the new frontend areas, and what `agents/` now holds —
       Principle I
