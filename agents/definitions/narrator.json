@@ -1,0 +1,41 @@
+{
+  "capability": "narrator",
+  "description": "The forecast narrator (spec 006, FR-024). Explains a chart whose every figure the platform already computed; states no figure of its own.",
+  "promptFile": "agents/prompts/narrator.md",
+  "foundationModel": "anthropic.claude-3-5-haiku-20241022-v1:0",
+  "idleSessionTTLInSeconds": 300,
+  "guardrail": {
+    "required": true,
+    "note": "Attached by infra. Principle II names guardrails as part of the GenAI layer, and the narrator's input is a tenant's spend and capacity figures."
+  },
+  "actionGroups": [
+    {
+      "name": "forecast-read",
+      "description": "Read-only forecast lookups through the platform HTTP API. Every operation is a GET; the agent principal is refused on every other method (FR-056, R-602).",
+      "lambda": "agents/action-groups/narrator_tools.py",
+      "apiSchema": {
+        "openapi": "3.0.0",
+        "info": {
+          "title": "Narrator forecast reads",
+          "version": "1.0.0",
+          "description": "One operation. The narrator is handed the chart's figures in its prompt; this endpoint exists so it can read the same projections for context, and returns nothing the prompt did not already declare. No spend or metrics endpoints: a number read there and not declared in the prompt is unresolvable by definition and discards the narrative (FR-024)."
+        },
+        "paths": {
+          "/forecasts": {
+            "get": {
+              "operationId": "listForecasts",
+              "summary": "Per-project spend and capacity forecasts, with backtested error.",
+              "description": "Read this for the shape of the projections. Every figure you may state was supplied in the prompt; this endpoint returning more precision, more projects, or an intermediate value does not license stating it.",
+              "responses": {
+                "200": {
+                  "description": "Forecasts per project.",
+                  "content": {"application/json": {"schema": {"type": "object"}}}
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

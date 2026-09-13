@@ -10,7 +10,7 @@ import { authGuard, roleGuard } from './core/auth.guard';
 import { AuthService } from './core/auth.service';
 
 // Feature routes: accounts (spec 002), sdas (spec 003), overview/inventory/findings/
-// scans (spec 004), cost/utilization/iam-hygiene (spec 005), coverage-proposals/rightsizing (spec 006).
+// scans (spec 004), cost/utilization/iam-hygiene (spec 005), coverage-proposals/rightsizing/forecasts (spec 006).
 // sign-in/auth/callback (spec 004) are the two
 // unauthenticated routes everything else depends on reaching.
 export const routes: Routes = [
@@ -104,6 +104,12 @@ export const routes: Routes = [
     canActivate: [authGuard, roleGuard('admin', 'operator', 'viewer')],
     loadComponent: () =>
       import('./features/insights/rightsizing.component').then((m) => m.RightsizingComponent),
+  },
+  {
+    path: 'forecasts',
+    canActivate: [authGuard, roleGuard('admin', 'operator', 'viewer')],
+    loadComponent: () =>
+      import('./features/forecasts/forecasts.component').then((m) => m.ForecastsComponent),
   },
 ];
 
