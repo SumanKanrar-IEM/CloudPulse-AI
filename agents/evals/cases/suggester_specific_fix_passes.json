@@ -1,0 +1,17 @@
+{
+  "capability": "suggester",
+  "why": "A suggestion citing only its own finding's resource, with both halves present and no figures, is accepted.",
+  "known_references": {
+    "resource": [
+      "arn:aws:s3:::payments-archive"
+    ],
+    "finding": [
+      "8f1c2a3e-0000-4000-8000-000000000001"
+    ]
+  },
+  "known_figures": [],
+  "model_output": "{\"suggestion\": \"Add an Owner tag to this bucket naming the team that reads it.\", \"blastRadius\": \"A tag is metadata; nothing reads it at runtime, so nothing changes behaviour.\", \"references\": [{\"kind\": \"resource\", \"id\": \"arn:aws:s3:::payments-archive\", \"label\": \"the bucket\"}]}",
+  "expect": {
+    "verdict": "accept"
+  }
+}

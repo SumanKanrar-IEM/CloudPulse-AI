@@ -408,6 +408,9 @@ figure in the prose matches the corresponding chart value exactly.
 - **Coverage Proposal**: A proposed configuration extension — the gap detected, the account whose
   inventory revealed it, the change proposed, its review state (pending, accepted, rejected), and
   who decided. Acceptance applies tenant-wide; the account is recorded as evidence, not as scope.
+- **Coverage Advisory Gap**: A resource type the platform found in inventory and cannot cover by
+  configuration, with the reason — surfaced read-only and never decidable (FR-015a). Kept apart
+  from proposals so that nothing can be accepted by accident. *(Added 2026-09-11, tasks.md T038a.)*
 - **Resource Metric**: One utilization measurement for one resource over one period, or an
   explicit record that no measurement was available.
 - **Forecast**: A projected spend or capacity figure for a project and period, with the history it

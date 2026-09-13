@@ -1050,3 +1050,118 @@ the job's 30-minute timeout during the Playwright smoke step — but `terraform 
 completed and the environment was fully up and billing. A cancelled deploy is not a deploy that
 did not happen. AWS was checked directly rather than trusting the label, which is the only reason
 teardown started promptly.
+
+## Spec 006 — Agentic Insights (2026-09-06 to 2026-09-14)
+
+Thirteen PRs, [#118](https://github.com/SumanKanrar-IEM/CloudPulse-AI/pull/118) to
+[#131](https://github.com/SumanKanrar-IEM/CloudPulse-AI/pull/131), plus this one. The spec that
+puts a model behind the platform, and the spec that spent most of its effort proving the model
+never gets to decide anything.
+
+### P1 — the digest and the suggester (2026-09-06 to 2026-09-08)
+
+Phases 1–5 in five PRs. The shape that held for every capability after: **the platform selects
+and computes, the agent explains, the validator gates.** Finding selection for the digest is a
+deterministic query (R-606a); the agent is handed a ranked list and figures and may not widen or
+alter either. The grounding validator (`grounding.py`, R-607) is ordinary code that checks every
+reference against the store and every figure against what the platform computed; an output it
+refuses is recorded as a `grounding_rejection` and never displayed.
+
+Two bugs worth the record, both found in self-review after CI was green:
+
+- **T017b** — the compliance score reached the agent as `66.66666666666666` (a `float` ratio
+  times 100) while the prompt forbade rounding, so a digest quoting the *correct* figure to one
+  decimal was rejected whole. `Decimal.quantize` at the point the figure is declared. The lesson
+  is older than this spec: a validator is only as honest as the figures it is told are true.
+- **T026's no-execution test** flagged `applyFilters()` as a remediation control. Fixed with a
+  two-tier matcher — `remediate`/`autofix` standalone, `apply`/`execute` only beside a
+  remediation noun — verified against twelve real method names. A gate that cries wolf gets
+  disabled; a gate that is precise gets kept.
+
+### Live verification, and the finding that rewrote the constitution (2026-09-08/09)
+
+T029 verified R-604: Bedrock publishes interface endpoints, and so — contradicting spec 005's
+R-503 — do Cost Explorer (`com.amazonaws.us-east-1.ce`) and IAM (`com.amazonaws.iam`, no region
+prefix, which is why the earlier grep missed it). R-503 had reframed a *funding* decision as a
+*platform* limitation and removed a real option from the table across three specs. R-604a
+corrects it in place.
+
+The larger finding: **Bedrock Agents (classic) is in maintenance mode**, and `CreateAgent`
+returns 403 for accounts without prior usage. Principle II mandated it by name. The constitution
+was mandating a service the project cannot use — unsatisfiable rather than strict. Amended to
+v3.0.0 (recorded above under §1); the agent layer was re-planned for AgentCore Runtime as Phase
+5a (T061–T067), scheduled after P2 at the maintainer's direction. `check_dependencies.py` was
+revisited as the amendment required and its denylist kept, with the reason written into the
+docstring: *a manifest says what is installed, never where it runs or which endpoint it calls*,
+so the gate stays conservative and an in-AgentCore SDK is added by name, with a reviewer.
+
+The deploy for T030 hit the job's 30-minute timeout mid-`apply` — a timeout rolls nothing back,
+abandons the apply, and leaves a stale state lock that blocks `destroy` too. Timeouts raised
+(T030a), lock force-unlocked, two orphaned Lambdas that the abandoned apply had created but never
+recorded were deleted by hand. The teardown sweep was run against a baseline taken *before* the
+deploy, so the final check was a diff rather than a judgement: 131 resources gone, byte-identical
+to baseline.
+
+### P2 — five phases, and the gaps a task list cannot see (2026-09-11 to 2026-09-14)
+
+Phases 6–10 in six PRs. Each surfaced work the generated task list assumed but did not contain.
+All were recorded as tasks *before* the PR that needed them, per the standing rule that a task
+exists for the same reason every other task does and is not invented to satisfy
+`pr-task-reference`:
+
+- **T038a** — advisory gaps had nowhere to live. `data-model.md` said they were never a row in
+  `coverage_proposal` and defined no other home. Deriving them at request time would have meant
+  displaying a reason the platform invented rather than one it determined. A separate table with
+  **no decision columns**, so an advisory gap cannot be decided by construction.
+- **T038c** — a rule-extension coverage gap cannot be expressed: spec 003's rules carry no
+  resource-type scope, so no rule covers one uncovered type without changing what is checked on
+  every resource. `detect_gaps` never had the path and `advisor.md` was instructing the agent to
+  draft something no proposal could carry. Resolved by narrowing FR-015 (maintainer's choice,
+  option A), not by widening spec 003 — type-scoped rules are a product question in their own
+  right. `RULE_EXTENSION` retired in place: migration 0014 already paid for what removing a
+  native enum value costs.
+- **T038f** — the advisor run is deterministic and invokes no model. Every column the API serves
+  is fully determined before a model could be asked anything, and neither table has a prose
+  column; an invocation would spend tokens and open a grounding surface to produce text with
+  nowhere to go. T038 deploys a worker and a schedule and no agent resources.
+- **T038g** — FR-017 was half-wired. `accepted_coverage_overrides` had no caller; the scan
+  loaded the shipped file only. "Takes effect on the next scan" had been proven at the query and
+  never at the scan. Found while wiring the worker, not by a test — the test that would have
+  caught it (the merged definitions resolve the accepted type) was added with the fix.
+- **T043a** — `FreeStorageSpace` is bytes and 100 GB is 1e11; `NUMERIC(12,4)` holds eight
+  integer digits. The first RDS instance with real storage would have failed the whole account's
+  collection with a database error. Each `MetricQuery` now declares its stored unit.
+- **T047a, T050a** — forecasts and rightsizing are computed on request; their tables are not
+  written. The list had no worker for either, and neither needs one: the backtest reproduces
+  forecast-versus-actual from history on every call, which is SC-006 delivered directly.
+- **T054a** — narrative rendering has nothing between the agent and the page: no table, no
+  worker, no endpoint field, and a stored narrative's figures would drift from a chart computed
+  on request. US7 is the spec's own "last thing to drop"; deferred (option C), and the forecast
+  page Phase 8 never had a frontend task for was built in its place (T054b).
+
+Two of these — T038e (a duplicate-row failure when one uncovered type appears in two accounts)
+and T043a — were found in self-review after fourteen green checks. CI proves what the tests
+assert; self-review is where the tests' own assumptions get questioned.
+
+### What this spec settled about the method
+
+- **A task list generated from a plan inherits the plan's blind spots.** Five of the seven gaps
+  above were "the connecting piece": a worker, a wire, a table. The plan named the modules and
+  the endpoints; nothing named what carries data between them. T060's re-analyze is told to check
+  *data preconditions*, not only API shapes, for exactly this reason.
+- **Absence as enforcement.** No advisory decision route, no apply control, no third enum value,
+  no decision columns on the advisory table, no `/rules` read for an agent that cannot draft one.
+  Each is a thing a reviewer cannot accidentally reintroduce with one careless `if`, and each is
+  asserted against the assembled app's routing table or the module's source rather than trusted.
+- **The self-review is not optional.** Seven bugs in this spec were found after CI was green
+  (T017b, T026's matcher, T038e, T043a, the `__table__` column-order slip in the advisor test, a
+  ruff-format step CI runs and the local loop did not, a mypy scope the local loop did not
+  match). None would have been caught by more tests of the same shape.
+
+### Standing state at the end of P2
+
+P1 and P2 complete at the mocked-test level, with US7's rendering deferred. Live-provability is
+bounded by R-605's VPC gap for every model-invoking worker and by T038c/T038d for the advisor's
+proposals — which today would be only advisory, since no existing enricher is unmapped. T058/T059
+(live-verify P2, teardown) remain for the maintainer to trigger; Phase 5a (AgentCore migration,
+T061–T067) is last, by direction.

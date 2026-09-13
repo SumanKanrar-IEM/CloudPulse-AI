@@ -1,0 +1,13 @@
+{
+  "capability": "digest",
+  "why": "Declaring a figure is not the same as it being real. A declared value the platform never computed is refused even though it is never stated in prose.",
+  "known_references": {},
+  "known_figures": [
+    "1400.00"
+  ],
+  "model_output": "{\"sections\": [{\"heading\": \"Spend\", \"body\": \"Spend is steady.\", \"references\": [], \"figures\": [{\"label\": \"spend_usd\", \"value\": \"9999.00\"}]}]}",
+  "expect": {
+    "verdict": "reject",
+    "rejected_reference": "9999.00"
+  }
+}

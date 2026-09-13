@@ -1,6 +1,6 @@
 # `features/` — feature routes
 
-Populated incrementally by specs 002–005: `accounts/` (spec 002, account admin),
+Populated incrementally by specs 002–006: `accounts/` (spec 002, account admin),
 `sdas/` (spec 003, SDA admin and "No SDA" triage — findings/scores/ownership stay
 API-only for P1; a dedicated workbench is future-spec scope), and the governance
 dashboard (spec 004) / cost views (spec 005).
@@ -34,3 +34,12 @@ Every screen added here inherits the FR-047a accessibility baseline: semantic ma
 roles and labels, full keyboard operability, and a visible focus indicator. The
 `@angular-eslint` template rules gate the static half; keyboard operability and focus visibility
 remain a reviewer's responsibility (FR-047b is explicit that automated rules do not prove them).
+
+**Spec 006** adds `coverage-proposals/` (proposals with Accept/Reject for admins; advisory gaps
+rendered with **no control at all** — not a disabled one — because FR-015a's rule is that they
+cannot be accepted by anyone), `insights/` (rightsizing recommendations with their evidence inline
+and no apply control, FR-023/FR-002), and `forecasts/` (projected spend per project as a chart,
+every kind per project in a table, the not-enough-data state shown with its counts, every figure
+the server's and unrounded). Narrative rendering (T054) is deferred — see spec 006 tasks.md T054a.
+Routes are wired in `app.config.ts`; none of the three is in the shell's primary nav yet, matching
+spec 005's P2 views.

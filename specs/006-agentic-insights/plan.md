@@ -113,24 +113,35 @@ agents/                          # THIS SPEC OWNS THIS TREE (reserved empty by s
 
 backend/
 ├── app/governance/
-│   ├── grounding.py             # deterministic validator (R-607)
+│   ├── grounding.py             # deterministic validator (R-607); exact_figures mode (FR-024)
+│   ├── agent_runs.py            # cost cap, run outcome (FR-004)
+│   ├── definition_hash.py       # prompt + definition content hash (FR-005, R-608)
 │   ├── digest.py                # assemble inputs, persist result
+│   ├── suggester.py             # per-finding drafts, item-wise under the cap
 │   ├── suggestions.py           # EXTENDED: gains the ai_generated writer
-│   ├── coverage_advisor.py      # P2 — proposal detection + acceptance
-│   ├── metrics.py               # P2 — collection
-│   ├── forecasting.py           # P2 — deterministic calculation
-│   └── rightsizing.py           # P2
+│   ├── coverage_advisor.py      # P2 — gap detection, proposal/advisory split, decision
+│   ├── advisor.py               # P2 — the advisor run (deterministic, no model — T038f)
+│   ├── metrics.py               # P2 — collection; CloudWatch queries as data
+│   ├── forecasting.py           # P2 — deterministic calculation, no model import
+│   ├── rightsizing.py           # P2
+│   └── rightsizing_classes.json # P2 — class ladders and prices as data (T049a)
+├── app/scan/
+│   ├── coverage.py              # EXTENDED: merges accepted overrides at read time (FR-017, T038g)
+│   └── enricher_candidates.json # P2 — the advisor's proposable source; empty today (T038d)
 ├── app/api/routers/
 │   ├── insights.py              # digest, runs, rejections
-│   ├── coverage_proposals.py    # P2 — list + decision
-│   ├── forecasts.py             # P2
-│   └── rightsizing.py           # P2
+│   ├── coverage_proposals.py    # P2 — list + decision; no advisory decision route by design
+│   ├── forecasts.py             # P2 — computed on request (T047a)
+│   └── rightsizing.py           # P2 — computed on request (T050a)
 ├── handlers/
 │   ├── digest_worker_handler.py
 │   ├── suggester_worker_handler.py
-│   └── metrics_collector_handler.py   # P2
-├── connectors/aws.py            # EXTENDED: invoke_agent, get_metric_data
-└── migrations/versions/0015_*.py
+│   ├── advisor_worker_handler.py      # P2 — reads the enricher registry, passes names in
+│   └── metrics_collector_handler.py   # P2 — per account per region, failures isolated
+├── connectors/aws.py            # EXTENDED: invoke_agent, get_metric_data, coverage_overrides
+└── migrations/versions/
+    ├── 0015_agentic_insights.py       # seven tables
+    └── 0016_coverage_advisory_gap.py  # the eighth (T038a)
 
 frontend/src/app/features/
 ├── overview/                    # EXTENDED: the digest card
@@ -163,8 +174,8 @@ P1 first and complete, per Principle VI:
 | 6 | US3 — coverage advisor (P2) | SC-003 |
 | 7 | US4 — metrics collection (P2) | feeds 8 and 9 |
 | 8 | US5 — forecasting (P2) | SC-006 |
-| 9 | US6 — rightsizing (P2) | — |
-| 10 | US7 — narratives (P2) | SC-007 |
+| 9 | US6 — rightsizing (P2) | FR-023 |
+| 10 | US7 — narratives (P2) | ~~SC-007~~ — rendering deferred (tasks.md T054a); validator mode and agent files land |
 | Final | READMEs, live-verify/teardown pair, `/speckit-analyze` | — |
 
 Phase 2 exists as its own phase deliberately: the grounding validator and the run/cost-cap
@@ -173,15 +184,17 @@ the suggester's own compliance an accident of ordering rather than a property of
 
 ## Configured Values
 
-Three tunables this spec adds, and where they live (research.md **R-612**):
+Five tunables this spec adds, and where they live (research.md **R-612**):
 
 | Value | Requirement | Default posture |
 | --- | --- | --- |
 | Agent run cost cap, in model tokens (input + output) | FR-004 | Conservative fallback; a run reaching it is `truncated`, not `failed` |
 | Notability thresholds — spend percentage, spend absolute, compliance points | FR-008b | Platform-computed before the agent is invoked; the agent never decides what is notable |
-| Minimum distinct periods for a forecast | FR-021a | Below it, the explicit not-enough-data state, never a projection |
+| Minimum distinct periods for a forecast (`CLOUDPULSE_FORECAST_MIN_PERIODS`, 14) | FR-021a | Below it, the explicit not-enough-data state, never a projection |
+| Minimum distinct periods for a rightsizing recommendation (`CLOUDPULSE_RIGHTSIZING_MIN_PERIODS`, 14) | FR-023 | Below it, no recommendation — a guess is not made |
+| Low-utilization CPU threshold (`CLOUDPULSE_RIGHTSIZING_LOW_CPU_PERCENT`, 20) | FR-023 | Mean below it and peak below twice it; the peak rule is what "or variable" means |
 
-All three are read from the environment at their point of use, **not** added to the shared
+All five are read from the environment at their point of use, **not** added to the shared
 `Settings` model. Spec 005 tried the other way: adding `default_budget_usd` to `Settings` gave
 `POST /sdas` its first-ever configuration dependency and broke 11 existing spec-003 tests, none of
 which construct a Settings environment (spec 005's T029a). A malformed or non-positive value falls

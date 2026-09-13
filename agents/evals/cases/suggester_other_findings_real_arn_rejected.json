@@ -1,0 +1,15 @@
+{
+  "capability": "suggester",
+  "why": "FR-011: citing a real ARN that belongs to a different finding fails exactly as a fabricated one does. The known set is this finding's own, and the validator sees nothing else.",
+  "known_references": {
+    "resource": [
+      "arn:aws:s3:::payments-archive"
+    ]
+  },
+  "known_figures": [],
+  "model_output": "{\"suggestion\": \"Also tag the logs bucket while you are there.\", \"blastRadius\": \"None.\", \"references\": [{\"kind\": \"resource\", \"id\": \"arn:aws:s3:::payments-logs\", \"label\": \"logs\"}]}",
+  "expect": {
+    "verdict": "reject",
+    "rejected_reference": "arn:aws:s3:::payments-logs"
+  }
+}

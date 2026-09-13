@@ -1,0 +1,15 @@
+{
+  "capability": "digest",
+  "why": "FR-001: a plausible ARN the platform does not hold is refused, and the rejection names it.",
+  "known_references": {
+    "resource": [
+      "arn:aws:s3:::payments-archive"
+    ]
+  },
+  "known_figures": [],
+  "model_output": "{\"sections\": [{\"heading\": \"Open findings\", \"body\": \"An unowned bucket needs attention.\", \"references\": [{\"kind\": \"resource\", \"id\": \"arn:aws:s3:::payments-archive-backup\", \"label\": \"backup\"}], \"figures\": []}]}",
+  "expect": {
+    "verdict": "reject",
+    "rejected_reference": "arn:aws:s3:::payments-archive-backup"
+  }
+}

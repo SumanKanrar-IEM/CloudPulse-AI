@@ -1,0 +1,20 @@
+{
+  "capability": "digest",
+  "why": "The baseline: a digest citing only real references and declaring only platform figures is accepted. If this fails, every other case is meaningless.",
+  "known_references": {
+    "resource": [
+      "arn:aws:s3:::payments-archive"
+    ],
+    "finding": [
+      "8f1c2a3e-0000-4000-8000-000000000001"
+    ]
+  },
+  "known_figures": [
+    "1400.00",
+    "91.0"
+  ],
+  "model_output": "{\"sections\": [{\"heading\": \"Open findings\", \"body\": \"One critical finding is open on the payments archive bucket. Spend for the period is $1,400.00 and compliance stands at 91.0%.\", \"references\": [{\"kind\": \"resource\", \"id\": \"arn:aws:s3:::payments-archive\", \"label\": \"payments archive\"}, {\"kind\": \"finding\", \"id\": \"8f1c2a3e-0000-4000-8000-000000000001\", \"label\": \"missing owner tag\"}], \"figures\": [{\"label\": \"spend_usd\", \"value\": \"1400.00\"}, {\"label\": \"compliance\", \"value\": \"91.0\"}]}]}",
+  "expect": {
+    "verdict": "accept"
+  }
+}

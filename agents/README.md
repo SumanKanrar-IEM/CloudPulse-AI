@@ -44,3 +44,21 @@ Every capability here calls Bedrock from a VPC-attached Lambda. The dev VPC has 
 only S3 and Secrets Manager interface endpoints. Whether Bedrock publishes an interface endpoint is
 **unverified** — see R-604, and run its check rather than assuming either answer. Plan for the
 model being unreachable: that is a specified, testable state here (FR-007a, SC-009), not an outage.
+
+## What is here now (spec 006, as of 2026-09-14)
+
+| Capability | Definition | Prompt | Action group | Runtime |
+| --- | --- | --- | --- | --- |
+| `digest` | `definitions/digest.json` | `prompts/digest.md` | `action-groups/digest_tools.py` (`/findings`, `/resources/{id}`, `/spend/summary`) | `digest_worker_handler`, daily |
+| `suggester` | `definitions/suggester.json` | `prompts/suggester.md` | `action-groups/suggester_tools.py` (`/findings`, `/resources/{id}`, `/rules`) | `suggester_worker_handler`, daily, one invocation per open finding |
+| `advisor` | `definitions/advisor.json` | `prompts/advisor.md` | `action-groups/advisor_tools.py` (`/resources`) | **Not invoked.** `advisor_worker_handler` runs a deterministic detection and hashes these files onto the run row as the capability's contract (T038f). The seam if narration is wanted |
+| `narrator` | `definitions/narrator.json` | `prompts/narrator.md` | `action-groups/narrator_tools.py` (`/forecasts`) | **No worker.** Rendering deferred (T054a); the validator's exact-figure mode and these files stand |
+
+`_platform_api.py` is the one HTTP client every action group shares: Cognito machine principal,
+HTTPS only, read-only method filter, fail-closed path allowlist. `backend/tests/unit/
+test_agent_action_group_allowlists.py` asserts each handler's `ALLOWED_PATHS` equals its
+definition's declared paths, that every declared operation is a GET, and that the prompt file
+each definition names exists — a comment saying "must match" is not a check.
+
+`evals/` runs sixteen recorded-output cases through the real parsers and validator on every PR
+(`agent-evals` job). Never live Bedrock.

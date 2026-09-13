@@ -1,0 +1,13 @@
+{
+  "capability": "digest",
+  "why": "FR-001a: a currency amount in prose that was not declared cannot have been checked. The prompt forbids it; this proves the validator does not rely on the prompt.",
+  "known_references": {},
+  "known_figures": [
+    "1400.00"
+  ],
+  "model_output": "{\"sections\": [{\"heading\": \"Spend\", \"body\": \"Spend rose to about $1,450 this period.\", \"references\": [], \"figures\": [{\"label\": \"spend_usd\", \"value\": \"1400.00\"}]}]}",
+  "expect": {
+    "verdict": "reject",
+    "rejected_reference": "1450"
+  }
+}

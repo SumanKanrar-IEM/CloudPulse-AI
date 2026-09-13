@@ -1,0 +1,15 @@
+{
+  "capability": "suggester",
+  "why": "The suggester has no platform figures, so any amount it states is unresolvable by definition. 'Around $400 a month' is the exact failure the prompt names.",
+  "known_references": {
+    "resource": [
+      "arn:aws:s3:::payments-archive"
+    ]
+  },
+  "known_figures": [],
+  "model_output": "{\"suggestion\": \"Move this bucket to Glacier; it could save around $400 a month.\", \"blastRadius\": \"Retrieval latency rises to hours.\", \"references\": [{\"kind\": \"resource\", \"id\": \"arn:aws:s3:::payments-archive\", \"label\": \"the bucket\"}]}",
+  "expect": {
+    "verdict": "reject",
+    "rejected_reference": "400"
+  }
+}

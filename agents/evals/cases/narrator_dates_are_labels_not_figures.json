@@ -1,0 +1,12 @@
+{
+  "capability": "narrator",
+  "why": "An ISO date names an axis label; 2026, 3 and 1 are not three figures the calculation produced.",
+  "known_references": {},
+  "known_figures": [
+    "937.50"
+  ],
+  "model_output": "{\"body\": \"From 2026-03-01 to 2026-03-30, spend is projected at $937.50.\", \"figures\": [{\"label\": \"projected\", \"value\": \"937.50\"}]}",
+  "expect": {
+    "verdict": "accept"
+  }
+}

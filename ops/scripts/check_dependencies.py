@@ -151,8 +151,8 @@ def main() -> int:
             if name in BANNED_PACKAGES:
                 violations.append(
                     f"{rel}:{lineno}: '{name}' is a {BANNED_PACKAGES[name]}. "
-                    f"Constitution Principle II permits Amazon Bedrock Agents only for the "
-                    f"product GenAI layer (FR-013a)."
+                    f"Constitution Principle II permits Amazon Bedrock only for the product "
+                    f"GenAI layer -- AgentCore Runtime for orchestration (FR-013a, v3.0.0)."
                 )
 
     if violations:

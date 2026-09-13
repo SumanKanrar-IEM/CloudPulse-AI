@@ -216,3 +216,31 @@ def test_the_calculation_imports_nothing_that_can_reach_a_model() -> None:
     source = inspect.getsource(forecasting)
     for forbidden in ("connectors", "bedrock", "invoke_agent", "boto3", "agent_runs"):
         assert forbidden not in source, forbidden
+
+
+# --- SC-006: the accuracy target, on history that is not a straight line -------------
+
+
+def test_the_backtest_error_is_under_the_target_on_noisy_trending_history() -> None:
+    """SC-006's headline: MAPE under 15% on test projects with sufficient
+    history. A straight line backtests at 0% and proves nothing about the
+    target, so this is a trending series with +-6 of noise on a base of 40,
+    from a fixed seed. Of three seeds tried, this is the one with the largest
+    error -- 6.4% -- and the exact figure is pinned too, because FR-022 says
+    the same history yields the same figure, and a noisy fixture is the case
+    where an arithmetic reordering would first show."""
+    rng = random.Random(7)  # noqa: S311 - a fixed seed, not a secret
+    history = [
+        Observation(
+            day=START + timedelta(days=i),
+            value=Decimal(str(round(40 + 0.8 * i + rng.uniform(-6, 6), 2))),
+        )
+        for i in range(30)
+    ]
+
+    result = backtest(ForecastKind.SPEND, history, held_out_days=7, required=14)
+
+    assert isinstance(result, Backtest)
+    assert result.absolute_percentage_error is not None
+    assert result.absolute_percentage_error < Decimal("15")
+    assert result.absolute_percentage_error == Decimal("6.366")

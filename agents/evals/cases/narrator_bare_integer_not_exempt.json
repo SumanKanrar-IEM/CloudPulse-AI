@@ -1,0 +1,13 @@
+{
+  "capability": "narrator",
+  "why": "The difference between FR-001a and FR-024 in one case: the digest would accept 'up 3 from last week'; beside a chart, 3 reads as a value and is refused.",
+  "known_references": {},
+  "known_figures": [
+    "937.50"
+  ],
+  "model_output": "{\"body\": \"Projected at $937.50, up 3 from last week.\", \"figures\": [{\"label\": \"projected\", \"value\": \"937.50\"}]}",
+  "expect": {
+    "verdict": "reject",
+    "rejected_reference": "3"
+  }
+}
