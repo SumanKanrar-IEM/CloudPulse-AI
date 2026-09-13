@@ -75,6 +75,12 @@ _FIGURE_TOKEN = re.compile(
 )
 _STRICT_NUMBER = re.compile(rf"^(?:{_NUMBER})$")
 
+# Exact-figure mode (FR-024): every number in prose, not only currency- and
+# percent-shaped ones. ISO dates are removed first -- "2026-03-01" is a date the
+# chart labels an axis with, not three figures the calculation produced.
+_ISO_DATE = re.compile(r"\b\d{4}-\d{2}-\d{2}\b")
+_BARE_NUMBER = re.compile(rf"(?<![\w.])(?P<number>{_NUMBER})(?![\w.])")
+
 
 @dataclass(frozen=True)
 class Reference:
@@ -161,11 +167,26 @@ def _prose_figures(body: str) -> list[Decimal | str]:
     return found
 
 
+def _bare_numbers(body: str) -> list[Decimal]:
+    """Every number in prose, for exact-figure mode. Dates are stripped first;
+    the currency/percent tokens are found by `_prose_figures` and are matched
+    here too, which is harmless -- a declared figure passes both sweeps."""
+    normalised = _ISO_DATE.sub(" ", unicodedata.normalize("NFKC", body))
+    found: list[Decimal] = []
+    for match in _BARE_NUMBER.finditer(normalised):
+        try:
+            found.append(Decimal(match.group("number").replace(",", "")))
+        except InvalidOperation:  # pragma: no cover - grammar admits only decimals
+            continue
+    return found
+
+
 def validate_output(
     sections: list[Section],
     *,
     known_references: dict[str, set[str]],
     known_figures: set[Decimal],
+    exact_figures: bool = False,
 ) -> GroundingVerdict:
     """FR-001: pass, or reject naming the first unresolvable reference.
 
@@ -174,6 +195,13 @@ def validate_output(
     this run. Both are supplied by the caller rather than queried here, so this
     stays pure and unit-testable with no database -- which is what makes it
     provable in CI while the model is unreachable.
+
+    `exact_figures` is FR-024's mode for narratives beside a chart. FR-001a
+    exempts bare integers ("3 findings" is a count, not a platform figure);
+    FR-024 does not -- "a narrative MUST NOT introduce any figure the
+    deterministic calculation did not produce", and beside a chart every
+    number reads as one of its values. In this mode every number in the prose
+    must be declared, ISO dates excepted.
 
     An empty `sections` list passes: FR-010's "nothing notable" digest has no
     sections, and that is a valid result rather than a validation failure.
@@ -207,6 +235,15 @@ def validate_output(
                     rejected_reference=str(prose_value),
                     reference_kind=GroundingReferenceKind.FIGURE,
                 )
+
+        if exact_figures:
+            for number in _bare_numbers(section.body):
+                if _normalise(number) not in declared:
+                    return GroundingVerdict(
+                        ok=False,
+                        rejected_reference=str(number),
+                        reference_kind=GroundingReferenceKind.FIGURE,
+                    )
 
     return GroundingVerdict(ok=True)
 

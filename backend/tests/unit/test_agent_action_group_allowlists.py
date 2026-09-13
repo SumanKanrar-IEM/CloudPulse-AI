@@ -26,7 +26,7 @@ import pytest
 
 from app.governance.definition_hash import AGENTS_ROOT
 
-CAPABILITIES = ("digest", "suggester", "advisor")
+CAPABILITIES = ("digest", "suggester", "advisor", "narrator")
 
 
 def _declared_paths(capability: str) -> set[str]:
