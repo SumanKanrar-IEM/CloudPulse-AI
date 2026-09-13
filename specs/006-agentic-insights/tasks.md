@@ -923,10 +923,17 @@ here starts wanting to change one, that is the signal the migration has slipped 
       call — S43, SC-003, FR-015a
 - [ ] T059 **Teardown and cost sweep**, immediately following T058, never separated from it —
       playbook §0.5.3
-- [ ] T060 Re-run `/speckit-analyze` on spec 006 and resolve any finding. Check *data
+- [X] T060 Re-run `/speckit-analyze` on spec 006 and resolve any finding. Check *data
       preconditions*, not only API shapes: spec 005's analyze pass compared shapes and still
       missed that utilization's live verification was impossible because its input could not be
       produced live — Governance
+      **Run 2026-09-14.** Ten findings, one CRITICAL already tracked (D1: classic Bedrock Agents in
+      infra until Phase 5a). The data-precondition check earned its keep: SC-006's "MAPE < 15%"
+      had no test on anything but a straight line, which backtests at 0% and proves nothing about
+      the target — fixed with a seeded noisy-history test pinning 6.366%. SC-003's input cannot
+      be produced live (the proposable class is empty, T038c/T038d); V4–V6 are fixture-only under
+      R-605; V7 is deferred with US7. Quickstart, plan (tunables table, project tree, phase 10
+      row), spec Key Entities, and two gates' pre-v3.0.0 wording corrected in the same commit.
 
 **Checkpoint**: 🏁 **P1 and P2 complete at the mocked-test level**, with live-provability bounded
 by whatever T029 establishes about Bedrock's VPC reachability.

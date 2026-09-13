@@ -82,18 +82,29 @@ findings, compliance, cost, utilization — is byte-for-byte unaffected (SC-009)
 ## V3 — A coverage proposal takes effect without a code change (SC-003) [P2]
 
 1. Ensure an account holds a resource type present in inventory but absent from the coverage
-   definitions, **for which an enricher already exists**, or a rule gap over already-collected
-   fields. Those are the only two proposable kinds (R-603).
+   definitions, **for which an enricher already exists** and is named for that type in
+   `backend/app/scan/enricher_candidates.json`. That is the only proposable kind (R-603, class 1
+   struck 2026-09-12). **The file is empty today** — every shipped enricher is already mapped —
+   so this step seeds a candidate entry and a fixture resource of that type; T058 verifies the
+   accept path against those, and says so. A live account produces only advisory gaps until an
+   enricher ships unmapped.
 2. Run the advisor. `GET /coverage-proposals` — confirm a `pending` proposal naming the gap and
    the account that revealed it.
 3. As a **viewer**, confirm the proposal is visible and `POST .../decision` is refused (FR-016).
-4. As an **admin**, accept it. Confirm the response shows `accepted` with `decidedBy`/`decidedAt`.
+4. As an **admin**, accept it. Confirm the response shows `reviewState: accepted` with
+   `decidedAt` and `appliedAt` set. (`decided_by` is stored for the audit trail and not served —
+   an `app_user` id is not something a viewer can act on.)
 5. Run a scan. Confirm the change took effect — **with no deployment between steps 4 and 5**
    (SC-003) — and that `appliedAt` is populated.
 6. Confirm it applied **tenant-wide**, not only to the evidence account (Clarifications).
 7. Reject a second proposal; confirm the next advisor run does not re-raise it (FR-018).
 
 ## V4 — Metrics collect without duplicating (FR-019, FR-020) [P2]
+
+> **Fixture-only until R-407 is funded.** Every step below needs `resource_metric` rows, which
+> need `cloudwatch:GetMetricData`, which the collector cannot reach from inside the VPC
+> (research.md R-605). Seed the rows; do not call this live-verified — that is spec 005's R-511
+> error.
 
 1. Run collection against an account with compute and database resources.
 2. Confirm measurements land per resource and period.
@@ -103,6 +114,11 @@ findings, compliance, cost, utilization — is byte-for-byte unaffected (SC-009)
 
 ## V5 — Forecasts are reproducible and backtestable (SC-006) [P2]
 
+> **Fixture-only until R-407 is funded.** Every step below needs `resource_metric` rows, which
+> need `cloudwatch:GetMetricData`, which the collector cannot reach from inside the VPC
+> (research.md R-605). Seed the rows; do not call this live-verified — that is spec 005's R-511
+> error.
+
 1. `GET /forecasts`. Confirm projections for projects with history, and
    `insufficientHistory: true` with a null value for those without.
 2. **Reproducibility**: re-run the calculation over the same history and confirm an identical
@@ -111,12 +127,22 @@ findings, compliance, cost, utilization — is byte-for-byte unaffected (SC-009)
 
 ## V6 — Rightsizing arrives with evidence (FR-023) [P2]
 
+> **Fixture-only until R-407 is funded.** Every step below needs `resource_metric` rows, which
+> need `cloudwatch:GetMetricData`, which the collector cannot reach from inside the VPC
+> (research.md R-605). Seed the rows; do not call this live-verified — that is spec 005's R-511
+> error.
+
 1. `GET /rightsizing`. Confirm each recommendation names a smaller class, carries non-empty
    `evidence`, and an estimated monthly saving.
 2. Confirm a high- or variably-utilized resource receives **no** downsizing recommendation.
 3. Confirm no control anywhere applies one.
 
-## V7 — Narratives match their charts exactly (SC-007) [P2]
+## V7 — Narratives match their charts exactly (SC-007) [P2] — **deferred**
+
+Narrative rendering is deferred with User Story 7 (tasks.md T054a, option C, 2026-09-13): no
+table, worker or endpoint field exists to carry a narrative to a page. What stands and is
+verified in CI: the validator's exact-figure mode (`test_narrative_validation.py`) and the
+`agent-evals` cases for the narrator. When the chain lands, the steps are:
 
 1. Open a cost or forecast page carrying a narrative.
 2. Compare every figure in the prose against the chart. Any mismatch is an SC-007 failure.
