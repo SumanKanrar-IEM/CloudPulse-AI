@@ -2201,6 +2201,40 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
+  /rightsizing:
+    get:
+      tags:
+      - rightsizing
+      summary: Resources provisioned larger than their measured use, with evidence
+      description: 'FR-023. A resource that is high, variable, thin on history, unenriched,
+
+        already smallest, or unknown to the class ladder is simply absent -- each
+
+        of those is a reason a recommendation would be a guess, and the absence is
+
+        the correct output, not an error.'
+      operationId: listRightsizingRecommendations
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RightsizingList'
+        '401':
+          description: No valid identity presented.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Valid identity, but the caller's role does not permit the action
+            -- or the caller maps to zero or multiple directory groups and therefore
+            has no resolvable role (FR-032a, FR-034).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
 components:
   schemas:
     Account:
@@ -3582,6 +3616,61 @@ components:
       - pageSize
       - totalCount
       title: ResourcesPage
+    RightsizingList:
+      properties:
+        generatedAt:
+          type: string
+          format: date-time
+          title: Generatedat
+        recommendations:
+          items:
+            $ref: '#/components/schemas/RightsizingRecommendationResponse'
+          type: array
+          title: Recommendations
+        pricingNote:
+          type: string
+          title: Pricingnote
+      type: object
+      required:
+      - generatedAt
+      - recommendations
+      - pricingNote
+      title: RightsizingList
+    RightsizingRecommendationResponse:
+      properties:
+        resourceId:
+          type: string
+          title: Resourceid
+        arn:
+          type: string
+          title: Arn
+        resourceType:
+          type: string
+          title: Resourcetype
+        currentClass:
+          type: string
+          title: Currentclass
+        recommendedClass:
+          type: string
+          title: Recommendedclass
+        estimatedMonthlySavingUsd:
+          type: string
+          pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
+          title: Estimatedmonthlysavingusd
+        evidence:
+          additionalProperties: true
+          type: object
+          title: Evidence
+      type: object
+      required:
+      - resourceId
+      - arn
+      - resourceType
+      - currentClass
+      - recommendedClass
+      - estimatedMonthlySavingUsd
+      - evidence
+      title: RightsizingRecommendationResponse
     Rule:
       properties:
         id:

@@ -26,6 +26,8 @@ api/ownership.service.ts
 api/ownership.serviceInterface.ts
 api/resources.service.ts
 api/resources.serviceInterface.ts
+api/rightsizing.service.ts
+api/rightsizing.serviceInterface.ts
 api/rules.service.ts
 api/rules.serviceInterface.ts
 api/sdas.service.ts
@@ -99,6 +101,8 @@ model/resource-detail.ts
 model/resource-ownership.ts
 model/resource-summary.ts
 model/resources-page.ts
+model/rightsizing-list.ts
+model/rightsizing-recommendation-response.ts
 model/rule-create.ts
 model/rule-definition.ts
 model/rule-update.ts
