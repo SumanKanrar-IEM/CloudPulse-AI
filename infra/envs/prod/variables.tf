@@ -136,3 +136,15 @@ variable "enable_agent_endpoints" {
   description = "spec 006 (T029b): provision the bedrock-agent-runtime and execute-api interface endpoints so the agent layer is reachable from inside the VPC. Verified available in us-east-1 (R-604), billed per AZ-hour, and off by default -- a live-verification window sets it explicitly and the teardown removes it with everything else."
   default     = false
 }
+
+variable "agent_package_path" {
+  type        = string
+  description = "Path to the AgentCore artefact zip built by CI (spec 006, T065). Defaulted like package_path so `ops/teardown.sh` can run destroy without a build."
+  default     = "../../../agents/dist/agent.zip"
+}
+
+variable "agent_package_hash" {
+  type        = string
+  description = "hex md5 of the agent package, S3 etag form. Defaulted like package_hash for the same reason."
+  default     = ""
+}

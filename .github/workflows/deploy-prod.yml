@@ -122,14 +122,27 @@ jobs:
             --python-version ${{ env.PYTHON_VERSION }} \
             -r <(python -c "import tomllib;print('\n'.join(tomllib.load(open('pyproject.toml','rb'))['project']['dependencies']))")
           cp -r app connectors handlers migrations alembic.ini build/
-          # spec 006 (T020a): the Bedrock action-group handlers ship in the same
-          # package, flat at the root, because Terraform's handler is
-          # `digest_tools.handler`. They live under agents/ rather than backend/
-          # because agents/README.md owns their no-provider-SDK rule -- but they
-          # still have to reach the Lambda that runs them.
-          cp ../agents/action-groups/*.py build/
           (cd build && zip -qr ../dist/lambda.zip .)
           echo "PACKAGE_HASH=$(openssl dgst -sha256 -binary dist/lambda.zip | base64)" >> "$GITHUB_ENV"
+
+      - name: Build the AgentCore artefact
+        # spec 006 (T065; R-613a, R-613b): the agent runs on Bedrock AgentCore
+        # Runtime from a code zip -- main.py at the root, definitions/ prompts/
+        # action-groups/ beside it, the same content-hashed files the workers
+        # hash onto every run row. boto3 is vendored because the managed
+        # runtime does not ship it, and every bytecode cache is stripped
+        # because the runtime refuses caches from another Python. Both facts
+        # were found by trying (spike2.sh, runs 1 and 2).
+        working-directory: agents
+        run: |
+          rm -rf build && mkdir -p build dist
+          cp runtime/main.py build/
+          cp -r definitions prompts action-groups build/
+          pip install --quiet --disable-pip-version-check --no-compile --target build boto3
+          find build -name "__pycache__" -type d -prune -exec rm -rf {} +
+          find build -name "*.pyc" -delete
+          (cd build && zip -qr ../dist/agent.zip .)
+          echo "AGENT_PACKAGE_HASH=$(openssl dgst -md5 dist/agent.zip | awk '{print $NF}')" >> "$GITHUB_ENV"
 
       - uses: actions/setup-node@v4
         with:
@@ -160,6 +173,8 @@ jobs:
           terraform apply -input=false -auto-approve \
             -var="package_path=../../../backend/dist/lambda.zip" \
             -var="package_hash=${PACKAGE_HASH}" \
+            -var="agent_package_path=../../../agents/dist/agent.zip" \
+            -var="agent_package_hash=${AGENT_PACKAGE_HASH}" \
             -var="git_sha=${{ inputs.git_sha }}"
           {
             echo "migrate_function=$(terraform output -raw migrate_function_name)"

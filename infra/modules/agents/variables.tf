@@ -38,10 +38,14 @@ variable "package_hash" {
   description = "base64 sha256 of the package, so a code change redeploys."
 }
 
-variable "foundation_model" {
+variable "agent_package_path" {
   type        = string
-  description = "research.md R-606: the model the digest agent runs on. The dominant cost in this spec is per-token, so the smallest model that produces acceptable prose is the right default."
-  default     = "anthropic.claude-3-5-haiku-20241022-v1:0"
+  description = "Path to the AgentCore artefact zip built by CI: agents/runtime/main.py at the root, definitions/ prompts/ action-groups/ beside it, boto3 vendored, no bytecode (R-613a, R-613b). Uploaded to this module's artefact bucket."
+}
+
+variable "agent_package_hash" {
+  type        = string
+  description = "hex md5 of the agent package (S3's etag form), so a code change re-uploads and the runtime re-pins."
 }
 
 variable "digest_schedule_expression" {
@@ -95,12 +99,6 @@ variable "agent_client_secret_arn" {
     condition     = var.agent_client_secret_arn == "" || startswith(var.agent_client_secret_arn, "arn:aws:secretsmanager:")
     error_message = "Must be a Secrets Manager ARN, not a credential value (Principle III)."
   }
-}
-
-variable "secrets_extension_layer_arn" {
-  type        = string
-  description = "AWS Parameters and Secrets Lambda Extension layer. The action group reads its client secret over the extension's localhost HTTP interface rather than with an SDK call, which is what keeps agents/action-groups/ free of a provider SDK (Principle V). Region-specific and published by AWS; empty leaves the layer off and the action group unable to authenticate."
-  default     = ""
 }
 
 variable "agent_cost_cap_units" {

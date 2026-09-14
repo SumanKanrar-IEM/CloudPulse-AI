@@ -1,25 +1,44 @@
-# The intelligence layer's runtime (spec 006, T020; FR-003, FR-008, research.md
-# R-601, R-605, R-606).
+# The intelligence layer's runtime (spec 006, T020, T065; FR-003, FR-008,
+# research.md R-605, R-606, R-613, R-613a, R-613b).
 #
-# Three pieces: the Bedrock agent that writes the digest, the action-group Lambda
-# it reads governance data through, and the worker that invokes it on a schedule
-# (scheduler.tf).
+# Three pieces: one Bedrock AgentCore Runtime hosting every agent capability
+# (`agents/runtime/main.py`), the guardrail it applies, and the worker Lambdas
+# that invoke it on a schedule (scheduler.tf) and validate what comes back.
 #
-# **Runtime limitation, stated rather than discovered.** Both Lambdas here are
-# VPC-attached because they need Aurora and API Gateway respectively, and the dev
-# VPC has no NAT gateway and no Bedrock interface endpoint -- the standing R-407
-# gap, twice declined. Everything below deploys cleanly; the
-# bedrock-agent-runtime:InvokeAgent call cannot reach AWS from inside the VPC
-# until that gap is funded. FR-007a and SC-009 exist so that is a specified,
-# tested state rather than an outage: the run is recorded `failed` with its
-# reason and the surfaces serve the last valid digest.
+# **Why one runtime.** The capabilities differ only in prompt and tool
+# allowlist, both of which the runtime selects per invocation from the payload.
+# The cost cap, the grounding validator and the run row are per capability in
+# the worker that calls it. Four runtimes would be four copies of one file with
+# nothing they could do differently. `agent_run.definition_hash` still hashes
+# each capability's own prompt and definition (R-608).
+#
+# **Why a code zip and not a container.** R-613a: AgentCore deploys a Python
+# zip from S3 with no container, no ECR and no Docker -- the artefact packages
+# the way every Lambda in this repository already does. The deploy workflow
+# builds it with boto3 vendored and every bytecode cache stripped, because the
+# managed runtime ships neither boto3 nor tolerance for another Python's
+# `__pycache__` (R-613b, both found by trying).
+#
+# **What R-605's gap still means here.** The runtime runs in PUBLIC network
+# mode and reaches the platform API over the internet -- verified (R-613b), so
+# the agent's own tool calls need no VPC endpoint. The *workers* are still
+# VPC-attached (they need Aurora) and still cannot reach
+# `bedrock-agentcore:InvokeAgentRuntime` from inside the VPC until an interface
+# endpoint is funded or NAT is added. FR-007a and SC-009 make that a recorded
+# run failure, not an outage.
+#
+# **What no configuration here can fix.** Anthropic models on Bedrock are an
+# AWS Marketplace subscription, and this account cannot complete it without a
+# valid payment instrument (R-613b). Everything below deploys; the first
+# Converse call fails with INVALID_PAYMENT_INSTRUMENT until the maintainer
+# resolves that at the account level.
 
 terraform {
   required_version = ">= 1.15.0, < 2.0.0"
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = "~> 5.60"
+      version = "~> 6.0"
     }
   }
 }
@@ -27,16 +46,21 @@ terraform {
 locals {
   name = "cloudpulse-${var.environment}"
 
-  # The single source for the agent's instruction and its tool surface. Read from
-  # the files rather than restated here: `definition_hash.py` hashes the same two
-  # files onto every agent_run row (FR-005, R-608), and a prompt duplicated in
-  # Terraform would let the deployed instruction and the recorded hash disagree.
-  agents_root       = "${path.module}/../../../agents"
-  digest_prompt     = file("${local.agents_root}/prompts/digest.md")
-  digest_definition = jsondecode(file("${local.agents_root}/definitions/digest.json"))
-
-  suggester_prompt     = file("${local.agents_root}/prompts/suggester.md")
-  suggester_definition = jsondecode(file("${local.agents_root}/definitions/suggester.json"))
+  # The model id lives in the definition files, not here: `definition_hash.py`
+  # hashes those files onto every agent_run row (FR-005, R-608), so a model
+  # change is a hash change. Terraform reads it back only to scope IAM. Every
+  # capability names the same id today; the policy below grants each distinct
+  # one it finds, so a definition that moved to a different model would get its
+  # grant without an edit here.
+  agents_root = "${path.module}/../../../agents"
+  model_ids = distinct([
+    for capability in ["digest", "suggester", "advisor", "narrator"] :
+    jsondecode(file("${local.agents_root}/definitions/${capability}.json")).modelId
+  ])
+  # `global.anthropic.claude-haiku-4-5-...` is an inference profile; the grant
+  # needs both the profile and the foundation model it routes to, in every
+  # region it may route to (R-613b, run 4).
+  foundation_models = [for id in local.model_ids : regex("^[a-z-]+\\.(.*)$", id)[0]]
 }
 
 data "aws_caller_identity" "current" {}
@@ -95,15 +119,47 @@ resource "aws_bedrock_guardrail_version" "digest" {
   description   = "Pinned so a guardrail edit is a deliberate redeploy, not a silent behaviour change."
 }
 
-# --- the digest agent (R-601) -------------------------------------------------
 
-data "aws_iam_policy_document" "bedrock_assume" {
+# --- the agent runtime (T065; R-613, R-613a, R-613b) ---------------------------
+
+# The artefact lives in S3 because that is what AgentCore's code deploy reads
+# from. Versioned so the runtime's `version_id` pin is exact, and private.
+resource "aws_s3_bucket" "agent_artifacts" {
+  bucket        = "${local.name}-agent-artifacts-${data.aws_caller_identity.current.account_id}"
+  force_destroy = true
+}
+
+resource "aws_s3_bucket_versioning" "agent_artifacts" {
+  bucket = aws_s3_bucket.agent_artifacts.id
+  versioning_configuration {
+    status = "Enabled"
+  }
+}
+
+resource "aws_s3_bucket_public_access_block" "agent_artifacts" {
+  bucket                  = aws_s3_bucket.agent_artifacts.id
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
+
+resource "aws_s3_object" "agent_package" {
+  bucket = aws_s3_bucket.agent_artifacts.id
+  key    = "agent.zip"
+  source = var.agent_package_path
+  etag   = var.agent_package_hash != "" ? var.agent_package_hash : null
+
+  depends_on = [aws_s3_bucket_versioning.agent_artifacts]
+}
+
+data "aws_iam_policy_document" "agentcore_assume" {
   statement {
     effect  = "Allow"
     actions = ["sts:AssumeRole"]
     principals {
       type        = "Service"
-      identifiers = ["bedrock.amazonaws.com"]
+      identifiers = ["bedrock-agentcore.amazonaws.com"]
     }
     condition {
       test     = "StringEquals"
@@ -113,110 +169,41 @@ data "aws_iam_policy_document" "bedrock_assume" {
   }
 }
 
-resource "aws_iam_role" "digest_agent" {
-  name               = "${local.name}-digest-agent"
-  assume_role_policy = data.aws_iam_policy_document.bedrock_assume.json
+resource "aws_iam_role" "agent_runtime" {
+  name               = "${local.name}-agent-runtime"
+  assume_role_policy = data.aws_iam_policy_document.agentcore_assume.json
 }
 
-data "aws_iam_policy_document" "digest_agent_runtime" {
+data "aws_iam_policy_document" "agent_runtime" {
   statement {
-    sid       = "InvokeFoundationModel"
+    sid       = "ReadOwnArtifact"
     effect    = "Allow"
-    actions   = ["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream"]
-    resources = ["arn:aws:bedrock:${data.aws_region.current.name}::foundation-model/${var.foundation_model}"]
+    actions   = ["s3:GetObject", "s3:GetObjectVersion"]
+    resources = ["${aws_s3_bucket.agent_artifacts.arn}/agent.zip"]
+  }
+
+  # The profile *and* the foundation model behind it, in every region the
+  # profile routes to. Granting the profile alone is refused at invocation
+  # (R-613b). Scoped to the ids the definitions actually name.
+  statement {
+    sid     = "InvokeModel"
+    effect  = "Allow"
+    actions = ["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream"]
+    resources = concat(
+      [for id in local.model_ids : "arn:aws:bedrock:*:${data.aws_caller_identity.current.account_id}:inference-profile/${id}"],
+      [for fm in local.foundation_models : "arn:aws:bedrock:*::foundation-model/${fm}"],
+    )
   }
 
   statement {
-    sid       = "ApplyOwnGuardrail"
+    sid       = "ApplyGuardrail"
     effect    = "Allow"
     actions   = ["bedrock:ApplyGuardrail"]
     resources = [aws_bedrock_guardrail.digest.guardrail_arn]
   }
-}
 
-resource "aws_iam_role_policy" "digest_agent_runtime" {
-  name   = "runtime"
-  role   = aws_iam_role.digest_agent.id
-  policy = data.aws_iam_policy_document.digest_agent_runtime.json
-}
-
-resource "aws_bedrockagent_agent" "digest" {
-  agent_name                  = "${local.name}-digest"
-  agent_resource_role_arn     = aws_iam_role.digest_agent.arn
-  foundation_model            = var.foundation_model
-  description                 = local.digest_definition.description
-  instruction                 = local.digest_prompt
-  idle_session_ttl_in_seconds = local.digest_definition.idleSessionTTLInSeconds
-
-  guardrail_configuration {
-    guardrail_identifier = aws_bedrock_guardrail.digest.guardrail_id
-    guardrail_version    = aws_bedrock_guardrail_version.digest.version
-  }
-}
-
-resource "aws_bedrockagent_agent_action_group" "digest_governance_read" {
-  action_group_name          = local.digest_definition.actionGroups[0].name
-  agent_id                   = aws_bedrockagent_agent.digest.agent_id
-  agent_version              = "DRAFT"
-  description                = local.digest_definition.actionGroups[0].description
-  skip_resource_in_use_check = true
-
-  action_group_executor {
-    lambda = aws_lambda_function.digest_tools.arn
-  }
-
-  api_schema {
-    payload = jsonencode(local.digest_definition.actionGroups[0].apiSchema)
-  }
-}
-
-resource "aws_bedrockagent_agent_alias" "digest" {
-  agent_alias_name = "live"
-  agent_id         = aws_bedrockagent_agent.digest.agent_id
-  description      = "The alias the digest worker invokes. Never the DRAFT version."
-
-  depends_on = [aws_bedrockagent_agent_action_group.digest_governance_read]
-}
-
-# --- action-group Lambda (R-602) ----------------------------------------------
-#
-# Reaches the platform's own HTTP API and nothing else: no database credential,
-# no AssumeRole into any scanned account, no cloud SDK. Its IAM policy below is
-# the proof of that -- there is nothing in it to read data with.
-
-resource "aws_security_group" "digest_tools" {
-  name        = "${local.name}-digest-tools"
-  description = "Digest action-group Lambda"
-  vpc_id      = var.vpc_id
-
-  egress {
-    description = "To API Gateway and Cognito, once the R-407 gap is funded."
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-}
-
-resource "aws_iam_role" "digest_tools" {
-  name               = "${local.name}-digest-tools"
-  assume_role_policy = data.aws_iam_policy_document.lambda_assume.json
-}
-
-resource "aws_iam_role_policy_attachment" "digest_tools_vpc" {
-  role       = aws_iam_role.digest_tools.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
-}
-
-resource "aws_cloudwatch_log_group" "digest_tools" {
-  name              = "/aws/lambda/${local.name}-digest-tools"
-  retention_in_days = var.log_retention_days
-}
-
-data "aws_iam_policy_document" "digest_tools_runtime" {
-  # The agent's own app-client secret, and nothing else. Not the database
-  # credential, and not the ExternalId secrets every scanning worker holds --
-  # FR-056's "no cloud credential" is enforced by what is absent here.
+  # FR-003: the only secret the agent may read is its own Cognito client
+  # secret, and it may read nothing else. No ExternalId, no scanner role.
   dynamic "statement" {
     for_each = var.agent_client_secret_arn == "" ? [] : [var.agent_client_secret_arn]
     content {
@@ -230,56 +217,67 @@ data "aws_iam_policy_document" "digest_tools_runtime" {
   statement {
     sid       = "WriteOwnLogs"
     effect    = "Allow"
-    actions   = ["logs:CreateLogStream", "logs:PutLogEvents"]
-    resources = ["${aws_cloudwatch_log_group.digest_tools.arn}:*"]
+    actions   = ["logs:CreateLogStream", "logs:PutLogEvents", "logs:DescribeLogStreams"]
+    resources = ["arn:aws:logs:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:log-group:/aws/bedrock-agentcore/runtimes/*"]
   }
 }
 
-resource "aws_iam_role_policy" "digest_tools_runtime" {
+resource "aws_iam_role_policy" "agent_runtime" {
   name   = "runtime"
-  role   = aws_iam_role.digest_tools.id
-  policy = data.aws_iam_policy_document.digest_tools_runtime.json
+  role   = aws_iam_role.agent_runtime.id
+  policy = data.aws_iam_policy_document.agent_runtime.json
 }
 
-resource "aws_lambda_function" "digest_tools" {
-  function_name = "${local.name}-digest-tools"
-  role          = aws_iam_role.digest_tools.arn
-  handler       = "digest_tools.handler"
-  runtime       = "python3.12"
-  architectures = ["arm64"]
-  timeout       = 30 # one HTTP call to the platform API, plus a token exchange.
-  memory_size   = 256
+resource "aws_bedrockagentcore_agent_runtime" "this" {
+  # AgentCore names allow [a-zA-Z0-9_], no hyphens.
+  agent_runtime_name = replace("${local.name}_agents", "-", "_")
+  role_arn           = aws_iam_role.agent_runtime.arn
+  description        = "CloudPulse intelligence layer: digest, suggester, advisor, narrator (spec 006)."
 
-  filename         = var.package_path
-  source_code_hash = var.package_hash
-
-  layers = var.secrets_extension_layer_arn == "" ? [] : [var.secrets_extension_layer_arn]
-
-  vpc_config {
-    subnet_ids         = var.private_subnet_ids
-    security_group_ids = [aws_security_group.digest_tools.id]
-  }
-
-  environment {
-    variables = {
-      PLATFORM_API_BASE_URL   = var.platform_api_base_url
-      COGNITO_TOKEN_ENDPOINT  = var.cognito_token_endpoint
-      AGENT_CLIENT_ID         = var.agent_client_id
-      AGENT_CLIENT_SECRET_ID  = var.agent_client_secret_arn
-      POWERTOOLS_SERVICE_NAME = "cloudpulse-digest-tools"
-      POWERTOOLS_LOG_LEVEL    = "INFO"
+  agent_runtime_artifact {
+    code_configuration {
+      code {
+        s3 {
+          bucket     = aws_s3_bucket.agent_artifacts.id
+          prefix     = aws_s3_object.agent_package.key
+          version_id = aws_s3_object.agent_package.version_id
+        }
+      }
+      runtime     = "PYTHON_3_12"
+      entry_point = ["main.py"]
     }
   }
 
-  depends_on = [aws_cloudwatch_log_group.digest_tools]
+  # PUBLIC: the runtime reaches the platform API over the internet (R-613b).
+  # VPC mode would put the agent's tool calls behind the same endpoint gap the
+  # workers already have, for nothing gained.
+  network_configuration {
+    network_mode = "PUBLIC"
+  }
+
+  protocol_configuration {
+    server_protocol = "HTTP"
+  }
+
+  environment_variables = {
+    PLATFORM_API_BASE_URL  = var.platform_api_base_url
+    COGNITO_TOKEN_ENDPOINT = var.cognito_token_endpoint
+    AGENT_CLIENT_ID        = var.agent_client_id
+    AGENT_CLIENT_SECRET_ID = var.agent_client_secret_arn
+    GUARDRAIL_ID           = aws_bedrock_guardrail.digest.guardrail_id
+    GUARDRAIL_VERSION      = aws_bedrock_guardrail_version.digest.version
+  }
+
+  depends_on = [aws_iam_role_policy.agent_runtime]
 }
 
-resource "aws_lambda_permission" "digest_tools_bedrock" {
-  statement_id  = "AllowBedrockAgentInvoke"
-  action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.digest_tools.function_name
-  principal     = "bedrock.amazonaws.com"
-  source_arn    = aws_bedrockagent_agent.digest.agent_arn
+# Declared, with a retention, so the service does not create it without one.
+# R-613a found the runtime creates this group itself on first invocation and
+# `delete-agent-runtime` leaves it behind -- the orphan class playbook 0.5.3
+# names. Owning it here means `destroy` removes it.
+resource "aws_cloudwatch_log_group" "agent_runtime" {
+  name              = "/aws/bedrock-agentcore/runtimes/${aws_bedrockagentcore_agent_runtime.this.agent_runtime_id}-DEFAULT"
+  retention_in_days = var.log_retention_days
 }
 
 # --- digest worker (FR-008) ---------------------------------------------------
@@ -325,10 +323,10 @@ data "aws_iam_policy_document" "digest_worker_runtime" {
   # the suggester's or the advisor's prompt against the digest's budget, and the
   # agent_run row would name the wrong capability.
   statement {
-    sid       = "InvokeDigestAgent"
+    sid       = "InvokeAgentRuntime"
     effect    = "Allow"
-    actions   = ["bedrock:InvokeAgent"]
-    resources = [aws_bedrockagent_agent_alias.digest.agent_alias_arn]
+    actions   = ["bedrock-agentcore:InvokeAgentRuntime"]
+    resources = [aws_bedrockagentcore_agent_runtime.this.agent_runtime_arn, "${aws_bedrockagentcore_agent_runtime.this.agent_runtime_arn}/runtime-endpoint/*"]
   }
 
   statement {
@@ -368,13 +366,12 @@ resource "aws_lambda_function" "digest_worker" {
   environment {
     variables = {
       CLOUDPULSE_ENVIRONMENT                      = var.environment
-      CLOUDPULSE_AWS_REGION                       = data.aws_region.current.name
+      CLOUDPULSE_AWS_REGION                       = data.aws_region.current.region
       CLOUDPULSE_DB_HOST                          = var.db_host
       CLOUDPULSE_DB_NAME                          = var.db_name
       CLOUDPULSE_DB_USER                          = var.db_user
       CLOUDPULSE_DB_SECRET_ARN                    = var.db_secret_arn
-      CLOUDPULSE_DIGEST_AGENT_ID                  = aws_bedrockagent_agent.digest.agent_id
-      CLOUDPULSE_DIGEST_AGENT_ALIAS_ID            = aws_bedrockagent_agent_alias.digest.agent_alias_id
+      CLOUDPULSE_AGENT_RUNTIME_ARN                = aws_bedrockagentcore_agent_runtime.this.agent_runtime_arn
       CLOUDPULSE_AGENT_COST_CAP_UNITS             = var.agent_cost_cap_units
       CLOUDPULSE_DIGEST_SPEND_NOTABLE_PERCENT     = var.digest_spend_notable_percent
       CLOUDPULSE_DIGEST_SPEND_NOTABLE_USD         = var.digest_spend_notable_usd
@@ -387,155 +384,6 @@ resource "aws_lambda_function" "digest_worker" {
   depends_on = [aws_cloudwatch_log_group.digest_worker]
 }
 
-# --- the suggester agent (T027; S44, FR-011-FR-014, R-601) --------------------
-#
-# A second agent rather than a second action group on the digest's. The two have
-# different prompts, different tool surfaces and different cost profiles -- the
-# digest runs once a day, the suggester once per open finding -- and sharing an
-# agent would make `agent_run.definition_hash` ambiguous about which instruction
-# produced a given output (FR-005).
-#
-# The guardrail is shared with the digest deliberately. It encodes a property of
-# the tenant's data rather than of a capability: the same resource tags and SDA
-# names reach both, and a second guardrail would be a second thing to keep in
-# step for no stated difference.
-
-resource "aws_iam_role" "suggester_agent" {
-  name               = "${local.name}-suggester-agent"
-  assume_role_policy = data.aws_iam_policy_document.bedrock_assume.json
-}
-
-resource "aws_iam_role_policy" "suggester_agent_runtime" {
-  name = "runtime"
-  role = aws_iam_role.suggester_agent.id
-  # Identical scope to the digest agent's: this one model, this one guardrail.
-  policy = data.aws_iam_policy_document.digest_agent_runtime.json
-}
-
-resource "aws_bedrockagent_agent" "suggester" {
-  agent_name                  = "${local.name}-suggester"
-  agent_resource_role_arn     = aws_iam_role.suggester_agent.arn
-  foundation_model            = var.foundation_model
-  description                 = local.suggester_definition.description
-  instruction                 = local.suggester_prompt
-  idle_session_ttl_in_seconds = local.suggester_definition.idleSessionTTLInSeconds
-
-  guardrail_configuration {
-    guardrail_identifier = aws_bedrock_guardrail.digest.guardrail_id
-    guardrail_version    = aws_bedrock_guardrail_version.digest.version
-  }
-}
-
-resource "aws_bedrockagent_agent_action_group" "suggester_finding_read" {
-  action_group_name          = local.suggester_definition.actionGroups[0].name
-  agent_id                   = aws_bedrockagent_agent.suggester.agent_id
-  agent_version              = "DRAFT"
-  description                = local.suggester_definition.actionGroups[0].description
-  skip_resource_in_use_check = true
-
-  action_group_executor {
-    lambda = aws_lambda_function.suggester_tools.arn
-  }
-
-  api_schema {
-    payload = jsonencode(local.suggester_definition.actionGroups[0].apiSchema)
-  }
-}
-
-resource "aws_bedrockagent_agent_alias" "suggester" {
-  agent_alias_name = "live"
-  agent_id         = aws_bedrockagent_agent.suggester.agent_id
-  description      = "The alias the suggester worker invokes. Never the DRAFT version."
-
-  depends_on = [aws_bedrockagent_agent_action_group.suggester_finding_read]
-}
-
-# --- suggester action-group Lambda -------------------------------------------
-#
-# Its own function rather than a second handler on the digest's, so the two
-# allowlists cannot be reached through the wrong door: a bug in one capability's
-# path list stays inside that capability.
-
-resource "aws_iam_role" "suggester_tools" {
-  name               = "${local.name}-suggester-tools"
-  assume_role_policy = data.aws_iam_policy_document.lambda_assume.json
-}
-
-resource "aws_iam_role_policy_attachment" "suggester_tools_vpc" {
-  role       = aws_iam_role.suggester_tools.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
-}
-
-resource "aws_cloudwatch_log_group" "suggester_tools" {
-  name              = "/aws/lambda/${local.name}-suggester-tools"
-  retention_in_days = var.log_retention_days
-}
-
-data "aws_iam_policy_document" "suggester_tools_runtime" {
-  dynamic "statement" {
-    for_each = var.agent_client_secret_arn == "" ? [] : [var.agent_client_secret_arn]
-    content {
-      sid       = "ReadOwnClientSecret"
-      effect    = "Allow"
-      actions   = ["secretsmanager:GetSecretValue"]
-      resources = [statement.value]
-    }
-  }
-
-  statement {
-    sid       = "WriteOwnLogs"
-    effect    = "Allow"
-    actions   = ["logs:CreateLogStream", "logs:PutLogEvents"]
-    resources = ["${aws_cloudwatch_log_group.suggester_tools.arn}:*"]
-  }
-}
-
-resource "aws_iam_role_policy" "suggester_tools_runtime" {
-  name   = "runtime"
-  role   = aws_iam_role.suggester_tools.id
-  policy = data.aws_iam_policy_document.suggester_tools_runtime.json
-}
-
-resource "aws_lambda_function" "suggester_tools" {
-  function_name = "${local.name}-suggester-tools"
-  role          = aws_iam_role.suggester_tools.arn
-  handler       = "suggester_tools.handler"
-  runtime       = "python3.12"
-  architectures = ["arm64"]
-  timeout       = 30
-  memory_size   = 256
-
-  filename         = var.package_path
-  source_code_hash = var.package_hash
-
-  layers = var.secrets_extension_layer_arn == "" ? [] : [var.secrets_extension_layer_arn]
-
-  vpc_config {
-    subnet_ids         = var.private_subnet_ids
-    security_group_ids = [aws_security_group.digest_tools.id]
-  }
-
-  environment {
-    variables = {
-      PLATFORM_API_BASE_URL   = var.platform_api_base_url
-      COGNITO_TOKEN_ENDPOINT  = var.cognito_token_endpoint
-      AGENT_CLIENT_ID         = var.agent_client_id
-      AGENT_CLIENT_SECRET_ID  = var.agent_client_secret_arn
-      POWERTOOLS_SERVICE_NAME = "cloudpulse-suggester-tools"
-      POWERTOOLS_LOG_LEVEL    = "INFO"
-    }
-  }
-
-  depends_on = [aws_cloudwatch_log_group.suggester_tools]
-}
-
-resource "aws_lambda_permission" "suggester_tools_bedrock" {
-  statement_id  = "AllowBedrockAgentInvoke"
-  action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.suggester_tools.function_name
-  principal     = "bedrock.amazonaws.com"
-  source_arn    = aws_bedrockagent_agent.suggester.agent_arn
-}
 
 # --- suggester worker ---------------------------------------------------------
 
@@ -567,10 +415,10 @@ data "aws_iam_policy_document" "suggester_worker_runtime" {
   # capability's budget on another's prompt, and the `agent_run` row would name
   # the wrong capability.
   statement {
-    sid       = "InvokeSuggesterAgent"
+    sid       = "InvokeAgentRuntime"
     effect    = "Allow"
-    actions   = ["bedrock:InvokeAgent"]
-    resources = [aws_bedrockagent_agent_alias.suggester.agent_alias_arn]
+    actions   = ["bedrock-agentcore:InvokeAgentRuntime"]
+    resources = [aws_bedrockagentcore_agent_runtime.this.agent_runtime_arn, "${aws_bedrockagentcore_agent_runtime.this.agent_runtime_arn}/runtime-endpoint/*"]
   }
 
   statement {
@@ -610,17 +458,16 @@ resource "aws_lambda_function" "suggester_worker" {
 
   environment {
     variables = {
-      CLOUDPULSE_ENVIRONMENT              = var.environment
-      CLOUDPULSE_AWS_REGION               = data.aws_region.current.name
-      CLOUDPULSE_DB_HOST                  = var.db_host
-      CLOUDPULSE_DB_NAME                  = var.db_name
-      CLOUDPULSE_DB_USER                  = var.db_user
-      CLOUDPULSE_DB_SECRET_ARN            = var.db_secret_arn
-      CLOUDPULSE_SUGGESTER_AGENT_ID       = aws_bedrockagent_agent.suggester.agent_id
-      CLOUDPULSE_SUGGESTER_AGENT_ALIAS_ID = aws_bedrockagent_agent_alias.suggester.agent_alias_id
-      CLOUDPULSE_AGENT_COST_CAP_UNITS     = var.agent_cost_cap_units
-      POWERTOOLS_SERVICE_NAME             = "cloudpulse-suggester-worker"
-      POWERTOOLS_LOG_LEVEL                = "INFO"
+      CLOUDPULSE_ENVIRONMENT          = var.environment
+      CLOUDPULSE_AWS_REGION           = data.aws_region.current.region
+      CLOUDPULSE_DB_HOST              = var.db_host
+      CLOUDPULSE_DB_NAME              = var.db_name
+      CLOUDPULSE_DB_USER              = var.db_user
+      CLOUDPULSE_DB_SECRET_ARN        = var.db_secret_arn
+      CLOUDPULSE_AGENT_RUNTIME_ARN    = aws_bedrockagentcore_agent_runtime.this.agent_runtime_arn
+      CLOUDPULSE_AGENT_COST_CAP_UNITS = var.agent_cost_cap_units
+      POWERTOOLS_SERVICE_NAME         = "cloudpulse-suggester-worker"
+      POWERTOOLS_LOG_LEVEL            = "INFO"
     }
   }
 
@@ -700,7 +547,7 @@ resource "aws_lambda_function" "advisor_worker" {
   environment {
     variables = {
       CLOUDPULSE_ENVIRONMENT   = var.environment
-      CLOUDPULSE_AWS_REGION    = data.aws_region.current.name
+      CLOUDPULSE_AWS_REGION    = data.aws_region.current.region
       CLOUDPULSE_DB_HOST       = var.db_host
       CLOUDPULSE_DB_NAME       = var.db_name
       CLOUDPULSE_DB_USER       = var.db_user
@@ -763,7 +610,7 @@ data "aws_iam_policy_document" "metrics_collector_runtime" {
     sid       = "ReadExternalIdSecrets"
     effect    = "Allow"
     actions   = ["secretsmanager:GetSecretValue"]
-    resources = ["arn:aws:secretsmanager:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:secret:cloudpulse/external-id/*"]
+    resources = ["arn:aws:secretsmanager:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:secret:cloudpulse/external-id/*"]
   }
 
   statement {
@@ -819,7 +666,7 @@ resource "aws_lambda_function" "metrics_collector" {
   environment {
     variables = {
       CLOUDPULSE_ENVIRONMENT   = var.environment
-      CLOUDPULSE_AWS_REGION    = data.aws_region.current.name
+      CLOUDPULSE_AWS_REGION    = data.aws_region.current.region
       CLOUDPULSE_DB_HOST       = var.db_host
       CLOUDPULSE_DB_NAME       = var.db_name
       CLOUDPULSE_DB_USER       = var.db_user

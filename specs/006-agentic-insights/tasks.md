@@ -674,24 +674,57 @@ here starts wanting to change one, that is the signal the migration has slipped 
       `INVALID_PAYMENT_INSTRUMENT` — a Marketplace subscription this account cannot complete.
       **Account-level, maintainer's action, blocks T067.** R-604's "123 models available" was a
       listing, not access; corrected.
-- [ ] T062 [P] Rewrite `agents/definitions/{digest,suggester}.json` for AgentCore's definition
+- [X] T062 [P] Rewrite `agents/definitions/{digest,suggester}.json` for AgentCore's definition
       format; keep R-608's content-hash contract intact — S43, S44, FR-005, R-608, R-613
-- [ ] T063 Replace `connectors/aws.py::invoke_agent` with its AgentCore equivalent — still the only
+- [X] T063 Replace `connectors/aws.py::invoke_agent` with its AgentCore equivalent — still the only
       place the Bedrock SDK appears (Principle V, FR-054), still raising rather than returning a
       partial (FR-007a) — S43, S44, FR-003, R-613
       If the AgentCore response reports truncation, wire it through: `digest_worker_handler.py`
       records that Bedrock Agents had no such signal, and T021's suggester is item-wise and would
       genuinely benefit.
-- [ ] T064 Adapt `agents/action-groups/_platform_api.py` from the Bedrock Agents event envelope to
+      **Done 2026-09-15.** `invoke_agent` calls `bedrock-agentcore:InvokeAgentRuntime` with a
+      `capability` in the payload and returns `truncated` from the runtime's stop reason. The
+      digest wires it straight into `AgentDraft.completed`. The suggester raises with a message
+      naming the truncation, which ends the pass with that reason recorded — see T063a for why
+      not more.
+- [X] T063a **Recorded, not built.** The item-wise thing to do with a truncated suggester draft is
+      charge the tokens, skip that finding and continue the pass. That needs `run_suggester` to
+      recognise a truncated draft, which is `app/governance/suggester.py` — outside Phase 5a's
+      boundary by the phase's own rule ("if a task here starts wanting to change one, that is the
+      signal the migration has slipped its boundary"). The worker raises instead; everything
+      written before the truncation stays written (FR-004a). A follow-up under the governance
+      layer, not the migration — S44, FR-004, FR-004a
+- [X] T064 Adapt `agents/action-groups/_platform_api.py` from the Bedrock Agents event envelope to
       AgentCore tool calls. **R-602 is unchanged** — the platform API only, never the database, no
       cloud credential, no provider SDK — S43, S44, FR-003, FR-056, R-602
-- [ ] T065 Rewrite `infra/modules/agents/` for AgentCore: runtime, its execution role, guardrail
+- [X] T065 Rewrite `infra/modules/agents/` for AgentCore: runtime, its execution role, guardrail
       attachment and both schedules. `terraform fmt -check -recursive infra/`, `terraform validate`
       and `terraform-ascii` must pass — S43, S44, R-605, R-606, R-613
-- [ ] T066 [P] Re-run the full suite unchanged and confirm it still passes. **This is the
+      **Done 2026-09-15, with one change wider than the module.** `aws_bedrockagentcore_agent_runtime`
+      exists only in provider 6.x; the repository pinned `~> 5.60`. Bumped to `~> 6.0` across every
+      module and env, lock files regenerated, and the one deprecation it surfaced
+      (`data.aws_region.current.name` → `.region`, 25 uses) fixed. Both envs validate with zero
+      warnings. One runtime for all four capabilities (the module says why); code-zip artefact from a
+      versioned private bucket; execution role scoped to the profile *and* the regional foundation
+      model the definitions name; the runtime's log group declared with a retention so `destroy`
+      removes it (R-613a's orphan). `modules/network/`'s gated endpoint becomes `bedrock-agentcore`
+      alone — `execute-api` is gone, because the runtime reaches the API publicly (R-613b). Both
+      deploy workflows build the artefact the way spike2.sh proved: boto3 vendored, bytecode
+      stripped.
+- [X] T066 [P] Re-run the full suite unchanged and confirm it still passes. **This is the
       assertion, not a formality**: R-613 claims the governance core, both pipelines, the
       `/insights` API and all 3,893 lines of tests are runtime-agnostic. A test file needing an edit
       falsifies that claim and should be reported, not quietly edited — S43, S44, SC-009
+      **Run 2026-09-15: green, with one edit to report.** Unit, integration, evals, both boundary
+      gates — unchanged and passing. One test file was edited:
+      `tests/unit/test_agent_action_group_allowlists.py`, which reads the definition files'
+      `actionGroups[].apiSchema` and now reads `tools.apiSchema`. It does not falsify R-613's
+      claim: it was written on 2026-09-11, after R-613, and it pins the definition-to-allowlist
+      contract by reading the definition format directly — the edit *is* the format change it
+      exists to track. The 3,893 lines R-613 counted are untouched. A new file,
+      `test_agent_runtime.py`, exercises the runtime's loop with a scripted model and caught one
+      bug before it shipped: the iteration bound was reported as `tool_use` ("still working")
+      rather than `max_iterations` ("cut off").
 - [ ] T067 Live-verify the migrated layer and tear down immediately after, per playbook §0.5.3 and
       the T030/T031 pattern: baseline sweep first, check AWS directly rather than trusting a run
       label, and diff the after-sweep against the baseline — S43, S44, SC-001, SC-002, SC-004
@@ -699,7 +732,7 @@ here starts wanting to change one, that is the signal the migration has slipped 
       valid payment instrument completes the Marketplace subscription. A live pass without a
       model call proves nothing R-613a did not.
 
-**Checkpoint**: the P1 stories run on a runtime this account can actually create.
+**Checkpoint**: the P1 stories run on a runtime this account can actually create — **built and validated; live proof (T067) waits on the account's payment instrument (R-613b).**
 
 ---
 
