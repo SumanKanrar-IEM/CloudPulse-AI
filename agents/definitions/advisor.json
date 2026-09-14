@@ -2,57 +2,59 @@
   "capability": "advisor",
   "description": "The coverage advisor (spec 006, FR-015, FR-015a). Explains gaps the platform already detected; detects nothing, drafts nothing, decides nothing.",
   "promptFile": "agents/prompts/advisor.md",
-  "foundationModel": "anthropic.claude-3-5-haiku-20241022-v1:0",
-  "idleSessionTTLInSeconds": 300,
+  "modelId": "global.anthropic.claude-haiku-4-5-20251001-v1:0",
+  "inference": {
+    "maxTokens": 2048,
+    "temperature": 0
+  },
+  "maxToolIterations": 8,
   "guardrail": {
     "required": true,
-    "note": "Attached by infra (T038). Principle II names guardrails as part of the GenAI layer, and the advisor's input is a tenant's resource inventory."
+    "note": "Applied by the runtime as Converse's guardrailConfig, from the guardrail id and version infra sets in the environment. Principle II names guardrails as part of the GenAI layer."
   },
-  "actionGroups": [
-    {
-      "name": "coverage-read",
-      "description": "Read-only inventory and rule lookups through the platform HTTP API. Every operation is a GET; the agent principal is refused on every other method (FR-056, R-602).",
-      "lambda": "agents/action-groups/advisor_tools.py",
-      "apiSchema": {
-        "openapi": "3.0.0",
-        "info": {
-          "title": "Coverage advisor reads",
-          "version": "1.0.0",
-          "description": "One operation, and no coverage-proposal endpoint. The advisor cannot read the proposal list, so it cannot learn which gaps an admin has already rejected and cannot argue with that decision; deduplication against decided types is the platform's job (FR-018), performed before this agent is called. No /rules read either: rules apply to every resource, so they are never the fix for one type's coverage and the advisor has no reason to see them."
-        },
-        "paths": {
-          "/resources": {
-            "get": {
-              "operationId": "listResources",
-              "summary": "Resources in this tenant's inventory.",
-              "description": "Use this to see what a resource type actually looks like in this tenant before describing a gap in it \u2014 which regions it appears in, which tags it already carries. The gap list itself is supplied in the prompt; this endpoint returning other types does not add them to it.",
-              "parameters": [
-                {
-                  "name": "service",
-                  "in": "query",
-                  "required": false,
-                  "schema": {
-                    "type": "string"
-                  },
-                  "description": "Narrow to one service, so a single call answers a single gap."
+  "tools": {
+    "name": "coverage-read",
+    "description": "Read-only inventory and rule lookups through the platform HTTP API. Every operation is a GET; the agent principal is refused on every other method (FR-056, R-602). Under AgentCore these are Converse tool calls served inside the runtime by agents/runtime/main.py; the allowlist module is unchanged..",
+    "module": "agents/action-groups/advisor_tools.py",
+    "apiSchema": {
+      "openapi": "3.0.0",
+      "info": {
+        "title": "Coverage advisor reads",
+        "version": "1.0.0",
+        "description": "One operation, and no coverage-proposal endpoint. The advisor cannot read the proposal list, so it cannot learn which gaps an admin has already rejected and cannot argue with that decision; deduplication against decided types is the platform's job (FR-018), performed before this agent is called. No /rules read either: rules apply to every resource, so they are never the fix for one type's coverage and the advisor has no reason to see them."
+      },
+      "paths": {
+        "/resources": {
+          "get": {
+            "operationId": "listResources",
+            "summary": "Resources in this tenant's inventory.",
+            "description": "Use this to see what a resource type actually looks like in this tenant before describing a gap in it \u2014 which regions it appears in, which tags it already carries. The gap list itself is supplied in the prompt; this endpoint returning other types does not add them to it.",
+            "parameters": [
+              {
+                "name": "service",
+                "in": "query",
+                "required": false,
+                "schema": {
+                  "type": "string"
                 },
-                {
-                  "name": "region",
-                  "in": "query",
-                  "required": false,
-                  "schema": {
-                    "type": "string"
-                  }
+                "description": "Narrow to one service, so a single call answers a single gap."
+              },
+              {
+                "name": "region",
+                "in": "query",
+                "required": false,
+                "schema": {
+                  "type": "string"
                 }
-              ],
-              "responses": {
-                "200": {
-                  "description": "Resources with their type, region and tags.",
-                  "content": {
-                    "application/json": {
-                      "schema": {
-                        "type": "object"
-                      }
+              }
+            ],
+            "responses": {
+              "200": {
+                "description": "Resources with their type, region and tags.",
+                "content": {
+                  "application/json": {
+                    "schema": {
+                      "type": "object"
                     }
                   }
                 }
@@ -62,5 +64,5 @@
         }
       }
     }
-  ]
+  }
 }

@@ -89,7 +89,7 @@ def _prompt(inputs: DigestInputs, selected: list[DigestCandidate]) -> str:
     )
 
 
-def _bedrock_invoker(*, agent_id: str, agent_alias_id: str, region: str) -> Any:
+def _bedrock_invoker(*, runtime_arn: str, region: str) -> Any:
     """The `invoke` callable `run_digest` takes.
 
     Built here rather than imported there so the pipeline never depends on the
@@ -100,21 +100,26 @@ def _bedrock_invoker(*, agent_id: str, agent_alias_id: str, region: str) -> Any:
 
     def invoke(inputs: DigestInputs, selected: list[DigestCandidate]) -> AgentDraft:
         result = invoke_agent(
-            agent_id=agent_id,
-            agent_alias_id=agent_alias_id,
+            runtime_arn=runtime_arn,
+            capability="digest",
             # One session per period, so a retry of the same day reuses it and
             # two different days never share agent memory.
             session_id=f"digest-{inputs.period_date.isoformat()}",
             prompt=_prompt(inputs, selected),
             region=region,
         )
-        # `completed=True` because the connector has no truncation signal to
-        # report: Bedrock's event stream ends the same way whether the model
-        # finished or hit its own output limit. A digest cut off mid-JSON fails
-        # to parse and is discarded whole, which is the outcome FR-004a
-        # prescribes for a whole-artifact capability anyway -- so the missing
-        # signal costs nothing here. It would matter for an item-wise
-        # capability, and T021's suggester must not inherit this assumption.
+        # AgentCore reports truncation (T063); Bedrock Agents (classic) never
+        # did, and this used to be `completed=True` with a note explaining why
+        # that cost nothing for a whole-artifact capability. Now it is the
+        # truth: a digest the model was cut off writing is not complete, and
+        # `run_digest` records it as truncated (FR-004) rather than failing to
+        # parse it and calling that a failure.
+        if result["truncated"]:
+            return AgentDraft(
+                sections=[],
+                cost_units=Decimal(int(result["input_tokens"]) + int(result["output_tokens"])),
+                completed=False,
+            )
         return AgentDraft(
             sections=parse_sections(str(result["output_text"])),
             cost_units=Decimal(int(result["input_tokens"]) + int(result["output_tokens"])),
@@ -129,13 +134,9 @@ def _handle_trigger_daily(event: dict[str, Any]) -> dict[str, Any]:
     # R-612: read at point of use rather than added to the shared `Settings`
     # model, which every other Lambda also constructs and none of the others
     # has a digest agent to name.
-    agent_id = os.environ.get("CLOUDPULSE_DIGEST_AGENT_ID", "")
-    agent_alias_id = os.environ.get("CLOUDPULSE_DIGEST_AGENT_ALIAS_ID", "")
-    if not agent_id or not agent_alias_id:
-        raise ValueError(
-            "CLOUDPULSE_DIGEST_AGENT_ID and CLOUDPULSE_DIGEST_AGENT_ALIAS_ID are required "
-            "by the digest worker"
-        )
+    runtime_arn = os.environ.get("CLOUDPULSE_AGENT_RUNTIME_ARN", "")
+    if not runtime_arn:
+        raise ValueError("CLOUDPULSE_AGENT_RUNTIME_ARN is required " "by the digest worker")
 
     period_date = _period_date(event)
 
@@ -146,9 +147,7 @@ def _handle_trigger_daily(event: dict[str, Any]) -> dict[str, Any]:
             )
         )
 
-    invoke = _bedrock_invoker(
-        agent_id=agent_id, agent_alias_id=agent_alias_id, region=settings.aws_region
-    )
+    invoke = _bedrock_invoker(runtime_arn=runtime_arn, region=settings.aws_region)
     with tenant_session(tenant_id) as session:
         outcome = run_digest(
             session,

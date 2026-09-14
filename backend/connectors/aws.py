@@ -905,14 +905,14 @@ def iam_unused_analysis(account: ConnectorAccount) -> list[dict[str, Any]]:
 
 def invoke_agent(
     *,
-    agent_id: str,
-    agent_alias_id: str,
+    runtime_arn: str,
     session_id: str,
+    capability: str,
     prompt: str,
     region: str,
 ) -> dict[str, Any]:
-    """Invoke a Bedrock Agent and return its raw output (spec 006, T011,
-    research.md R-601, R-602).
+    """Invoke the AgentCore Runtime for one capability and return its raw
+    output (spec 006, T011, T063; research.md R-613, R-613a).
 
     The **only** place the Bedrock SDK appears (Principle V, FR-054). This
     returns raw text and token counts and makes no judgement about either:
@@ -921,49 +921,43 @@ def invoke_agent(
     both be tested without an AWS client at all, which is what makes SC-001
     provable in CI while the model is unreachable.
 
-    Raises `RuntimeError` on any transport or service failure rather than
-    returning a partial result. FR-007a treats an unreachable model as an
+    `truncated` is new with AgentCore (T063). Bedrock Agents (classic) gave no
+    signal when the model hit its token limit; the runtime reports one, and an
+    item-wise capability can treat that item as cut off rather than complete.
+
+    Raises `RuntimeError` on any transport, service, or runtime failure rather
+    than returning a partial result. FR-007a treats an unreachable model as an
     expected state, and the caller records the run as `failed` with this
     message -- so a swallowed error here would become a run that looks
-    successful and produced nothing.
+    successful and produced nothing. A non-200 from the runtime is the agent
+    reporting its own failure and is raised the same way.
     """
     import boto3
     from botocore.exceptions import BotoCoreError, ClientError
 
-    client = boto3.client("bedrock-agent-runtime", region_name=region)
+    client = boto3.client("bedrock-agentcore", region_name=region)
+    payload = json.dumps({"capability": capability, "prompt": prompt, "session_id": session_id})
     try:
-        response = client.invoke_agent(
-            agentId=agent_id,
-            agentAliasId=agent_alias_id,
-            sessionId=session_id,
-            inputText=prompt,
+        response = client.invoke_agent_runtime(
+            agentRuntimeArn=runtime_arn,
+            # R-613a: at least 33 characters, or the call is refused.
+            runtimeSessionId=session_id.ljust(33, "0"),
+            contentType="application/json",
+            accept="application/json",
+            payload=payload.encode("utf-8"),
         )
-        chunks: list[str] = []
-        input_tokens = 0
-        output_tokens = 0
-        # The completion is an event stream, not a body: iterating it is how the
-        # response is assembled, and usage arrives on trace events rather than
-        # alongside the text.
-        for event in response.get("completion", []):
-            if "chunk" in event:
-                chunks.append(event["chunk"].get("bytes", b"").decode("utf-8"))
-            usage = (
-                event.get("trace", {})
-                .get("trace", {})
-                .get("orchestrationTrace", {})
-                .get("modelInvocationOutput", {})
-                .get("metadata", {})
-                .get("usage", {})
-            )
-            input_tokens += int(usage.get("inputTokens", 0))
-            output_tokens += int(usage.get("outputTokens", 0))
-    except (BotoCoreError, ClientError) as exc:
-        raise RuntimeError(f"bedrock agent invocation failed: {exc}") from exc
+        body = json.loads(response["response"].read().decode("utf-8"))
+    except (BotoCoreError, ClientError, json.JSONDecodeError, KeyError) as exc:
+        raise RuntimeError(f"agent runtime invocation failed: {exc}") from exc
+
+    if int(response.get("statusCode", 200)) != 200 or "error" in body:
+        raise RuntimeError(f"agent runtime reported a failure: {body.get('error', body)}")
 
     return {
-        "output_text": "".join(chunks),
+        "output_text": str(body.get("output_text", "")),
         # Input and output combined is the unit FR-004's cap is expressed in,
         # but both are returned so a caller can report which half dominates.
-        "input_tokens": input_tokens,
-        "output_tokens": output_tokens,
+        "input_tokens": int(body.get("input_tokens", 0)),
+        "output_tokens": int(body.get("output_tokens", 0)),
+        "truncated": bool(body.get("truncated", False)),
     }

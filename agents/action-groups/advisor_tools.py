@@ -1,4 +1,4 @@
-"""Action-group Lambda for the coverage advisor agent (spec 006, T035; FR-015,
+"""Tool allowlist for the coverage advisor agent (spec 006, T035; FR-015,
 FR-015a, FR-056, R-602).
 
 Reads the tenant's inventory -- enough to describe a gap in terms of the
@@ -19,16 +19,10 @@ agent that cannot draft one has no reason to read them.
 
 from __future__ import annotations
 
-from typing import Any
-
-import _platform_api
-
-# Must match `agents/definitions/advisor.json`'s action-group schema.
+# Under AgentCore this module is only the allowlist: `agents/runtime/main.py`
+# serves the tool calls and consults it (T064).
+# Must match `agents/definitions/advisor.json`'s tool schema.
 ALLOWED_PATHS: frozenset[str] = frozenset({"/resources"})
 
 
-def handler(event: dict[str, Any], _context: Any = None) -> dict[str, Any]:
-    return _platform_api.call(event, ALLOWED_PATHS)
-
-
-__all__ = ["ALLOWED_PATHS", "handler"]
+__all__ = ["ALLOWED_PATHS"]
