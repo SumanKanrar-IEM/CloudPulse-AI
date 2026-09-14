@@ -27,9 +27,7 @@ import urllib.request
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 PORT = 8080
-MODEL_ID = os.environ.get(
-    "SPIKE_MODEL_ID", "us.anthropic.claude-haiku-4-5-20251001-v1:0"
-)
+MODEL_ID = os.environ.get("SPIKE_MODEL_ID", "global.amazon.nova-2-lite-v1:0")
 SECRET_ID = os.environ.get("SPIKE_SECRET_ID", "")
 EGRESS_URL = "https://sts.us-east-1.amazonaws.com/"
 
@@ -37,14 +35,10 @@ EGRESS_URL = "https://sts.us-east-1.amazonaws.com/"
 def probe_model() -> dict:  # type: ignore[type-arg]
     import boto3
 
-    client = boto3.client(
-        "bedrock-runtime", region_name=os.environ.get("AWS_REGION", "us-east-1")
-    )
+    client = boto3.client("bedrock-runtime", region_name=os.environ.get("AWS_REGION", "us-east-1"))
     response = client.converse(
         modelId=MODEL_ID,
-        messages=[
-            {"role": "user", "content": [{"text": "Reply with the single word: pong"}]}
-        ],
+        messages=[{"role": "user", "content": [{"text": "Reply with the single word: pong"}]}],
         inferenceConfig={"maxTokens": 8, "temperature": 0},
     )
     text = response["output"]["message"]["content"][0]["text"]

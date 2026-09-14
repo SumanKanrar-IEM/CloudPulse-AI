@@ -2,7 +2,7 @@
   "capability": "digest",
   "description": "The daily insight digest (spec 006, FR-008-FR-010). Explains an already-ranked finding set and already-computed figures; decides neither.",
   "promptFile": "agents/prompts/digest.md",
-  "modelId": "global.anthropic.claude-haiku-4-5-20251001-v1:0",
+  "modelId": "global.amazon.nova-2-lite-v1:0",
   "inference": {
     "maxTokens": 2048,
     "temperature": 0

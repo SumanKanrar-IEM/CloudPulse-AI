@@ -2,7 +2,7 @@
   "capability": "narrator",
   "description": "The forecast narrator (spec 006, FR-024). Explains a chart whose every figure the platform already computed; states no figure of its own.",
   "promptFile": "agents/prompts/narrator.md",
-  "modelId": "global.anthropic.claude-haiku-4-5-20251001-v1:0",
+  "modelId": "global.amazon.nova-2-lite-v1:0",
   "inference": {
     "maxTokens": 2048,
     "temperature": 0

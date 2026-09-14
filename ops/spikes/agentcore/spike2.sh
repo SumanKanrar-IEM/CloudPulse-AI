@@ -11,7 +11,7 @@ SUFFIX="t061spike2"
 # reached the end of its life"). Only Haiku 4.5 is ACTIVE, and only via an
 # inference profile -- so the id is the profile, and the role needs the
 # underlying foundation model in every region the profile routes to.
-MODEL_ID="${SPIKE_MODEL_ID:-us.anthropic.claude-haiku-4-5-20251001-v1:0}"
+MODEL_ID="${SPIKE_MODEL_ID:-global.amazon.nova-2-lite-v1:0}"
 FOUNDATION_MODEL="${MODEL_ID#*.}"
 ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
 BUCKET="cloudpulse-${SUFFIX}-${ACCOUNT}"
