@@ -354,12 +354,46 @@ meant.
 * T065: code-zip artefact with vendored, bytecode-stripped dependencies; the log group declared
   with a retention; the execution role carrying the profile *and* the regional model ARNs.
 * T066 unchanged.
-* **T067 is blocked on the payment instrument.** A live verification without a model call
-  proves the runtime deploys (R-613a already did) and nothing about the capabilities. Recorded
-  rather than attempted.
+* **T067 was blocked on the payment instrument** — lifted by R-613c, which moves the model layer to
+  Amazon Nova instead.
 
 **Cost:** four runtime lifecycles, nine invocations, one 16 MB S3 object for minutes each run,
 one throwaway secret. Below a few cents; the pricing page is the source.
+
+## R-613c — VERIFIED (2026-09-15): Amazon Nova 2 Lite answers from inside AgentCore; the model layer moves to it
+
+**Decision**: every capability's model id becomes `global.amazon.nova-2-lite-v1:0`. The
+maintainer chose this over adding an international card (R-613b's option 1).
+
+**Why the block was never about the card.** R-613b's `INVALID_PAYMENT_INSTRUMENT` is an AWS
+Marketplace error. Third-party models on Bedrock — Anthropic, Cohere, Meta, Mistral — are
+Marketplace subscriptions sold by AWS Inc. in USD. This account is billed by AISPL (Amazon
+Internet Services Pvt. Ltd., India) through UPI Autopay, which covers every AWS service AISPL
+sells and nothing Marketplace sells. Amazon-owned models — Titan, Nova — are first-party: no
+Marketplace, billed like Lambda or Aurora. So the choice was between a card for one vendor and a
+model the account can already pay for.
+
+**Constitution check.** Principle II says "Amazon Bedrock, exclusively" and names no vendor. Nova
+is Bedrock. No amendment.
+
+**Verified, same spike, one run:** `spike2.sh` with `SPIKE_MODEL_ID=global.amazon.nova-2-lite-v1:0`
+— egress PASS, credentials PASS, **model PASS**: `Converse` returned `pong`, 53 input tokens, 2
+output, `end_turn`. Torn down, five-way sweep empty. The account lists Nova Micro, Lite, Pro,
+Premier, 2 Lite and 2 Sonic as ACTIVE; 2 Lite is the current generation's lite tier, the R-606
+"smallest model that writes acceptable prose" candidate, with tool use and a `global.` profile.
+
+**What changed:** four `modelId`s, one test assertion on the id prefix, the spike's default, one
+Terraform comment, one README paragraph. The prompts, the grounding validator, the eval cases,
+the runtime loop and the IAM shape are model-agnostic and did not move — the IAM policy derives
+the foundation-model ARN from the profile id by regex, so it followed the definitions on its own.
+
+**What is not yet known:** whether Nova 2 Lite's prose passes the grounding validator at a useful
+rate. The evals prove the *handling* of model output against recorded replies, not this model's
+quality (R-609). T067 is the first time a real digest goes through the validator; the truncation
+and rejection counts on `/insights/runs` are the measurement, and R-606 says to move up a tier
+only if they say so.
+
+**R-613b's "T067 blocked" is lifted.**
 
 ## R-605 — Every new compute is VPC-attached, and inherits the standing R-407 gap
 

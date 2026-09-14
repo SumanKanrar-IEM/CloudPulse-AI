@@ -2,7 +2,7 @@
   "capability": "advisor",
   "description": "The coverage advisor (spec 006, FR-015, FR-015a). Explains gaps the platform already detected; detects nothing, drafts nothing, decides nothing.",
   "promptFile": "agents/prompts/advisor.md",
-  "modelId": "global.anthropic.claude-haiku-4-5-20251001-v1:0",
+  "modelId": "global.amazon.nova-2-lite-v1:0",
   "inference": {
     "maxTokens": 2048,
     "temperature": 0

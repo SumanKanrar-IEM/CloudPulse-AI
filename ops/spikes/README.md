@@ -10,4 +10,4 @@ deployed by CI or imported by the platform.
 | Spike | Question | Answer |
 | --- | --- | --- |
 | `agentcore/spike.sh` | Does an AgentCore Runtime deploy and answer in this account? (spec 006, T061) | Yes — research.md R-613a |
-| `agentcore/spike2.sh` | From inside it: public HTTPS egress? role credentials and Secrets Manager? a model call? | Yes, yes, **no — account-level Marketplace block** — research.md R-613b |
+| `agentcore/spike2.sh` | From inside it: public HTTPS egress? role credentials and Secrets Manager? a model call? | Yes, yes, no for Anthropic (Marketplace block, R-613b) — **yes for Amazon Nova** (R-613c) |
