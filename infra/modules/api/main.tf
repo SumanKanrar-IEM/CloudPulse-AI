@@ -5,7 +5,7 @@ terraform {
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = "~> 5.60"
+      version = "~> 6.0"
     }
   }
 }
@@ -131,7 +131,7 @@ resource "aws_lambda_function" "api" {
   environment {
     variables = {
       CLOUDPULSE_ENVIRONMENT            = var.environment
-      CLOUDPULSE_AWS_REGION             = data.aws_region.current.name
+      CLOUDPULSE_AWS_REGION             = data.aws_region.current.region
       CLOUDPULSE_DB_HOST                = var.db_host
       CLOUDPULSE_DB_NAME                = var.db_name
       CLOUDPULSE_DB_USER                = var.db_user
@@ -177,7 +177,7 @@ resource "aws_lambda_function" "migrate" {
   environment {
     variables = {
       CLOUDPULSE_ENVIRONMENT   = var.environment
-      CLOUDPULSE_AWS_REGION    = data.aws_region.current.name
+      CLOUDPULSE_AWS_REGION    = data.aws_region.current.region
       CLOUDPULSE_DB_HOST       = var.db_host
       CLOUDPULSE_DB_NAME       = var.db_name
       CLOUDPULSE_DB_USER       = var.db_user

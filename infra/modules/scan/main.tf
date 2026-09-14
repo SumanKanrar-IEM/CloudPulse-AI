@@ -7,7 +7,7 @@ terraform {
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = "~> 5.60"
+      version = "~> 6.0"
     }
   }
 }
@@ -23,7 +23,7 @@ locals {
   # resource attributes directly would be a Terraform dependency cycle. Both sides
   # instead agree on this locally-computed value.
   scan_state_machine_name = "${local.name}-scan"
-  scan_state_machine_arn  = "arn:aws:states:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:stateMachine:${local.scan_state_machine_name}"
+  scan_state_machine_arn  = "arn:aws:states:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:stateMachine:${local.scan_state_machine_name}"
 }
 
 data "aws_caller_identity" "current" {}
@@ -83,7 +83,7 @@ data "aws_iam_policy_document" "worker_runtime" {
     sid       = "ReadExternalIdSecrets"
     effect    = "Allow"
     actions   = ["secretsmanager:GetSecretValue"]
-    resources = ["arn:aws:secretsmanager:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:secret:cloudpulse/external-id/*"]
+    resources = ["arn:aws:secretsmanager:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:secret:cloudpulse/external-id/*"]
   }
 
   # research.md R-206: assume the target account's scanner role, once per unit of
@@ -168,7 +168,7 @@ resource "aws_lambda_function" "worker" {
   environment {
     variables = {
       CLOUDPULSE_ENVIRONMENT            = var.environment
-      CLOUDPULSE_AWS_REGION             = data.aws_region.current.name
+      CLOUDPULSE_AWS_REGION             = data.aws_region.current.region
       CLOUDPULSE_DB_HOST                = var.db_host
       CLOUDPULSE_DB_NAME                = var.db_name
       CLOUDPULSE_DB_USER                = var.db_user
