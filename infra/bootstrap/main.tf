@@ -17,7 +17,7 @@ terraform {
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = "~> 5.60"
+      version = "~> 6.0"
     }
     # Used by oidc.tf to read GitHub's OIDC signing certificate for the thumbprint.
     # Terraform would auto-install it, but an undeclared provider is an implicit

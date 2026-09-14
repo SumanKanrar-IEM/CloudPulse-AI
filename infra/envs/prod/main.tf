@@ -193,6 +193,8 @@ module "agents" {
   log_retention_days = local.log_retention_days
   package_path       = var.package_path
   package_hash       = var.package_hash
+  agent_package_path = var.agent_package_path
+  agent_package_hash = var.agent_package_hash
 }
 
 # --- P2. Constitution Principle VIII: nothing here may block or destabilise a P1

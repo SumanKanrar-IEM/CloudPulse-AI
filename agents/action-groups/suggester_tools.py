@@ -1,4 +1,4 @@
-"""Action-group Lambda for the suggester agent (spec 006, T024; FR-003, R-602).
+"""Tool allowlist for the suggester agent (spec 006, T024; FR-003, R-602).
 
 Reads the one finding this invocation is about, its resource, and the rule it
 failed -- the detail that makes a suggestion specific to the resource rather
@@ -12,16 +12,10 @@ surface to what the prompt permits is cheaper than relying on the prompt alone.
 
 from __future__ import annotations
 
-from typing import Any
-
-import _platform_api
-
-# Must match `agents/definitions/suggester.json`'s action-group schema.
+# Under AgentCore this module is only the allowlist: `agents/runtime/main.py`
+# serves the tool calls and consults it (T064).
+# Must match `agents/definitions/suggester.json`'s tool schema.
 ALLOWED_PATHS: frozenset[str] = frozenset({"/findings", "/resources/{resource_id}", "/rules"})
 
 
-def handler(event: dict[str, Any], _context: Any = None) -> dict[str, Any]:
-    return _platform_api.call(event, ALLOWED_PATHS)
-
-
-__all__ = ["ALLOWED_PATHS", "handler"]
+__all__ = ["ALLOWED_PATHS"]

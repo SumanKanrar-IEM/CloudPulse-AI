@@ -26,7 +26,7 @@ output "hosted_ui_domain" {
   # real sign-in attempt since spec 001 redirected to an unresolvable host, never
   # caught because no live-verification session had completed a real browser sign-in
   # before that one.
-  value = "${aws_cognito_user_pool_domain.this.domain}.auth.${data.aws_region.current.name}.amazoncognito.com"
+  value = "${aws_cognito_user_pool_domain.this.domain}.auth.${data.aws_region.current.region}.amazoncognito.com"
 }
 
 output "group_names" {

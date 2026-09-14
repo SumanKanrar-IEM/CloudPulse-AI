@@ -33,7 +33,7 @@ def _declared_paths(capability: str) -> set[str]:
     definition = json.loads(
         (AGENTS_ROOT / "definitions" / f"{capability}.json").read_text(encoding="utf-8")
     )
-    return {path for group in definition["actionGroups"] for path in group["apiSchema"]["paths"]}
+    return set(definition["tools"]["apiSchema"]["paths"])
 
 
 def _handler_paths(capability: str) -> set[str]:
@@ -70,8 +70,7 @@ def test_every_declared_operation_is_a_get(capability: str) -> None:
     )
     methods = {
         method
-        for group in definition["actionGroups"]
-        for operations in group["apiSchema"]["paths"].values()
+        for operations in definition["tools"]["apiSchema"]["paths"].values()
         for method in operations
     }
     assert methods == {"get"}

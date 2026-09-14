@@ -67,14 +67,14 @@ def _prompt(target: SuggestionTarget) -> str:
     )
 
 
-def _bedrock_invoker(*, agent_id: str, agent_alias_id: str, region: str) -> Any:
+def _bedrock_invoker(*, runtime_arn: str, region: str) -> Any:
     """The `invoke` callable `run_suggester` takes, one call per finding."""
     from connectors.aws import invoke_agent
 
     def invoke(target: SuggestionTarget) -> DraftedSuggestion:
         result = invoke_agent(
-            agent_id=agent_id,
-            agent_alias_id=agent_alias_id,
+            runtime_arn=runtime_arn,
+            capability="suggester",
             # One session per finding. A session shared across the pass would
             # carry the previous finding's resource into this one's context,
             # which is the exact way a suggestion stops being specific to its
@@ -83,6 +83,17 @@ def _bedrock_invoker(*, agent_id: str, agent_alias_id: str, region: str) -> Any:
             prompt=_prompt(target),
             region=region,
         )
+        if result["truncated"]:
+            # AgentCore reports truncation (T063). The item-wise thing to do is
+            # charge the tokens, skip this finding and continue the pass; that
+            # needs `run_suggester` to know about a truncated draft, which is
+            # `app/governance/` and outside Phase 5a's boundary (tasks.md
+            # T063a). Until then the pass ends here with a reason that names
+            # what happened, which `run_suggester` records as the failure --
+            # and everything written before it stays written (FR-004a).
+            raise ValueError(
+                f"model output for finding {target.finding_id} was truncated at its token limit"
+            )
         return parse_draft(
             target.finding_id,
             str(result["output_text"]),
@@ -96,13 +107,9 @@ def _handle_trigger_daily(_event: dict[str, Any]) -> dict[str, Any]:
     settings = get_settings()
     # R-612: read at point of use rather than added to the shared `Settings`
     # model, which every other Lambda also constructs.
-    agent_id = os.environ.get("CLOUDPULSE_SUGGESTER_AGENT_ID", "")
-    agent_alias_id = os.environ.get("CLOUDPULSE_SUGGESTER_AGENT_ALIAS_ID", "")
-    if not agent_id or not agent_alias_id:
-        raise ValueError(
-            "CLOUDPULSE_SUGGESTER_AGENT_ID and CLOUDPULSE_SUGGESTER_AGENT_ALIAS_ID are "
-            "required by the suggester worker"
-        )
+    runtime_arn = os.environ.get("CLOUDPULSE_AGENT_RUNTIME_ARN", "")
+    if not runtime_arn:
+        raise ValueError("CLOUDPULSE_AGENT_RUNTIME_ARN is " "required by the suggester worker")
 
     with get_engine().connect() as conn:
         tenant_id = uuid.UUID(
@@ -111,9 +118,7 @@ def _handle_trigger_daily(_event: dict[str, Any]) -> dict[str, Any]:
             )
         )
 
-    invoke = _bedrock_invoker(
-        agent_id=agent_id, agent_alias_id=agent_alias_id, region=settings.aws_region
-    )
+    invoke = _bedrock_invoker(runtime_arn=runtime_arn, region=settings.aws_region)
     with tenant_session(tenant_id) as session:
         outcome = run_suggester(session, invoke=invoke, definition_hash=suggester_definition_hash())
 

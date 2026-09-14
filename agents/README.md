@@ -1,10 +1,9 @@
 # `agents/` — Amazon Bedrock AgentCore Runtime
 
-> **Re-pointed 2026-09-09 (constitution v3.0.0, research R-613).** This tree was built for Bedrock
-> Agents (classic). AWS placed that service in maintenance mode and closed new agent creation to
-> accounts without prior usage, so the definitions and action groups here describe a runtime this
-> account cannot create. The constraints below are unchanged and still binding; what changes is
-> which Bedrock service hosts the orchestration. See T061-T067.
+> **Migrated 2026-09-15 (constitution v3.0.0, research R-613, R-613a, R-613b; tasks T061–T066).**
+> Built for Bedrock Agents (classic), which AWS placed in maintenance mode and closed to this
+> account; now runs on **Bedrock AgentCore Runtime**. The constraints below are unchanged and
+> still binding. Live proof (T067) waits on the account's Marketplace payment instrument.
 
 **Owned by spec 006 (agentic insights).** Spec 001 reserved this tree and left it empty; spec 006
 populates it. The constraints below are spec 001's and this spec implements against them — it does
@@ -12,8 +11,9 @@ not get to relax them.
 
 | Directory | Holds |
 | --- | --- |
-| `definitions/` | Agent definitions and tool schemas, one per capability |
-| `action-groups/` | Platform-API tool code. Named for Bedrock Agents' action groups; under AgentCore these are the agent's own tool calls, and `_platform_api.py`'s rules are unchanged |
+| `runtime/` | `main.py` — the agent AgentCore hosts. One runtime for every capability: the invocation payload names the capability, which selects a prompt, a definition and a tool allowlist; a hand-written Converse tool-use loop does the rest. Its docstring says why one runtime and why no framework |
+| `definitions/` | Per capability: the inference-profile model id, inference settings, the tool-loop bound, the guardrail note, and the tool surface as an OpenAPI schema the runtime turns into Converse `toolSpec`s |
+| `action-groups/` | The tool allowlists (`ALLOWED_PATHS`) and `_platform_api.py`, the HTTP client every tool call goes through: HTTPS only, GET only, fail-closed on the allowlist, token per call. Named for Bedrock Agents' action groups; the envelope is gone and the rules are not |
 | `prompts/` | Versioned prompt sources, content-hashed (research.md R-608) |
 | `evals/` | Evaluation cases run against recorded fixtures in CI (R-609) |
 
@@ -47,15 +47,19 @@ model being unreachable: that is a specified, testable state here (FR-007a, SC-0
 
 ## What is here now (spec 006, as of 2026-09-14)
 
-| Capability | Definition | Prompt | Action group | Runtime |
+| Capability | Definition | Prompt | Allowlist | Invoked by |
 | --- | --- | --- | --- | --- |
-| `digest` | `definitions/digest.json` | `prompts/digest.md` | `action-groups/digest_tools.py` (`/findings`, `/resources/{id}`, `/spend/summary`) | `digest_worker_handler`, daily |
+| `digest` | `definitions/digest.json` | `prompts/digest.md` | `action-groups/digest_tools.py` (`/findings`, `/resources/{id}`, `/spend/summary`) | `digest_worker_handler`, daily, via `connectors.aws.invoke_agent` |
 | `suggester` | `definitions/suggester.json` | `prompts/suggester.md` | `action-groups/suggester_tools.py` (`/findings`, `/resources/{id}`, `/rules`) | `suggester_worker_handler`, daily, one invocation per open finding |
 | `advisor` | `definitions/advisor.json` | `prompts/advisor.md` | `action-groups/advisor_tools.py` (`/resources`) | **Not invoked.** `advisor_worker_handler` runs a deterministic detection and hashes these files onto the run row as the capability's contract (T038f). The seam if narration is wanted |
 | `narrator` | `definitions/narrator.json` | `prompts/narrator.md` | `action-groups/narrator_tools.py` (`/forecasts`) | **No worker.** Rendering deferred (T054a); the validator's exact-figure mode and these files stand |
 
-`_platform_api.py` is the one HTTP client every action group shares: Cognito machine principal,
-HTTPS only, read-only method filter, fail-closed path allowlist. `backend/tests/unit/
+All four name `global.anthropic.claude-haiku-4-5-20251001-v1:0` — an inference profile, because
+R-613b found the previous id end-of-life and Haiku 4.5 invocable only through one.
+
+`_platform_api.py` is the one HTTP client every tool call shares: Cognito machine principal
+(secret read from Secrets Manager under the runtime's own role — R-613b), HTTPS only, GET only,
+fail-closed path allowlist. `backend/tests/unit/
 test_agent_action_group_allowlists.py` asserts each handler's `ALLOWED_PATHS` equals its
 definition's declared paths, that every declared operation is a GET, and that the prompt file
 each definition names exists — a comment saying "must match" is not a check.

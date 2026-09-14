@@ -9,7 +9,7 @@ terraform {
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = "~> 5.60"
+      version = "~> 6.0"
     }
   }
 }
@@ -78,7 +78,7 @@ data "aws_iam_policy_document" "cost_ingestion_worker_runtime" {
     sid       = "ReadExternalIdSecrets"
     effect    = "Allow"
     actions   = ["secretsmanager:GetSecretValue"]
-    resources = ["arn:aws:secretsmanager:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:secret:cloudpulse/external-id/*"]
+    resources = ["arn:aws:secretsmanager:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:secret:cloudpulse/external-id/*"]
   }
 
   # research.md R-503/R-206: assume the target account's scanner role, once per
@@ -138,7 +138,7 @@ resource "aws_lambda_function" "cost_ingestion_worker" {
   environment {
     variables = {
       CLOUDPULSE_ENVIRONMENT   = var.environment
-      CLOUDPULSE_AWS_REGION    = data.aws_region.current.name
+      CLOUDPULSE_AWS_REGION    = data.aws_region.current.region
       CLOUDPULSE_DB_HOST       = var.db_host
       CLOUDPULSE_DB_NAME       = var.db_name
       CLOUDPULSE_DB_USER       = var.db_user
@@ -209,7 +209,7 @@ data "aws_iam_policy_document" "notification_worker_runtime" {
     effect  = "Allow"
     actions = ["ses:SendEmail"]
     resources = var.notification_sender_email == "" ? ["*"] : [
-      "arn:aws:ses:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:identity/${var.notification_sender_email}"
+      "arn:aws:ses:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:identity/${var.notification_sender_email}"
     ]
   }
 
@@ -250,7 +250,7 @@ resource "aws_lambda_function" "notification_worker" {
   environment {
     variables = {
       CLOUDPULSE_ENVIRONMENT               = var.environment
-      CLOUDPULSE_AWS_REGION                = data.aws_region.current.name
+      CLOUDPULSE_AWS_REGION                = data.aws_region.current.region
       CLOUDPULSE_DB_HOST                   = var.db_host
       CLOUDPULSE_DB_NAME                   = var.db_name
       CLOUDPULSE_DB_USER                   = var.db_user
@@ -314,7 +314,7 @@ data "aws_iam_policy_document" "iam_hygiene_worker_runtime" {
     sid       = "ReadExternalIdSecrets"
     effect    = "Allow"
     actions   = ["secretsmanager:GetSecretValue"]
-    resources = ["arn:aws:secretsmanager:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:secret:cloudpulse/external-id/*"]
+    resources = ["arn:aws:secretsmanager:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:secret:cloudpulse/external-id/*"]
   }
 
   # research.md R-503: the same scanner role every other worker already assumes,
@@ -381,7 +381,7 @@ resource "aws_lambda_function" "iam_hygiene_worker" {
   environment {
     variables = {
       CLOUDPULSE_ENVIRONMENT   = var.environment
-      CLOUDPULSE_AWS_REGION    = data.aws_region.current.name
+      CLOUDPULSE_AWS_REGION    = data.aws_region.current.region
       CLOUDPULSE_DB_HOST       = var.db_host
       CLOUDPULSE_DB_NAME       = var.db_name
       CLOUDPULSE_DB_USER       = var.db_user

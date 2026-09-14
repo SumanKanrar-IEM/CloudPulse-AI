@@ -9,7 +9,7 @@ terraform {
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = "~> 5.60"
+      version = "~> 6.0"
     }
   }
 }
@@ -86,14 +86,14 @@ resource "aws_security_group" "endpoints" {
 
 resource "aws_vpc_endpoint" "s3" {
   vpc_id            = aws_vpc.this.id
-  service_name      = "com.amazonaws.${data.aws_region.current.name}.s3"
+  service_name      = "com.amazonaws.${data.aws_region.current.region}.s3"
   vpc_endpoint_type = "Gateway"
   route_table_ids   = [aws_route_table.private.id]
 }
 
 resource "aws_vpc_endpoint" "secretsmanager" {
   vpc_id              = aws_vpc.this.id
-  service_name        = "com.amazonaws.${data.aws_region.current.name}.secretsmanager"
+  service_name        = "com.amazonaws.${data.aws_region.current.region}.secretsmanager"
   vpc_endpoint_type   = "Interface"
   subnet_ids          = aws_subnet.private[*].id
   security_group_ids  = [aws_security_group.endpoints.id]
@@ -109,46 +109,33 @@ resource "aws_vpc_endpoint" "secretsmanager" {
 # standing NAT/endpoint funding decision has been declined twice, so these
 # default to off and a deploy that wants them says so explicitly.
 #
-# `count` rather than `for_each` over a list: these two are not
-# interchangeable members of a set. `bedrock-agent-runtime` is what
-# `invoke_agent` needs and `execute-api` is what the action groups need to reach
-# the platform API, and a future reader should see two named reasons rather than
-# a collection to append to without one.
+# One endpoint now, not two (T065). Under Bedrock Agents (classic) the worker
+# needed `bedrock-agent-runtime` and the action-group Lambda needed
+# `execute-api` to reach the platform API from inside the VPC. Under AgentCore
+# the agent's tool calls leave the runtime, which runs in PUBLIC network mode
+# and reaches the API over the internet -- verified, R-613b -- so `execute-api`
+# would be an endpoint nothing calls. What remains is the worker's own call:
+# `bedrock-agentcore:InvokeAgentRuntime`, on the data-plane service
+# `bedrock-agentcore` (the `-control` and `.gateway` services are different
+# planes and not needed here).
 
-resource "aws_vpc_endpoint" "bedrock_agent_runtime" {
+resource "aws_vpc_endpoint" "bedrock_agentcore" {
   count               = var.enable_agent_endpoints ? 1 : 0
   vpc_id              = aws_vpc.this.id
-  service_name        = "com.amazonaws.${data.aws_region.current.name}.bedrock-agent-runtime"
+  service_name        = "com.amazonaws.${data.aws_region.current.region}.bedrock-agentcore"
   vpc_endpoint_type   = "Interface"
   subnet_ids          = aws_subnet.private[*].id
   security_group_ids  = [aws_security_group.endpoints.id]
   private_dns_enabled = true
 
   tags = {
-    Name = "${local.name}-bedrock-agent-runtime"
-  }
-}
-
-# Without this the agent reaches Bedrock and its action groups still cannot
-# reach the platform API, so it reasons with no tools and produces output that
-# fails grounding. The two are only useful together.
-resource "aws_vpc_endpoint" "execute_api" {
-  count               = var.enable_agent_endpoints ? 1 : 0
-  vpc_id              = aws_vpc.this.id
-  service_name        = "com.amazonaws.${data.aws_region.current.name}.execute-api"
-  vpc_endpoint_type   = "Interface"
-  subnet_ids          = aws_subnet.private[*].id
-  security_group_ids  = [aws_security_group.endpoints.id]
-  private_dns_enabled = true
-
-  tags = {
-    Name = "${local.name}-execute-api"
+    Name = "${local.name}-bedrock-agentcore"
   }
 }
 
 variable "enable_agent_endpoints" {
   type        = bool
-  description = "Provision the bedrock-agent-runtime and execute-api interface endpoints (spec 006, R-604/T029b). Billed per AZ-hour whether or not anything calls them, so this defaults to off and a live-verification window turns it on deliberately. Verified available in us-east-1 across all six AZs; the standing decision not to fund them long-term is unchanged."
+  description = "Provision the bedrock-agentcore interface endpoint the workers need to invoke the runtime from inside the VPC (spec 006, R-604/T029b, T065). Billed per AZ-hour whether or not anything calls them, so this defaults to off and a live-verification window turns it on deliberately. Verified available in us-east-1 across all six AZs; the standing decision not to fund them long-term is unchanged."
   default     = false
 }
 

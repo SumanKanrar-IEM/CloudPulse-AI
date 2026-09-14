@@ -288,7 +288,8 @@ and stated as an estimate rather than a bill — the pricing page is the source,
   has its own identity path. T064 must find out how the agent obtains its Cognito client secret
   under that model; the Lambda Secrets extension `_platform_api.py` uses today is Lambda-only.
 
-**Consequence for T062–T067:** proceed. The runtime this account can create is real, cheap, and
+**Consequence for T062–T067:** proceed. *(Built 2026-09-15 — PR #135. One runtime, code zip,
+hand-written Converse loop; see `agents/runtime/main.py`'s docstring and tasks.md T062–T066.)* The runtime this account can create is real, cheap, and
 packages like a Lambda. The three open questions above are T063's and T064's to answer with the
 same discipline — exercised, not inferred.
 
