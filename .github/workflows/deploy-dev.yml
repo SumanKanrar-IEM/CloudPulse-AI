@@ -19,13 +19,13 @@ on:
     branches: [pods/pod73]
   workflow_dispatch:
     inputs:
-      # spec 006, T029b. The agent layer cannot reach Bedrock or the platform API
-      # from inside the VPC without these, and they bill per AZ-hour whether or
-      # not anything calls them. Off unless a live-verification window asks --
+      # spec 006, T029b/T065. The workers cannot reach the AgentCore runtime
+      # from inside the VPC without it, and it bills per AZ-hour whether or
+      # not anything calls it. Off unless a live-verification window asks --
       # the same discipline DEV_AUTO_DEPLOY exists for, applied to a cost that
       # accrues while idle rather than one that starts on merge.
       enable_agent_endpoints:
-        description: "Provision bedrock-agent-runtime and execute-api VPC endpoints (billed per AZ-hour; tear down after)"
+        description: "Provision the bedrock-agentcore VPC endpoint the workers need (billed per AZ-hour; tear down after)"
         type: boolean
         default: false
 
