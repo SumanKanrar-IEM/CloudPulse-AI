@@ -797,3 +797,7 @@ path to every P1 acceptance scenario being exercisable; Phase 7 is what turns "e
 into "proven against real AWS" — bounded honestly by research.md R-407's standing constraint, not
 silently worked around. P2 (Phases 8–9) is additive polish afterward, never a prerequisite for
 declaring the P1 demo path complete.
+
+## Phase 10: Convergence
+
+- [ ] T045 MEDIUM Find and fix the root cause of `frontend/e2e/dashboard-smoke.spec.ts` failing against the deployed dev origin, so a fresh dev deploy ends green — in `Deploy dev` run 35926824641 (2026-09-23) the resource ARN is not visible at line 139 for admin and operator, and the acknowledge click times out; the suite mocks the API, so an empty database alone should not explain it per FR-026, T041 (partial)

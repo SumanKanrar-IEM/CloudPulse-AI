@@ -341,3 +341,7 @@ full P1 demo path, proven live.
 
 **Principle VIII discipline**: T055–T058 are the only P2 tasks and are scheduled last. If time
 runs short, Phase 8 is what gets cut — not any part of Phases 1–7.
+
+## Phase 10: Convergence
+
+- [ ] T062 HIGH Complete T022: give an account a genuine `failed` state with an admin-actionable reason and serve it as `failureReason` on `GET /accounts` — today `AccountStatus.FAILED` is never set anywhere and the account row has no reason column, so US2's third acceptance scenario cannot occur. If no verification can fail after registration by design, amend FR-012 instead, by decision rather than by omission, per FR-012, US2/AC3 (partial)
