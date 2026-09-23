@@ -175,7 +175,7 @@ P1 first and complete, per Principle VI:
 | 7 | US4 — metrics collection (P2) | feeds 8 and 9 |
 | 8 | US5 — forecasting (P2) | SC-006 |
 | 9 | US6 — rightsizing (P2) | FR-023 |
-| 10 | US7 — narratives (P2) | ~~SC-007~~ — rendering deferred (tasks.md T054a); validator mode and agent files land |
+| 10 | US7 — narratives (P2) | ~~SC-007~~ — **descoped 2026-09-24** (spec Clarifications); validator mode and agent files land, unused |
 | Final | READMEs, live-verify/teardown pair, `/speckit-analyze` | — |
 
 Phase 2 exists as its own phase deliberately: the grounding validator and the run/cost-cap

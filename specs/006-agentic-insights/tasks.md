@@ -945,11 +945,12 @@ here starts wanting to change one, that is the signal the migration has slipped 
       calculation did not produce is rejected and not displayed (FR-024) — S53, FR-024
 - [X] T053 [US7] **[P2]** Write the narrator agent definition, prompt and action group in
       `agents/`, reusing T007's validator with an exact-figure-match mode — S53, FR-024, FR-001
-- [ ] T054 [P] [US7] **[P2]** ~~Render narratives on the cost and forecast pages in
+- [X] T054 [P] [US7] **[P2]** ~~Render narratives on the cost and forecast pages in
       `frontend/src/app/features/cost/`, suppressed entirely when validation fails~~ **Deferred
       2026-09-13 (option C, see T054a).** The validator mode (T052) and the narrator agent (T053)
-      stand; rendering waits on the chain T054a describes — S53, FR-024, SC-007
-- [ ] T054a [US7] **[P2]** **Blocked, needs a decision.** Phase 10 as generated has nothing
+      stand; rendering waits on the chain T054a describes. **Closed 2026-09-24: descoped with
+      US7** (see T054a) — S53, FR-024, SC-007
+- [X] T054a [US7] **[P2]** **Blocked, needs a decision.** Phase 10 as generated has nothing
       between T053's agent and T054's rendering: no table stores a narrative, no worker invokes the
       narrator, no endpoint serves one. Unlike the advisor (T038f) this run genuinely needs a
       model — there is nothing to narrate deterministically — so it needs the same Bedrock wiring
@@ -962,8 +963,14 @@ here starts wanting to change one, that is the signal the migration has slipped 
       T054 names a forecast page that Phase 8 never had a frontend task for.
       **Decided 2026-09-13: option C.** US7 is the spec's own "last thing to drop", and building
       a Bedrock-wired worker for it while R-605's VPC gap means it cannot run live spends the
-      most on the least. Deferred; the validator mode and agent files stay useful — S53, FR-024,
-      SC-007
+      most on the least. Deferred; the validator mode and agent files stay useful.
+      **Closed 2026-09-24: option B, descoped.** User Story 7, FR-024 and SC-007 are out of scope
+      for spec 006 (spec Clarifications, Session 2026-09-24). Phase 5a removed half of the reason
+      above — one AgentCore runtime now serves every capability and `invoke_agent` exists — but the
+      table, worker, drift check and panel remain unbuilt, and US7 stays the spec's last thing to
+      drop. The narrator's definition, prompt, eval cases and the validator's exact-figure mode stay
+      in the tree, unused by any surface; a later spec that wants narratives starts from them and
+      from the chain described above — S53, FR-024, SC-007
 - [X] T054b [US5] **[P2]** Write `frontend/src/app/features/forecasts/` — the forecast page
       Phase 8 never had a frontend task for: projected spend per project as a chart, every kind
       per project in a table with history and backtest error, and the not-enough-data state shown
@@ -971,7 +978,7 @@ here starts wanting to change one, that is the signal the migration has slipped 
       FR-024 will hold a narrative to, applied to the page the narrative would sit on. Wire the
       route — S51, FR-021, FR-021a, FR-022
 
-**Checkpoint**: ~~SC-007 provable.~~ SC-007 deferred with US7 (T054a). P2 scope complete except US7's rendering.
+**Checkpoint**: ~~SC-007 provable.~~ SC-007 descoped with US7 (T054a, 2026-09-24). P2 scope complete.
 
 ---
 
@@ -989,7 +996,7 @@ here starts wanting to change one, that is the signal the migration has slipped 
       raised a missing journal section as **H1 CRITICAL** (a Principle I violation) and spec 002's
       H1 caught it before that; spec 005 had to add it retroactively as T026a. Written as its own
       task this time rather than discovered a fourth time — Principle I
-- [ ] T058 **Live-verify P2** — deploy and exercise the coverage-proposal accept path end to end.
+- [X] T058 **Live-verify P2** — deploy and exercise the coverage-proposal accept path end to end.
       SC-003 needs no model call, which makes it the P2 criterion most likely to be provable live
       — **but its input is not free either**: the advisor detects gaps from scanned inventory, so
       the accept path runs against seeded fixture inventory unless R-407 is funded. Verify the
@@ -997,8 +1004,24 @@ here starts wanting to change one, that is the signal the migration has slipped 
       what was proven against real AWS and what against fixtures. Do not repeat spec 005's R-511
       error of calling a capability live-verifiable because the capability itself makes no AWS
       call — S43, SC-003, FR-015a
-- [ ] T059 **Teardown and cost sweep**, immediately following T058, never separated from it —
+      **Closed 2026-09-24 as fixture-only (option A); nothing about accepting was proven live.**
+      No live account can produce the input: `enricher_candidates.json` is `{}` because every
+      shipped enricher is already mapped, so the advisor emits advisory gaps only and never a
+      proposal (T038c/T038d), and dev cannot be seeded from outside the VPC (Data API off, R-605).
+      *Against real AWS* (T067, 2026-09-24): the advisor worker ran in a deployed Lambda against
+      dev's empty inventory, `succeeded`, 0 gaps — the wiring runs; the logic had nothing to see. *Against fixtures, on a real Postgres*
+      (`test_coverage_proposal_flow.py`, testcontainers, every PR): quickstart V3 step by step —
+      a proposable gap names its evidence account (steps 1–2, also `test_coverage_advisor.py`);
+      a non-admin reads but cannot decide (3); accepting applies tenant-wide with no code change
+      and the next scan's definitions resolve the accepted type (4–6, also
+      `test_an_accepted_override_resolves_to_its_enricher_on_the_next_scan`); a rejected proposal
+      is not re-proposed (7). SC-003 is met in code and proven against fixtures only — the same
+      bound spec 005's R-511 was corrected to state
+- [X] T059 **Teardown and cost sweep**, immediately following T058, never separated from it —
       playbook §0.5.3
+      **Closed 2026-09-24: nothing to tear down.** T058 closed without a deployment. Dev was last
+      torn down by T067 the same day — 144 resources destroyed, sweep identical to the
+      pre-deploy baseline, zero ENIs, the runtime's log group removed (R-613d)
 - [X] T060 Re-run `/speckit-analyze` on spec 006 and resolve any finding. Check *data
       preconditions*, not only API shapes: spec 005's analyze pass compared shapes and still
       missed that utilization's live verification was impossible because its input could not be

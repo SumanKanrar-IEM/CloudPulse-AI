@@ -25,6 +25,10 @@
 
 - Q: FR-015's "new or widened rule over already-collected fields" cannot be expressed: a spec 003 rule is keyed by tag key with no resource-type scope, so it governs every resource in the tenant and no rule can cover *one* uncovered type. Widen spec 003's rule model, or narrow FR-015? → A: Narrow FR-015 to the enricher kind. Type-scoped rules are a spec 003 product question in their own right, not something the advisor should force; if they are wanted later, the proposal kind can be reinstated then.
 
+### Session 2026-09-24
+
+- Q: User Story 7 was deferred on 2026-09-13 (tasks.md T054a, option C). Build it, carry it to a later spec, or take it out of this spec's scope? → A: Out of scope for spec 006. User Story 7, FR-024 and SC-007 are descoped; nothing in this spec displays a narrative. The narrator agent files and the validator's exact-figure mode stay in the tree and in CI's eval suite, unused by any surface — a later spec that wants narratives starts from them and from the chain T054a describes.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - An operator reads one paragraph instead of five dashboards (Priority: P1)
@@ -205,7 +209,10 @@ estimated monthly saving.
 
 ---
 
-### User Story 7 - The narrative matches the chart (Priority: P2)
+### User Story 7 - The narrative matches the chart (Priority: P2) — **descoped 2026-09-24**
+
+**Out of scope for this spec** (Clarifications, Session 2026-09-24). Kept as written so the
+requirement a later spec picks up is the one that was clarified here.
 
 Cost and forecast pages carry a short written explanation of what the chart shows, and its figures
 are exactly the chart's figures.
@@ -392,9 +399,10 @@ figure in the prose matches the corresponding chart value exactly.
   measured utilization is persistently low, each carrying its supporting measurements and an
   estimated monthly saving, and MUST NOT recommend downsizing a resource whose utilization is high
   or variable.
-- **FR-024** `[P2]`: Narratives displayed alongside a chart MUST state figures that match that
-  chart's values exactly, and MUST NOT be displayed when they do not. A narrative MUST NOT
-  introduce any figure the deterministic calculation did not produce.
+- **FR-024** `[P2]` **(descoped 2026-09-24, with User Story 7)**: Narratives displayed alongside
+  a chart MUST state figures that match that chart's values exactly, and MUST NOT be displayed
+  when they do not. A narrative MUST NOT introduce any figure the deterministic calculation did
+  not produce.
 
 ### Key Entities *(include if feature involves data)*
 
@@ -441,7 +449,8 @@ figure in the prose matches the corresponding chart value exactly.
 - **SC-006**: Forecast error measured by backtesting is under 15% (MAPE) on test projects with
   sufficient history, and re-running the backtest over the same history reproduces the same
   figure exactly.
-- **SC-007**: Every figure in a displayed narrative matches its chart exactly — zero mismatches.
+- **SC-007** **(descoped 2026-09-24, with User Story 7)**: Every figure in a displayed narrative
+  matches its chart exactly — zero mismatches.
 - **SC-008**: Agent runs stay within their configured cost cap 100% of the time, any truncated
   run is identifiable as truncated, and no validated item produced before truncation is lost from
   an item-wise capability.
