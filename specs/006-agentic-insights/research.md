@@ -395,6 +395,66 @@ only if they say so.
 
 **R-613b's "T067 blocked" is lifted.**
 
+## R-613d — T067 live verification (2026-09-23/24): the migrated layer works, and three bugs no test could see
+
+Dev deployed three times from trunk with `enable_agent_endpoints=true`, verified, torn down, and
+the after-sweep diffed against a baseline taken before the first deploy.
+
+**Proven live:**
+
+| Claim | Evidence |
+| --- | --- |
+| Terraform deploys the AgentCore runtime | `cloudpulse_dev_agents` CREATING → READY in under 2 minutes (second deploy) |
+| Workers are wired to it | digest and suggester workers carry `CLOUDPULSE_AGENT_RUNTIME_ARN` for that runtime; `bedrock-agentcore` interface endpoint `available` |
+| R-613a's orphan is owned | runtime log group created by Terraform with 30-day retention |
+| Runtime → Converse → Nova 2 Lite with a production-shaped digest prompt | 8 invocations through `connectors.aws.invoke_agent`: ~4,742 tokens in, 402–418 out, none truncated |
+| **Nova's content grounds** | 5 of 5 replies, run through `parse_sections` and `validate_output` with the same known sets `run_digest` passes: 3 sections each, every reference and figure resolved |
+| All three definition-hashing workers run deployed | digest `succeeded` (empty digest stored), suggester `succeeded` (0 targets), advisor `succeeded` (0 gaps) — the first successful run of each in any deployment |
+
+**Found — three bugs, each invisible to the test suite:**
+
+1. **T067b — IAM prefix.** `bedrock:*` does not imply `bedrock-agentcore:*`. The first deploy
+   failed on `CreateAgentRuntime` with everything else applied, and took **32 minutes** to say
+   so: the provider retries AccessDenied for its full create timeout, assuming propagation lag.
+2. **T067c — packaging, latent since T020.** The Lambda zip never contained `agents/prompts` or
+   `agents/definitions`; `definition_hash.AGENTS_ROOT` resolved to `/var/agents`. **The digest,
+   suggester and advisor workers had crashed on their first line in every deployment.** T030
+   never reached them (it stopped at classic Bedrock's 403). Fixed in the workflow, with a
+   build-time check, and in `AGENTS_ROOT`; confirmed by the third deploy.
+3. **T067d — Nova ignores "no code fence".** 8 of 8 replies wrapped JSON in ```` ```json ````,
+   and the fail-closed parser rejected every one before grounding. Content was sound (above),
+   so R-606 says stay on Nova 2 Lite; the runtime unwraps a whole-reply fence at the model
+   boundary and the governance parsers stay strict.
+
+**Not proven, and why:**
+
+* **The worker → endpoint → runtime → Nova path in one run.** On an empty database
+  `run_digest` takes the nothing-notable branch, which by design never calls the model (FR-010),
+  and the suggester has no open findings to draft for. Findings come only from scans, and scans
+  cannot reach AWS from the VPC (R-605). The Aurora Data API is off, so a finding cannot be
+  seeded from outside. The path is proven in two halves that share `invoke_agent`: the worker
+  runs deployed and reaches the database; `invoke_agent` reaches the runtime and Nova. The seam
+  between them is the VPC endpoint, which is `available` and which the worker's IAM grants.
+* **Tool calls to the platform API from the runtime.** The digest prompt carries every figure
+  and finding it needs; whether Nova chose to call a tool on these runs was not recorded. R-613b
+  proved PUBLIC-mode egress to a public HTTPS endpoint, not an authenticated platform-API call —
+  that needs the agent's Cognito app client, which dev does not provision.
+* **The Playwright dashboard smoke test fails on every deploy** — it expects a finding with a
+  suggestion to click, and a fresh dev has none. A data precondition the smoke test assumes and
+  nothing produces; the same step that timed out in spec 005's deploy.
+
+**Teardown:** `ops/teardown.sh dev` destroyed 144 resources. The playbook §0.5.3 sweep, extended
+with AgentCore runtimes, guardrails, schedules and no-retention log groups, was **byte-identical
+to the baseline** taken before the first deploy; zero network interfaces remained. The
+runtime's log group was removed by `destroy` — the first confirmation that declaring it in
+Terraform (T065) closed R-613a's orphan, which the spike runs had left behind every time. The
+destroy's slow tail was ~20 minutes of Lambda hyperplane ENIs releasing on AWS's own schedule
+after their functions were deleted; they were left to AWS rather than deleted by hand.
+
+**Cost:** three incremental deploys, ~14 invocations of Nova 2 Lite at ~5k tokens each, the
+interface endpoint and Aurora for the session's duration. A few dollars at most; the billing
+console is the source.
+
 ## R-605 — Every new compute is VPC-attached, and inherits the standing R-407 gap
 
 **Decision**: The action-group Lambdas, the digest worker, the suggester worker, and the metrics
