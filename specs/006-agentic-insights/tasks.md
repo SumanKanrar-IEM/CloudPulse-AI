@@ -1080,3 +1080,8 @@ per-finding suggester, with every safety guarantee Principle IV requires and no 
 **Incremental delivery**: Phase 2's shared foundation means each later story adds one agent, one
 set of tools and one surface, rather than re-deriving grounding and cost accounting. P2 is
 additive polish; none of it is a prerequisite for declaring P1 complete.
+
+## Phase 11: Convergence
+
+- [ ] T068 CRITICAL Add `agent-evals` to the required status checks of `pods/pod73`'s branch protection — it runs on every PR but is the one CI job of fifteen not required, so a prompt change that breaks a grounding expectation would show red and still merge. A repository-settings change: the maintainer applies it or approves it per Constitution VI, T055, R-609 (contradicts)
+- [ ] T069 HIGH Handle a truncated suggester draft item-wise inside `run_suggester`: charge its tokens to the run budget, skip that finding, continue the pass, and leave the truncation identifiable on the run. Today `suggester_worker_handler.py` raises `ValueError` before `budget.charge`, so the draft's tokens are spent but never counted against the cap, the run records `failed` as though the model were unreachable, and every later finding waits a day. Supersedes T063a's recorded follow-up per FR-004, FR-004a, SC-008 (partial)

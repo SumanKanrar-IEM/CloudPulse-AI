@@ -446,3 +446,7 @@ Regenerated after `/speckit-analyze`. All fifteen findings resolved:
 Also applied: constitution **v2.0.0** (solo delivery with AI collaboration; Claude Code named as
 the permitted development-time engine) propagated through spec, plan, and tasks. FR-055 and FR-056
 added for the remaining cross-spec gaps flagged by CHK028/030/032.
+
+## Phase 11: Convergence
+
+- [ ] T139 LOW Remove the unused `ROLE_RANK` from `backend/app/core/security.py`, and define the `ViewerPrincipal` / `AdminPrincipal` dependency aliases once in `app/core/security.py` instead of re-declaring them in each of the 16 routers that do today per FR-032a (unrequested)

@@ -697,3 +697,7 @@ admin-editable, next-scan-effective" capability — the foundation, but not yet 
 shortest path to every P1 acceptance scenario being exercisable; Phase 8 is what turns "exercisable
 in CI" into "proven against real AWS." P2 (Phase 9) is additive polish afterward, never a
 prerequisite for declaring the P1 demo path complete.
+
+## Phase 10: Convergence
+
+- [ ] T045 LOW Remove the unused `_KIND_VALUES` tuple from `backend/app/api/routers/findings.py` per FR-014 (unrequested)
