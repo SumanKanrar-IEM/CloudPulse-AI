@@ -33,7 +33,14 @@ data "aws_iam_policy_document" "deploy" {
       "events:*",         # EventBridge rules
       "kms:*",            # encryption keys
       "acm:*",            # CloudFront certificate
-      "bedrock:*",        # Bedrock Agents (spec 6) -- the ONLY permitted GenAI runtime
+      "bedrock:*",        # guardrails, models (spec 6) -- the ONLY permitted GenAI runtime
+      # `bedrock-agentcore` is a separate service prefix from `bedrock`, and
+      # `bedrock:*` does not imply it. Spec 006 T067's first deploy failed on
+      # exactly this -- and cost 32 minutes doing so, because the provider
+      # retries AccessDenied for its full create timeout on the assumption it
+      # is IAM eventual consistency. Both prefixes, named.
+      "bedrock-agentcore:*",
+      "bedrock-agentcore-control:*",
       "application-autoscaling:*",
       "tag:GetResources",
     ]
