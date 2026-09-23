@@ -725,13 +725,19 @@ here starts wanting to change one, that is the signal the migration has slipped 
       `test_agent_runtime.py`, exercises the runtime's loop with a scripted model and caught one
       bug before it shipped: the iteration bound was reported as `tool_use` ("still working")
       rather than `max_iterations` ("cut off").
-- [ ] T067 Live-verify the migrated layer and tear down immediately after, per playbook §0.5.3 and
+- [X] T067 Live-verify the migrated layer and tear down immediately after, per playbook §0.5.3 and
       the T030/T031 pattern: baseline sweep first, check AWS directly rather than trusting a run
       label, and diff the after-sweep against the baseline — S43, S44, SC-001, SC-002, SC-004
       ~~**Blocked (R-613b, 2026-09-14)**: no Anthropic model can be invoked in this account until a
       valid payment instrument completes the Marketplace subscription.~~ **Unblocked 2026-09-15
       (R-613c)**: the model layer moved to Amazon Nova 2 Lite — first-party, no Marketplace — and
       the spike's model probe passes. Ready to run.
+      **Done 2026-09-24 (R-613d).** Runtime deployed by Terraform, READY in under 2 minutes; Nova 2
+      Lite's digest content grounded 5 of 5; all three definition-hashing workers ran deployed for
+      the first time. Three bugs found and fixed live (T067b–d). Not proven in one run: the full
+      worker → endpoint → runtime path, because an empty database takes the nothing-notable
+      branch and no finding can be seeded from outside the VPC. Torn down; sweep byte-identical
+      to baseline.
 - [X] T067a Switch every capability to `global.amazon.nova-2-lite-v1:0` (R-613c). Four definitions,
       one test assertion, the spike default, a Terraform comment, a README paragraph. Everything
       else is model-agnostic and did not move — S43, S44, R-606, R-613c
@@ -754,7 +760,7 @@ here starts wanting to change one, that is the signal the migration has slipped 
       Nova 2 Lite. Absorbed at the model boundary so the governance parsers stay strict: prose
       around a fence still fails closed — S43, S44, FR-001, R-606
 
-**Checkpoint**: the P1 stories run on a runtime this account can actually create — **built, validated, and the model probe passes on Nova (R-613c); live proof is T067.**
+**Checkpoint**: the P1 stories run on a runtime this account can actually create — **live-verified 2026-09-24 (R-613d).**
 
 ---
 
