@@ -45,6 +45,7 @@ from __future__ import annotations
 import importlib
 import json
 import os
+import re
 import sys
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
@@ -136,6 +137,26 @@ def run_tool(
         return {"error": str(exc)}
 
 
+# A reply wrapped whole in one Markdown code fence: ```json ... ``` or ``` ... ```.
+# Anchored at both ends, so a fence *inside* prose is not touched.
+_WHOLE_FENCE = re.compile(r"\A```[A-Za-z0-9_-]*[ \t]*\r?\n(?P<body>.*?)\r?\n?```\s*\Z", re.DOTALL)
+
+
+def unwrap_fence(text: str) -> str:
+    """Remove a code fence wrapping the *entire* reply, and nothing else.
+
+    T067 found Nova 2 Lite wraps its JSON in ```json ... ``` on every reply
+    (8 of 8) though every prompt says "no code fence" -- and the workers'
+    parsers, being fail-closed, rejected all eight before grounding ran. With
+    the wrapper removed, 5 of 5 grounded cleanly. So this is transport
+    formatting, not content, and it is absorbed here at the model boundary
+    rather than in the governance parsers: those stay strict, and a reply
+    with prose around the JSON, or a fence inside it, still fails closed.
+    """
+    match = _WHOLE_FENCE.match(text.strip())
+    return match.group("body") if match else text
+
+
 def converse_loop(capability: str, prompt: str, *, region: str) -> dict[str, Any]:
     import boto3
 
@@ -193,7 +214,7 @@ def converse_loop(capability: str, prompt: str, *, region: str) -> dict[str, Any
     final = messages[-1] if messages[-1]["role"] == "assistant" else {}
     text = "".join(b.get("text", "") for b in final.get("content", []) if "text" in b)
     return {
-        "output_text": text,
+        "output_text": unwrap_fence(text),
         "input_tokens": input_tokens,
         "output_tokens": output_tokens,
         "stop_reason": stop_reason,

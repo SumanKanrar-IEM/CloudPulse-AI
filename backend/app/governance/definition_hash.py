@@ -16,9 +16,24 @@ from __future__ import annotations
 import hashlib
 from pathlib import Path
 
-# The repository's `agents/` tree, resolved from this file rather than from the
-# working directory -- a Lambda's cwd is not the repo root.
-AGENTS_ROOT = Path(__file__).resolve().parents[3] / "agents"
+# The `agents/` tree, resolved from this file rather than from the working
+# directory -- a Lambda's cwd is not the repo root.
+#
+# Two layouts. In the repository this file is `backend/app/governance/`, so
+# `agents/` is three levels up. In the deployed Lambda package it is
+# `/var/task/app/governance/`, and the deploy workflow copies `agents/` to the
+# package root, two levels up. The package layout is checked first.
+#
+# T067 found the second layout missing entirely: the workflow only ever
+# packaged `agents/action-groups/*.py`, so `parents[3]` resolved to
+# `/var/agents` and every worker that hashes its definition -- digest,
+# suggester, advisor -- crashed before its first query. Latent since T020,
+# invisible to every test because the repository layout always resolved.
+_HERE = Path(__file__).resolve()
+AGENTS_ROOT = next(
+    (p / "agents" for p in (_HERE.parents[2], _HERE.parents[3]) if (p / "agents").is_dir()),
+    _HERE.parents[3] / "agents",
+)
 
 
 def hash_text(content: str) -> str:
