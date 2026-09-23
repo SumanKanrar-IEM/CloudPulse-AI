@@ -88,7 +88,7 @@ def test_every_definition_loads_and_its_tools_match_its_allowlist(runtime, capab
     specs, paths = runtime.tool_specs(definition)
 
     assert prompt.strip()
-    assert definition["modelId"].startswith("global.anthropic.")
+    assert definition["modelId"].startswith("global.amazon.")
     assert set(paths.values()) == set(allowed)
     for spec in specs:
         assert spec["toolSpec"]["inputSchema"]["json"]["type"] == "object"

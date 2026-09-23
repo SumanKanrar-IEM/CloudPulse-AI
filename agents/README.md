@@ -54,8 +54,11 @@ model being unreachable: that is a specified, testable state here (FR-007a, SC-0
 | `advisor` | `definitions/advisor.json` | `prompts/advisor.md` | `action-groups/advisor_tools.py` (`/resources`) | **Not invoked.** `advisor_worker_handler` runs a deterministic detection and hashes these files onto the run row as the capability's contract (T038f). The seam if narration is wanted |
 | `narrator` | `definitions/narrator.json` | `prompts/narrator.md` | `action-groups/narrator_tools.py` (`/forecasts`) | **No worker.** Rendering deferred (T054a); the validator's exact-figure mode and these files stand |
 
-All four name `global.anthropic.claude-haiku-4-5-20251001-v1:0` — an inference profile, because
-R-613b found the previous id end-of-life and Haiku 4.5 invocable only through one.
+All four name `global.amazon.nova-2-lite-v1:0` — an Amazon-owned model through an inference
+profile. R-613b found the original Claude id end-of-life and every Anthropic model gated behind
+an AWS Marketplace subscription this AISPL-billed account cannot complete; R-613c verified Nova 2
+Lite answers from inside the runtime with no Marketplace step. Principle II names Bedrock, not a
+vendor.
 
 `_platform_api.py` is the one HTTP client every tool call shares: Cognito machine principal
 (secret read from Secrets Manager under the runtime's own role — R-613b), HTTPS only, GET only,

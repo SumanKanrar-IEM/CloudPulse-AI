@@ -27,11 +27,12 @@
 # endpoint is funded or NAT is added. FR-007a and SC-009 make that a recorded
 # run failure, not an outage.
 #
-# **What no configuration here can fix.** Anthropic models on Bedrock are an
-# AWS Marketplace subscription, and this account cannot complete it without a
-# valid payment instrument (R-613b). Everything below deploys; the first
-# Converse call fails with INVALID_PAYMENT_INSTRUMENT until the maintainer
-# resolves that at the account level.
+# **Why an Amazon-owned model.** Third-party models on Bedrock (Anthropic,
+# Cohere, Meta) are AWS Marketplace subscriptions sold by AWS Inc., which an
+# AISPL-billed account cannot complete without an international card
+# (R-613b). Amazon Nova is first-party: no Marketplace, billed like every
+# other AWS service. Principle II names Amazon Bedrock, not a vendor, and
+# R-613c verified Nova 2 Lite answers from inside the runtime.
 
 terraform {
   required_version = ">= 1.15.0, < 2.0.0"
@@ -57,7 +58,7 @@ locals {
     for capability in ["digest", "suggester", "advisor", "narrator"] :
     jsondecode(file("${local.agents_root}/definitions/${capability}.json")).modelId
   ])
-  # `global.anthropic.claude-haiku-4-5-...` is an inference profile; the grant
+  # `global.amazon.nova-2-lite-v1:0` is an inference profile; the grant
   # needs both the profile and the foundation model it routes to, in every
   # region it may route to (R-613b, run 4).
   foundation_models = [for id in local.model_ids : regex("^[a-z-]+\\.(.*)$", id)[0]]

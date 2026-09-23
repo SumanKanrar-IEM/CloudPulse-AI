@@ -2,7 +2,7 @@
   "capability": "suggester",
   "description": "Per-finding remediation drafts (spec 006, FR-011-FR-014). Writes a fix and a blast-radius note for one finding's own resource; applies nothing.",
   "promptFile": "agents/prompts/suggester.md",
-  "modelId": "global.anthropic.claude-haiku-4-5-20251001-v1:0",
+  "modelId": "global.amazon.nova-2-lite-v1:0",
   "inference": {
     "maxTokens": 2048,
     "temperature": 0

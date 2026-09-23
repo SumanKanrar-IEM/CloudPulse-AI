@@ -728,11 +728,15 @@ here starts wanting to change one, that is the signal the migration has slipped 
 - [ ] T067 Live-verify the migrated layer and tear down immediately after, per playbook §0.5.3 and
       the T030/T031 pattern: baseline sweep first, check AWS directly rather than trusting a run
       label, and diff the after-sweep against the baseline — S43, S44, SC-001, SC-002, SC-004
-      **Blocked (R-613b, 2026-09-14)**: no Anthropic model can be invoked in this account until a
-      valid payment instrument completes the Marketplace subscription. A live pass without a
-      model call proves nothing R-613a did not.
+      ~~**Blocked (R-613b, 2026-09-14)**: no Anthropic model can be invoked in this account until a
+      valid payment instrument completes the Marketplace subscription.~~ **Unblocked 2026-09-15
+      (R-613c)**: the model layer moved to Amazon Nova 2 Lite — first-party, no Marketplace — and
+      the spike's model probe passes. Ready to run.
+- [X] T067a Switch every capability to `global.amazon.nova-2-lite-v1:0` (R-613c). Four definitions,
+      one test assertion, the spike default, a Terraform comment, a README paragraph. Everything
+      else is model-agnostic and did not move — S43, S44, R-606, R-613c
 
-**Checkpoint**: the P1 stories run on a runtime this account can actually create — **built and validated; live proof (T067) waits on the account's payment instrument (R-613b).**
+**Checkpoint**: the P1 stories run on a runtime this account can actually create — **built, validated, and the model probe passes on Nova (R-613c); live proof is T067.**
 
 ---
 
