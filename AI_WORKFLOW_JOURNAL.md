@@ -1165,3 +1165,27 @@ bounded by R-605's VPC gap for every model-invoking worker and by T038c/T038d fo
 proposals — which today would be only advisory, since no existing enricher is unmapped. T058/T059
 (live-verify P2, teardown) remain for the maintainer to trigger; Phase 5a (AgentCore migration,
 T061–T067) is last, by direction.
+
+### Close-out (2026-09-24)
+
+Phase 5a ran last, as directed. The agent layer moved to one AgentCore runtime serving every
+capability on Amazon Nova 2 Lite (R-613c: the account's payment instrument cannot buy Anthropic
+models through Marketplace). T067's live pass found three bugs no test could have — a deploy
+role missing `bedrock-agentcore`, prompt files absent from the Lambda package since T020, and
+Nova wrapping every reply in a code fence — and tore dev down to a sweep identical to its
+baseline (R-613d). The one path it could not prove in a single run is worker → endpoint →
+runtime → model: an empty database gives the digest nothing to explain.
+
+The last four tasks closed without new code:
+
+- **T054/T054a** — User Story 7 descoped (option B). Phase 5a removed half of T054a's reason, but
+  the table, worker, drift check and panel were still unbuilt, and US7 was the spec's own last
+  thing to drop. The narrator files and the validator's exact-figure mode stay, unused.
+- **T058/T059** — closed as fixture-only (option A). The advisor's proposable class is empty on
+  any real account, so the accept path has no live input to act on; the integration suite proves
+  it on a real Postgres against fixtures, step by step against quickstart V3, and the task says
+  so rather than calling it live. With no deployment, T059 had nothing to tear down.
+
+Spec 006 ends at 96/96 with **no success criterion proven end to end against live data** — the
+same outcome spec 005 reached, reached this time on purpose and written down at each step
+instead of discovered at the end.

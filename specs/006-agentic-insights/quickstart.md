@@ -137,12 +137,13 @@ findings, compliance, cost, utilization — is byte-for-byte unaffected (SC-009)
 2. Confirm a high- or variably-utilized resource receives **no** downsizing recommendation.
 3. Confirm no control anywhere applies one.
 
-## V7 — Narratives match their charts exactly (SC-007) [P2] — **deferred**
+## V7 — Narratives match their charts exactly (SC-007) [P2] — **descoped**
 
-Narrative rendering is deferred with User Story 7 (tasks.md T054a, option C, 2026-09-13): no
+User Story 7 is out of scope for this spec (spec Clarifications, Session 2026-09-24). There is
+nothing to verify here. Before that, it was deferred (tasks.md T054a, option C, 2026-09-13): no
 table, worker or endpoint field exists to carry a narrative to a page. What stands and is
 verified in CI: the validator's exact-figure mode (`test_narrative_validation.py`) and the
-`agent-evals` cases for the narrator. When the chain lands, the steps are:
+`agent-evals` cases for the narrator. If a later spec builds the chain, the steps are:
 
 1. Open a cost or forecast page carrying a narrative.
 2. Compare every figure in the prose against the chart. Any mismatch is an SC-007 failure.
