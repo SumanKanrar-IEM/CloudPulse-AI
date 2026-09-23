@@ -735,6 +735,24 @@ here starts wanting to change one, that is the signal the migration has slipped 
 - [X] T067a Switch every capability to `global.amazon.nova-2-lite-v1:0` (R-613c). Four definitions,
       one test assertion, the spike default, a Terraform comment, a README paragraph. Everything
       else is model-agnostic and did not move — S43, S44, R-606, R-613c
+- [X] T067b Grant the deploy role `bedrock-agentcore:*` and `bedrock-agentcore-control:*`
+      (`infra/bootstrap/deploy_policy.tf`). `bedrock:*` does not imply the separate
+      `bedrock-agentcore` prefix; T067's first deploy failed on `CreateAgentRuntime` with everything
+      else applied — after 32 minutes, because the provider retries AccessDenied for its full
+      create timeout. Applied by hand to bootstrap by the maintainer — S43, R-613
+- [X] T067c Package `agents/definitions` and `agents/prompts` into the Lambda zip, and resolve
+      `definition_hash.AGENTS_ROOT` in both the repository and the package layout. **Found live:**
+      the deployed digest worker crashed on `/var/agents/prompts/digest.md` — the workflow only ever
+      packaged `agents/action-groups/*.py`, so the digest, suggester and advisor workers have never
+      run in a deployed Lambda since T020. Invisible to every test; the fix includes one that
+      rebuilds `/var/task` and imports the real module from it, and a deploy-time check that fails
+      the build if an agent file is missing — S43, S44, FR-005, R-608
+- [X] T067d Unwrap a code fence wrapping the *whole* reply, in `agents/runtime/main.py`. **Found
+      live:** Nova 2 Lite wrapped its JSON in ```` ```json ```` on 8 of 8 replies despite "no code
+      fence" in the prompt, and the fail-closed parser rejected all eight before grounding. With the
+      wrapper removed, 5 of 5 grounded cleanly — formatting, not quality, so R-606 says stay on
+      Nova 2 Lite. Absorbed at the model boundary so the governance parsers stay strict: prose
+      around a fence still fails closed — S43, S44, FR-001, R-606
 
 **Checkpoint**: the P1 stories run on a runtime this account can actually create — **built, validated, and the model probe passes on Nova (R-613c); live proof is T067.**
 

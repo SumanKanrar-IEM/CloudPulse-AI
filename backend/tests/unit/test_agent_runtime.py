@@ -199,3 +199,59 @@ def test_the_runtime_holds_no_scanned_account_credential_path(runtime) -> None: 
     )
     for forbidden in ("assume_role", "AssumeRole", "external_id", "cloudpulse-scanner", '"sts"'):
         assert forbidden not in source, forbidden
+
+
+# --- T067: the code fence Nova 2 Lite puts around every reply ----------------------
+
+# Verbatim shape of what the deployed runtime returned on 2026-09-23 (ids shortened).
+NOVA_REPLY = """```json
+{
+  "sections": [
+    {"heading": "Critical finding escalated", "body": "A critical finding was escalated.",
+     "references": [{"kind": "finding", "id": "f1", "label": "S3 bucket"}]}
+  ]
+}
+```"""
+
+
+def test_a_reply_wrapped_whole_in_a_json_fence_is_unwrapped(runtime) -> None:  # type: ignore[no-untyped-def]
+    import json
+
+    unwrapped = runtime.unwrap_fence(NOVA_REPLY)
+
+    assert json.loads(unwrapped)["sections"][0]["heading"] == "Critical finding escalated"
+
+
+def test_a_bare_fence_without_a_language_is_unwrapped_too(runtime) -> None:  # type: ignore[no-untyped-def]
+    assert runtime.unwrap_fence('```\n{"sections": []}\n```') == '{"sections": []}'
+
+
+def test_prose_around_a_fence_is_left_alone_so_the_parser_still_fails_closed(runtime) -> None:  # type: ignore[no-untyped-def]
+    """Only a fence wrapping the *entire* reply is transport formatting. Prose
+    before or after it is the model ignoring the output contract, and the
+    governance parser must see that and refuse it."""
+    chatty = 'Here is your digest:\n```json\n{"sections": []}\n```'
+
+    assert runtime.unwrap_fence(chatty) == chatty
+
+
+def test_unfenced_json_passes_through_unchanged(runtime) -> None:  # type: ignore[no-untyped-def]
+    assert runtime.unwrap_fence('{"sections": []}') == '{"sections": []}'
+
+
+def test_the_loop_returns_the_unwrapped_text(runtime, scripted) -> None:  # type: ignore[no-untyped-def]
+    scripted([_text(NOVA_REPLY)])
+
+    result = runtime.converse_loop("digest", "hello", region="us-east-1")
+
+    assert result["output_text"].startswith("{")
+
+
+def test_the_real_digest_parser_accepts_the_unwrapped_nova_reply(runtime) -> None:  # type: ignore[no-untyped-def]
+    """End to end through production code: the reply that failed 8 of 8
+    times on T067 now parses."""
+    from app.governance.digest import parse_sections
+
+    sections = parse_sections(runtime.unwrap_fence(NOVA_REPLY))
+
+    assert [s.heading for s in sections] == ["Critical finding escalated"]

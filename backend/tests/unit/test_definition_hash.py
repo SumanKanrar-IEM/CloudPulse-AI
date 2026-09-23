@@ -75,3 +75,38 @@ def test_a_hash_is_a_full_sha256_hex_digest() -> None:
     digest = hash_text("anything")
     assert len(digest) == 64
     assert set(digest) <= set("0123456789abcdef")
+
+
+def test_agents_root_resolves_in_the_lambda_package_layout(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    """T067: in the deployed package this module sits at
+    `/var/task/app/governance/`, and `agents/` is copied to `/var/task/`.
+    Reproduces that layout and imports the real module from it; before the
+    fix this resolved to `/var/agents` and every worker crashed."""
+    import importlib.util
+    import shutil
+    from pathlib import Path
+
+    import app.governance.definition_hash as real
+
+    task = tmp_path / "task"
+    (task / "app" / "governance").mkdir(parents=True)
+    (task / "agents" / "prompts").mkdir(parents=True)
+    (task / "agents" / "prompts" / "digest.md").write_text("x")
+    shutil.copy(Path(real.__file__), task / "app" / "governance" / "definition_hash.py")
+
+    spec = importlib.util.spec_from_file_location(
+        "packaged_definition_hash", task / "app" / "governance" / "definition_hash.py"
+    )
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    assert module.AGENTS_ROOT == task / "agents"
+    assert (module.AGENTS_ROOT / "prompts" / "digest.md").is_file()
+
+
+def test_agents_root_still_resolves_in_the_repository_layout() -> None:
+    from app.governance.definition_hash import AGENTS_ROOT
+
+    assert (AGENTS_ROOT / "prompts" / "digest.md").is_file()
+    assert AGENTS_ROOT.parent.name != "backend"

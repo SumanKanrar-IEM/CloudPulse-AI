@@ -122,6 +122,18 @@ jobs:
             --python-version ${{ env.PYTHON_VERSION }} \
             -r <(python -c "import tomllib;print('\n'.join(tomllib.load(open('pyproject.toml','rb'))['project']['dependencies']))")
           cp -r app connectors handlers migrations alembic.ini build/
+          # spec 006 (T067): the digest, suggester and advisor workers hash
+          # their prompt and definition onto every run row (FR-005, R-608), so
+          # those files must be in the package. They were not, from T020 until
+          # T067's live pass found every one of those workers crashing on its
+          # first line. The check below fails the deploy rather than shipping
+          # the same package again.
+          mkdir -p build/agents
+          cp -r ../agents/definitions ../agents/prompts build/agents/
+          for f in digest suggester advisor narrator; do
+            test -f "build/agents/prompts/$f.md" && test -f "build/agents/definitions/$f.json" \
+              || { echo "::error::agent file for $f missing from the Lambda package"; exit 1; }
+          done
           (cd build && zip -qr ../dist/lambda.zip .)
           echo "PACKAGE_HASH=$(openssl dgst -sha256 -binary dist/lambda.zip | base64)" >> "$GITHUB_ENV"
 
