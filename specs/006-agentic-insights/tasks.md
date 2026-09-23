@@ -1083,5 +1083,7 @@ additive polish; none of it is a prerequisite for declaring P1 complete.
 
 ## Phase 11: Convergence
 
-- [ ] T068 CRITICAL Add `agent-evals` to the required status checks of `pods/pod73`'s branch protection — it runs on every PR but is the one CI job of fifteen not required, so a prompt change that breaks a grounding expectation would show red and still merge. A repository-settings change: the maintainer applies it or approves it per Constitution VI, T055, R-609 (contradicts)
+- [X] T068 CRITICAL Add `agent-evals` to the required status checks of `pods/pod73`'s branch protection — it runs on every PR but is the one CI job of fifteen not required, so a prompt change that breaks a grounding expectation would show red and still merge. A repository-settings change: the maintainer applies it or approves it per Constitution VI, T055, R-609 (contradicts)
+      **Done 2026-09-24**, on the maintainer's instruction: `agent-evals` added to `pods/pod73`'s
+      required status checks through the branch-protection API; all fifteen CI jobs are now required.
 - [ ] T069 HIGH Handle a truncated suggester draft item-wise inside `run_suggester`: charge its tokens to the run budget, skip that finding, continue the pass, and leave the truncation identifiable on the run. Today `suggester_worker_handler.py` raises `ValueError` before `budget.charge`, so the draft's tokens are spent but never counted against the cap, the run records `failed` as though the model were unreachable, and every later finding waits a day. Supersedes T063a's recorded follow-up per FR-004, FR-004a, SC-008 (partial)
