@@ -75,13 +75,19 @@ class SuggestionTarget:
 
 @dataclass(frozen=True)
 class DraftedSuggestion:
-    """One suggestion the model produced, before anything has been believed."""
+    """One suggestion the model produced, before anything has been believed.
+
+    `truncated` means the model hit its token limit mid-draft (T063, T069). The
+    tokens were still spent, so `cost_units` is real; the text is not a
+    suggestion and is never validated or written.
+    """
 
     finding_id: uuid.UUID
     suggestion_text: str
     blast_radius_note: str
     sections: list[Section]
     cost_units: Decimal
+    truncated: bool = False
 
 
 @dataclass(frozen=True)
@@ -255,6 +261,13 @@ def run_suggester(
     finding, and the run's own status stays `succeeded`: the pass did what it was
     asked to, and `grounding_rejection` is where the refusals are counted
     (FR-006).
+
+    A truncated draft is item-wise too (T069; FR-004, FR-004a). Its tokens are
+    charged -- they were spent, and an uncharged draft would let the pass run past
+    its cap -- the finding is skipped for the next run to pick up, and the pass
+    continues. The run records `truncated`, so SC-008's "identifiable as
+    truncated" holds for a cut-off draft as well as for a cap stop; an error
+    still outranks it (`outcome_for`).
     """
     started_at = datetime.now(UTC)
     budget = RunBudget(cap_units if cap_units is not None else default_cost_cap_units())
@@ -264,6 +277,7 @@ def run_suggester(
     rejections: list[tuple[str, object]] = []
     error: str | None = None
     completed = True
+    truncated_drafts = 0
 
     for target in targets_needing_suggestions(session):
         if budget.exhausted:
@@ -284,6 +298,19 @@ def run_suggester(
             break
 
         budget.charge(draft.cost_units)
+        if draft.truncated:
+            # Nothing partial is written (FR-004a keeps validated items only).
+            # The finding still has no suggestion, so the next run retries it.
+            truncated_drafts += 1
+            logger.warning(
+                "suggester draft truncated; finding skipped",
+                extra={
+                    "tenant_id": str(session.tenant_id),
+                    "finding_id": str(target.finding_id),
+                    "cost_units": str(draft.cost_units),
+                },
+            )
+            continue
 
         verdict = validate_output(
             draft.sections,
@@ -304,7 +331,9 @@ def run_suggester(
             # is the one that should stand.
             skipped_admin_seeded += 1
 
-    status, failure_reason = outcome_for(budget, completed=completed, error=error)
+    status, failure_reason = outcome_for(
+        budget, completed=completed, error=error, truncated=truncated_drafts > 0
+    )
     if not keeps_partial_output(AgentCapability.SUGGESTER):  # pragma: no cover - defensive
         raise AssertionError("the suggester is item-wise; FR-004a's retention must apply to it")
 
@@ -335,6 +364,7 @@ def run_suggester(
             "written": written,
             "rejected": len(rejections),
             "skipped_admin_seeded": skipped_admin_seeded,
+            "truncated_drafts": truncated_drafts,
         },
     )
     return SuggesterOutcome(

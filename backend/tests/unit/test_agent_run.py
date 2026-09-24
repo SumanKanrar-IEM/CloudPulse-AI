@@ -101,6 +101,23 @@ def test_an_error_outranks_an_exhausted_budget() -> None:
     assert reason == "boom"
 
 
+def test_a_run_with_a_truncated_item_is_truncated_even_within_budget() -> None:
+    """T069, FR-004a: an item-wise run whose draft was cut off at the model's
+    token limit is marked truncated, not failed and not succeeded -- "the run is
+    recorded as truncated in both cases"."""
+    status, reason = outcome_for(_budget(), completed=True, error=None, truncated=True)
+    assert status is AgentRunStatus.TRUNCATED
+    assert reason is None
+
+
+def test_an_error_outranks_a_truncated_item() -> None:
+    """FR-007a: an unreachable model later in the pass is still the fact that
+    needs diagnosing."""
+    status, reason = outcome_for(_budget(), completed=False, error="boom", truncated=True)
+    assert status is AgentRunStatus.FAILED
+    assert reason == "boom"
+
+
 # --- FR-004a: what a truncated run keeps -------------------------------------------
 
 
