@@ -95,7 +95,7 @@ def default_cost_cap_units() -> Decimal:
 
 
 def outcome_for(
-    budget: RunBudget, *, completed: bool, error: str | None
+    budget: RunBudget, *, completed: bool, error: str | None, truncated: bool = False
 ) -> tuple[AgentRunStatus, str | None]:
     """How a run ended, and why if it failed (FR-004, FR-007a).
 
@@ -106,9 +106,15 @@ def outcome_for(
     `truncated` is deliberately not a failure. Recording it as one would make an
     ordinary budget stop indistinguishable from the model being unreachable,
     which is the single thing FR-007a needs to be able to see.
+
+    `truncated` is an item-wise caller reporting that some item was cut off at
+    the model's token limit (T069). The run is marked truncated whether or not
+    the budget stopped it (FR-004a: "recorded as truncated in both cases").
     """
     if error is not None:
         return AgentRunStatus.FAILED, error
+    if truncated:
+        return AgentRunStatus.TRUNCATED, None
     if completed:
         return AgentRunStatus.SUCCEEDED, None
     if budget.exhausted:

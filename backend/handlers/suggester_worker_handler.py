@@ -83,22 +83,20 @@ def _bedrock_invoker(*, runtime_arn: str, region: str) -> Any:
             prompt=_prompt(target),
             region=region,
         )
+        cost_units = Decimal(int(result["input_tokens"]) + int(result["output_tokens"]))
         if result["truncated"]:
-            # AgentCore reports truncation (T063). The item-wise thing to do is
-            # charge the tokens, skip this finding and continue the pass; that
-            # needs `run_suggester` to know about a truncated draft, which is
-            # `app/governance/` and outside Phase 5a's boundary (tasks.md
-            # T063a). Until then the pass ends here with a reason that names
-            # what happened, which `run_suggester` records as the failure --
-            # and everything written before it stays written (FR-004a).
-            raise ValueError(
-                f"model output for finding {target.finding_id} was truncated at its token limit"
+            # AgentCore reports truncation (T063). Not parsed and not raised: the
+            # tokens were spent, so `run_suggester` charges them, skips this
+            # finding and continues the pass (T069; FR-004, FR-004a).
+            return DraftedSuggestion(
+                finding_id=target.finding_id,
+                suggestion_text="",
+                blast_radius_note="",
+                sections=[],
+                cost_units=cost_units,
+                truncated=True,
             )
-        return parse_draft(
-            target.finding_id,
-            str(result["output_text"]),
-            cost_units=Decimal(int(result["input_tokens"]) + int(result["output_tokens"])),
-        )
+        return parse_draft(target.finding_id, str(result["output_text"]), cost_units=cost_units)
 
     return invoke
 
