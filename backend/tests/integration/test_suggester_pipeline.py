@@ -487,6 +487,110 @@ def test_an_unreachable_model_ends_the_pass_and_keeps_what_was_written(
     assert UNREACHABLE in reason
 
 
+def _truncated(target: SuggestionTarget, *, cost: str = "100") -> DraftedSuggestion:
+    """What the worker returns when the model hit its token limit (T069)."""
+    return DraftedSuggestion(
+        finding_id=target.finding_id,
+        suggestion_text="",
+        blast_radius_note="",
+        sections=[],
+        cost_units=Decimal(cost),
+        truncated=True,
+    )
+
+
+def _run_row(db: Session, run_id: uuid.UUID) -> Any:
+    return db.execute(
+        text("SELECT status, cost_units, failure_reason FROM agent_run WHERE id = :r"),
+        {"r": run_id},
+    ).one()
+
+
+def test_a_truncated_draft_is_charged_skipped_and_the_pass_continues(
+    db: Session, session: TenantSession, tenant_id: uuid.UUID, account: CloudAccount
+) -> None:
+    """T069, FR-004a, SC-008: a cut-off draft is one item, not the whole pass.
+    Its tokens count, nothing partial is written, the later finding still gets
+    its suggestion, and the run is identifiable as truncated -- not failed."""
+    _, first = _finding(
+        db, tenant_id, account, arn="arn:aws:s3:::first", severity=FindingSeverity.CRITICAL
+    )
+    _, second = _finding(
+        db, tenant_id, account, arn="arn:aws:s3:::second", severity=FindingSeverity.LOW
+    )
+
+    def _first_truncated(target: SuggestionTarget) -> DraftedSuggestion:
+        if target.finding_id == first.id:
+            return _truncated(target, cost="70")
+        return _good(target, cost="30")
+
+    outcome = run_suggester(session, invoke=_first_truncated, definition_hash=DEFINITION_HASH)
+    db.commit()
+
+    assert outcome.status is AgentRunStatus.TRUNCATED
+    assert outcome.written == 1
+    assert [row.finding_id for row in _suggestions(db, tenant_id)] == [second.id]
+    row = _run_row(db, outcome.run_id)
+    assert row.status == "truncated"
+    assert row.cost_units == Decimal("100")
+    assert row.failure_reason is None
+    # Skipped, not lost: the next run retries it.
+    assert [t.finding_id for t in targets_needing_suggestions(session)] == [first.id]
+
+
+def test_a_truncated_drafts_tokens_count_against_the_cap(
+    db: Session, session: TenantSession, tenant_id: uuid.UUID, account: CloudAccount
+) -> None:
+    """FR-004: an uncharged truncated draft would let the pass spend past its
+    cap. Charged, it stops the pass before the next call like any other spend."""
+    for index in (1, 2):
+        _finding(db, tenant_id, account, arn=f"arn:aws:s3:::bucket-{index}")
+    calls: list[uuid.UUID] = []
+
+    def _counting(target: SuggestionTarget) -> DraftedSuggestion:
+        calls.append(target.finding_id)
+        return _truncated(target, cost="100")
+
+    outcome = run_suggester(
+        session, invoke=_counting, definition_hash=DEFINITION_HASH, cap_units=Decimal("100")
+    )
+    db.commit()
+
+    assert len(calls) == 1
+    assert outcome.status is AgentRunStatus.TRUNCATED
+    assert _run_row(db, outcome.run_id).cost_units == Decimal("100")
+
+
+def test_an_error_after_a_truncated_draft_still_fails_the_run(
+    db: Session, session: TenantSession, tenant_id: uuid.UUID, account: CloudAccount
+) -> None:
+    """FR-007a: an unreachable model outranks a truncated item, and what was
+    written before either stays written (FR-004a)."""
+    _, first = _finding(
+        db, tenant_id, account, arn="arn:aws:s3:::first", severity=FindingSeverity.CRITICAL
+    )
+    _, second = _finding(
+        db, tenant_id, account, arn="arn:aws:s3:::second", severity=FindingSeverity.MEDIUM
+    )
+    _finding(db, tenant_id, account, arn="arn:aws:s3:::third", severity=FindingSeverity.LOW)
+
+    def _mixed(target: SuggestionTarget) -> DraftedSuggestion:
+        if target.finding_id == first.id:
+            return _good(target)
+        if target.finding_id == second.id:
+            return _truncated(target)
+        raise RuntimeError(UNREACHABLE)
+
+    outcome = run_suggester(session, invoke=_mixed, definition_hash=DEFINITION_HASH)
+    db.commit()
+
+    assert outcome.status is AgentRunStatus.FAILED
+    assert outcome.written == 1
+    row = _run_row(db, outcome.run_id)
+    assert UNREACHABLE in row.failure_reason
+    assert row.cost_units == Decimal("200")
+
+
 def test_a_pass_with_nothing_to_do_still_records_a_run(
     db: Session, session: TenantSession, tenant_id: uuid.UUID
 ) -> None:

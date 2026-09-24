@@ -15,6 +15,8 @@ from __future__ import annotations
 
 import json
 import uuid
+from decimal import Decimal
+from typing import Any
 
 import pytest
 
@@ -227,3 +229,32 @@ def test_no_figures_are_declared_so_a_number_in_prose_is_unresolvable() -> None:
 
     assert verdict.ok is False
     assert verdict.rejected_reference == "400.00"
+
+
+# --- a truncated draft from the worker (T069) --------------------------------
+
+
+def test_the_worker_returns_a_truncated_draft_rather_than_raising(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """T069: raising here ended the pass as if the model were unreachable and
+    left the spent tokens uncharged. The worker now hands `run_suggester` a
+    truncated draft carrying the real token cost, and parses nothing."""
+    import connectors.aws
+    from handlers.suggester_worker_handler import _bedrock_invoker
+
+    def _truncated(**_: Any) -> dict[str, Any]:
+        return {
+            "output_text": '{"suggestion": "Add an own',
+            "input_tokens": 300,
+            "output_tokens": 512,
+            "truncated": True,
+        }
+
+    monkeypatch.setattr(connectors.aws, "invoke_agent", _truncated)
+    draft = _bedrock_invoker(runtime_arn="arn:test", region="us-east-1")(_target())
+
+    assert draft.truncated is True
+    assert draft.finding_id == FINDING_ID
+    assert draft.cost_units == Decimal("812")
+    assert draft.sections == []
