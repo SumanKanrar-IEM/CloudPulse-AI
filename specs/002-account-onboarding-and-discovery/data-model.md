@@ -12,7 +12,7 @@ Every table here is tenant-scoped (`tenant_id` FK, NOT NULL) per spec 1's FR-030
 `updated_at` on every row. No table in this spec introduces a role column — role continues to come
 from Cognito claims only (spec 1 FR-031a), unchanged.
 
-## `cloud_account` — existing table, no schema change
+## `cloud_account` — existing table, one additive column (T062)
 
 | Column | Type | Constraints | Already defined by |
 |---|---|---|---|
@@ -22,6 +22,7 @@ from Cognito claims only (spec 1 FR-031a), unchanged.
 | `external_id_ref` | VARCHAR(2048) | NULL | migration 0005 — **this spec populates it**: a Secrets Manager ARN holding the platform-generated ExternalId (FR-003a), never a plaintext value (Principle III) |
 | `scan_regions` | TEXT[] | NOT NULL, default `{}` | migration 0005 — FR-006/FR-008 |
 | `status` | ENUM `account_status` (`pending`, `verified`, `failed`, `disabled`) | NOT NULL, default `pending` | migration 0005 — **this spec uses `disabled` for FR-009a's deactivation** |
+| `failure_reason` | TEXT | NULL; NOT NULL exactly when `status='failed'` (`ck_cloud_account_failure_reason_shape`) | **migration 0017 (T062)** — FR-012's admin-actionable reason, set when a scan cannot assume the role |
 
 **Why `disabled` needs no new migration**: spec 1's enum already anticipated this exact need. This
 spec's behavioral contribution is entirely in how the four values transition, not in adding a

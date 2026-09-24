@@ -1,4 +1,5 @@
-"""Registration-time role verification (FR-007).
+"""Role verification: at registration (FR-007), and the reason an admin sees when a
+later scan finds the role gone bad (US1 scenario 6, FR-012).
 
 Verifies a supplied role with a real, read-only action before an account is accepted,
 distinguishing "role not found or cannot be assumed" from "assumed, but grants no
@@ -27,4 +28,20 @@ def verify_registration(account: ConnectorAccount, region: str) -> None:
         raise VerificationError(outcome.kind, outcome.detail)
 
 
-__all__ = ["VerificationError", "verify_registration"]
+def role_failure_reason(*, role_arn: str | None, aws_account_id: str, code: str) -> str:
+    """FR-012: what `failureReason` says when a scan cannot assume the account's role.
+
+    STS answers a deleted role, a changed trust policy, and an ExternalId mismatch
+    with the same `AccessDenied`, so the reason names all three and the one fix that
+    covers them, rather than guessing which one happened.
+    """
+    return (
+        f"CloudPulse could not assume the role {role_arn} (AWS error: {code}). The role "
+        "may have been deleted, or its trust policy changed so it no longer trusts "
+        "CloudPulse with this account's ExternalId. Re-deploy the CloudPulse "
+        f"cross-account template in AWS account {aws_account_id} with the ExternalId "
+        "used at registration, then trigger a scan of this account to re-verify it."
+    )
+
+
+__all__ = ["VerificationError", "role_failure_reason", "verify_registration"]

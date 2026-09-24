@@ -107,6 +107,7 @@ erDiagram
         text external_id_ref "Secrets Manager REFERENCE"
         text_array scan_regions
         enum status
+        text failure_reason "NOT NULL exactly when status = failed (ck_cloud_account_failure_reason_shape), spec 002 FR-012"
     }
     RESOURCE {
         uuid id PK

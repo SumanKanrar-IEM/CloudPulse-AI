@@ -67,7 +67,12 @@ import { AccountFormComponent } from './account-form.component';
               <td>{{ account.alias || account.awsAccountId }}</td>
               <td>{{ account.connectionMode }}</td>
               <td>{{ account.scanRegions.join(', ') }}</td>
-              <td>{{ account.status }}</td>
+              <td>
+                {{ account.status }}
+                @if (account.status === 'failed' && account.failureReason) {
+                  <p class="failure-reason">{{ account.failureReason }}</p>
+                }
+              </td>
               <td>{{ account.lastScan?.status ?? 'never scanned' }}</td>
               <td>
                 @if (account.status === 'disabled') {
@@ -115,6 +120,10 @@ import { AccountFormComponent } from './account-form.component';
         text-align: left;
         padding: 0.5rem;
         border-bottom: 1px solid #d0d0d0;
+      }
+      .failure-reason {
+        margin: 0.25rem 0 0;
+        max-width: 40rem;
       }
     `,
   ],

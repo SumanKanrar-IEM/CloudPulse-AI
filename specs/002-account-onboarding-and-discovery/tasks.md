@@ -125,7 +125,9 @@ required field is visible; confirm an operator or viewer can view but not regist
 
 ### Implementation for User Story 2
 
-- [ ] T022 [US2] Write `GET /accounts` in `accounts.py`, gated `require_role(Role.ADMIN, Role.OPERATOR, Role.VIEWER)`, including the verification-failure reason in the response — S10, FR-010, FR-010a, FR-012. **Partially done in T015's PR**: the route exists and lists every field except `failureReason` -- deferred here since no path before Phase 6 ever produces a `FAILED` account (registration always verifies synchronously before accepting, per FR-007), so there is nothing real to display yet; add the field when Phase 6's scan-failure handling gives `FAILED` a genuine cause to report, rather than speculating now.
+- [X] T022 [US2] Write `GET /accounts` in `accounts.py`, gated `require_role(Role.ADMIN, Role.OPERATOR, Role.VIEWER)`, including the verification-failure reason in the response — S10, FR-010, FR-010a, FR-012. **Partially done in T015's PR**: the route exists and lists every field except `failureReason` -- deferred here since no path before Phase 6 ever produces a `FAILED` account (registration always verifies synchronously before accepting, per FR-007), so there is nothing real to display yet; add the field when Phase 6's scan-failure handling gives `FAILED` a genuine cause to report, rather than speculating now.
+      **Done 2026-09-25, via T062.** `GET /accounts` now serves `failureReason`: the reason for a
+      `failed` account, `null` for every other status. Phase 6's scan handling now gives it a real cause.
 - [X] T023 [US2] Write `PATCH /accounts/{id}` (region-list edit), admin-gated — S9, FR-008, FR-011a. Landed in T015's PR alongside registration -- one router file, natural to build together.
 - [X] T024 [US2] Write `POST /accounts/{id}/deactivate`, admin-gated, refusing a scan-in-progress abort (FR-009b) — S9, FR-009a, FR-011a. Landed in T015's PR.
 - [X] T025 [US2] Write `POST /accounts/{id}/reactivate`, admin-gated, no re-verification (Edge Cases) — S9, FR-009c, FR-011a. Landed in T015's PR.
@@ -344,4 +346,20 @@ runs short, Phase 8 is what gets cut — not any part of Phases 1–7.
 
 ## Phase 10: Convergence
 
-- [ ] T062 HIGH Complete T022: give an account a genuine `failed` state with an admin-actionable reason and serve it as `failureReason` on `GET /accounts` — today `AccountStatus.FAILED` is never set anywhere and the account row has no reason column, so US2's third acceptance scenario cannot occur. If no verification can fail after registration by design, amend FR-012 instead, by decision rather than by omission, per FR-012, US2/AC3 (partial)
+- [X] T062 HIGH Complete T022: give an account a genuine `failed` state with an admin-actionable reason and serve it as `failureReason` on `GET /accounts` — today `AccountStatus.FAILED` is never set anywhere and the account row has no reason column, so US2's third acceptance scenario cannot occur. If no verification can fail after registration by design, amend FR-012 instead, by decision rather than by omission, per FR-012, US2/AC3 (partial)
+      **Done 2026-09-25; FR-012 kept, not amended.** When a scan unit cannot assume the account's
+      role, the scan worker marks the account `failed` and records a reason. The reason names the
+      role, the AWS error code and the fix: re-deploy the cross-account template with the
+      registration's ExternalId, then trigger a scan. The unit still fails, so the scan records a
+      failure. Migration 0017 adds `cloud_account.failure_reason` and a check constraint
+      (`ck_cloud_account_failure_reason_shape`): the reason is present exactly when the status is
+      `failed`. The accounts page shows the reason under the status. Decisions where the spec was
+      silent: (1) Only a failed AssumeRole marks the account failed. An AccessDenied from
+      discovery, on a role that was assumed, still fails only the unit. (2) Any successful role
+      assumption on a later scan returns a `failed` account to `verified` and clears the reason.
+      A Step Functions retry that succeeds does this too, so a passing STS error heals itself.
+      (3) Following FR-026's "every connected, verified account", the daily trigger still skips
+      `failed` accounts. An admin or operator brings one back by triggering a scan on demand once
+      the role is fixed. (4) A `disabled` account stays `disabled` whatever a scan finds, and
+      deactivating a `failed` account clears its reason. (5) data-model.md's `cloud_account` table
+      gains a `failure_reason` row. Its "no schema change" heading was true only until this task.
