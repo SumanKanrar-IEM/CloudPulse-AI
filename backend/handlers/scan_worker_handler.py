@@ -25,7 +25,8 @@ from app.governance.coverage_advisor import accepted_coverage_overrides
 from app.models.core import CloudAccount, Scan
 from app.models.enums import ConnectionMode
 from app.scan import discovery, enrichment, orchestrator
-from connectors.aws import AwsConnector, read_external_id
+from app.scan.verification import role_failure_reason
+from connectors.aws import AwsConnector, RoleAssumptionError, read_external_id
 from connectors.base import NormalizedResource
 
 
@@ -74,6 +75,7 @@ def _handle_scan_unit(event: dict[str, Any]) -> dict[str, Any]:
     tenant_id = uuid.UUID(event["tenant_id"])
     cloud_account_id = uuid.UUID(event["cloud_account_id"])
     region = event["region"]
+    role_error: RoleAssumptionError | None = None
 
     with tenant_session(tenant_id) as session:
         account = session.raw.execute(
@@ -94,19 +96,43 @@ def _handle_scan_unit(event: dict[str, Any]) -> dict[str, Any]:
         # accepted mid-scan waits for the next one (the same guarantee FR-022
         # gives the shipped file).
         connector.coverage_overrides = accepted_coverage_overrides(session)
-        resources = discovery.discover_account_region(
-            aws_account_id=account.aws_account_id,
-            connection_mode=account.connection_mode.value,
-            role_arn=account.role_arn,
-            external_id=external_id,
-            region=region,
-            connector=connector,
+        try:
+            resources = discovery.discover_account_region(
+                aws_account_id=account.aws_account_id,
+                connection_mode=account.connection_mode.value,
+                role_arn=account.role_arn,
+                external_id=external_id,
+                region=region,
+                connector=connector,
+            )
+        except RoleAssumptionError as exc:
+            # US1 scenario 6: the role went bad after registration. Recorded in
+            # this transaction and raised only after it commits (raising inside
+            # `tenant_session` would roll the status back), so the unit still
+            # fails for the scan's own accounting (R-204).
+            role_error = exc
+            orchestrator.record_role_outcome(
+                account,
+                role_failure_reason(
+                    role_arn=account.role_arn,
+                    aws_account_id=account.aws_account_id,
+                    code=exc.code,
+                ),
+            )
+        else:
+            orchestrator.record_role_outcome(account, None)
+            enriched = enrichment.enrich_resources(resources, connector=connector)
+            _write_raw_snapshot(scan_id, region, enriched)
+            orchestrator.persist_unit_result(
+                session, cloud_account_id=cloud_account_id, resources=enriched
+            )
+
+    if role_error is not None:
+        logger.warning(
+            "scan unit could not assume the account's role -- account marked failed",
+            extra={"scan_id": scan_id, "region": region, "code": role_error.code},
         )
-        enriched = enrichment.enrich_resources(resources, connector=connector)
-        _write_raw_snapshot(scan_id, region, enriched)
-        orchestrator.persist_unit_result(
-            session, cloud_account_id=cloud_account_id, resources=enriched
-        )
+        raise role_error
 
     logger.info(
         "scan unit completed",

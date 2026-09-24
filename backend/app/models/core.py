@@ -205,6 +205,8 @@ class CloudAccount(UUIDPrimaryKey, Timestamps, TenantScoped, Base):
         nullable=False,
         server_default=enums.AccountStatus.PENDING.value,
     )
+    # FR-012: what an admin must fix, set when a scan cannot assume the role.
+    failure_reason: Mapped[str | None] = mapped_column(Text)
 
     __table_args__ = (
         UniqueConstraint("tenant_id", "aws_account_id", name="uq_cloud_account_tenant_account"),
@@ -213,6 +215,13 @@ class CloudAccount(UUIDPrimaryKey, Timestamps, TenantScoped, Base):
         CheckConstraint(
             "connection_mode <> 'assume_role' OR role_arn IS NOT NULL",
             name="assume_role_requires_arn",
+        ),
+        # Same shape as agent_run's: a failure always explains itself, and a
+        # reason never outlives the failure it explained.
+        CheckConstraint(
+            "(status = 'failed' AND failure_reason IS NOT NULL) "
+            "OR (status <> 'failed' AND failure_reason IS NULL)",
+            name="failure_reason_shape",
         ),
     )
 

@@ -2266,6 +2266,13 @@ components:
         status:
           type: string
           title: Status
+        failureReason:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Failurereason
+          description: What an admin must fix; present exactly when status is failed
+            (FR-012).
         lastScan:
           anyOf:
           - $ref: '#/components/schemas/ScanSummary'

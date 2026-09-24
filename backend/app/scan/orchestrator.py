@@ -149,14 +149,37 @@ def _enqueue_governance_messages(scan: Scan) -> None:
         client.send_message(QueueUrl=queue_url, MessageBody=body)
 
 
+# --- Account status from a scan's role check (US1 scenario 6, FR-012) --------------
+
+
+def record_role_outcome(account: CloudAccount, failure_reason: str | None) -> None:
+    """A scan unit's role assumption is a verification attempt (data-model.md's
+    transitions): failure moves the account to `failed` with `failure_reason`, and
+    success moves a `failed` account back to `verified` with the reason cleared.
+
+    A deactivated account stays `disabled` either way -- only deactivation and
+    reactivation move it in or out of that state (FR-009a/FR-009c), and a scan
+    still finishing after deactivation (FR-009b) must not undo it.
+    """
+    if account.status is AccountStatus.DISABLED:
+        return
+    if failure_reason is not None:
+        account.status = AccountStatus.FAILED
+    elif account.status is AccountStatus.FAILED:
+        account.status = AccountStatus.VERIFIED
+    account.failure_reason = failure_reason
+
+
 # --- Daily trigger (FR-026) ---------------------------------------------------------
 
 
 def start_due_daily_scans(session: TenantSession) -> list[str]:
     """Every connected, verified account is scanned automatically daily (FR-026).
 
-    Deactivated (FR-009a) and not-yet-verified accounts are excluded structurally --
-    the query only selects `verified` accounts. An account already mid-scan is
+    Deactivated (FR-009a), not-yet-verified, and `failed` accounts are excluded
+    structurally -- the query only selects `verified` accounts. A `failed` account
+    returns to the daily schedule once an on-demand scan (FR-026a) assumes its role
+    again (`record_role_outcome`). An account already mid-scan is
     skipped (FR-027), not queued or retried; it will be picked up the next day.
     """
     accounts = (
@@ -326,6 +349,7 @@ __all__ = [
     "ScanAlreadyRunningError",
     "start_scan",
     "start_due_daily_scans",
+    "record_role_outcome",
     "persist_unit_result",
     "sweep_deleted_resources",
     "finalize_scan",

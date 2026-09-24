@@ -36,9 +36,11 @@ class VerificationOutcome:
     detail: str
 
 
-class _SessionError(Exception):
+class RoleAssumptionError(Exception):
     """Raised by `_build_session` when a role cannot be assumed. Caught by callers
-    that need to distinguish this from a downstream API failure."""
+    that need to distinguish this from a downstream API failure -- including the
+    scan worker, which marks the account `failed` on it (US1 scenario 6). ``code``
+    is the AWS error code as a plain string, so no SDK type crosses the boundary."""
 
     def __init__(self, code: str) -> None:
         self.code = code
@@ -49,7 +51,7 @@ def _build_session(account: ConnectorAccount, *, session_name: str) -> Any:
     """Same-account: the platform's own ambient identity. Cross-account: assume the
     account's scanner role once (research.md R-206), using its ExternalId.
 
-    Raises `_SessionError` if the role cannot be assumed at all -- distinct from a
+    Raises `RoleAssumptionError` if the role cannot be assumed at all -- distinct from a
     downstream API call failing on a session that *was* successfully built.
     """
     import boto3
@@ -59,7 +61,7 @@ def _build_session(account: ConnectorAccount, *, session_name: str) -> Any:
         return boto3.Session()
 
     if not account.role_arn:
-        raise _SessionError("no role reference supplied")
+        raise RoleAssumptionError("no role reference supplied")
 
     sts = boto3.client("sts")
     try:
@@ -70,7 +72,7 @@ def _build_session(account: ConnectorAccount, *, session_name: str) -> Any:
             DurationSeconds=900,
         )
     except (ClientError, BotoCoreError) as exc:
-        raise _SessionError(_error_code(exc)) from exc
+        raise RoleAssumptionError(_error_code(exc)) from exc
 
     creds = assumed["Credentials"]
     return boto3.Session(
@@ -92,7 +94,7 @@ def verify_access(account: ConnectorAccount, region: str) -> VerificationOutcome
 
     try:
         session = _build_session(account, session_name="cloudpulse-verify")
-    except _SessionError as exc:
+    except RoleAssumptionError as exc:
         return VerificationOutcome("role_not_assumable", exc.code)
 
     try:
@@ -808,6 +810,7 @@ def _parse_metric_data_response(response: dict[str, Any]) -> list[dict[str, Any]
 
 __all__ = [
     "VerificationOutcome",
+    "RoleAssumptionError",
     "verify_access",
     "get_local_account_id",
     "discover",

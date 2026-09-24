@@ -104,6 +104,11 @@ class Account(BaseModel):
     role_arn: str | None = Field(default=None, alias="roleArn")
     scan_regions: list[str] = Field(alias="scanRegions")
     status: str
+    failure_reason: str | None = Field(
+        default=None,
+        alias="failureReason",
+        description="What an admin must fix; present exactly when status is failed (FR-012).",
+    )
     last_scan: ScanSummary | None = Field(default=None, alias="lastScan")
     created_at: datetime = Field(alias="createdAt")
 
@@ -163,6 +168,7 @@ def _to_account_model(row: CloudAccount) -> Account:
         role_arn=row.role_arn,
         scan_regions=list(row.scan_regions),
         status=row.status.value,
+        failure_reason=row.failure_reason,
         created_at=row.created_at,
     )
 
@@ -449,6 +455,7 @@ async def deactivate_account(
     with tenant_session(principal.tenant_id) as session:
         account = _get_or_404(session, account_id)
         account.status = AccountStatus.DISABLED
+        account.failure_reason = None  # ck_cloud_account_failure_reason_shape
         session.flush()
         _audit(
             session,

@@ -18,6 +18,10 @@ export interface Account {
     roleArn?: string | null;
     scanRegions: Array<string>;
     status: string;
+    /**
+     * What an admin must fix; present exactly when status is failed (FR-012).
+     */
+    failureReason?: string | null;
     lastScan?: ScanSummary | null;
     createdAt: string;
 }
