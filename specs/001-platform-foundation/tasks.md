@@ -467,3 +467,9 @@ added for the remaining cross-spec gaps flagged by CHK028/030/032.
       **Done 2026-09-27.** The pass's CRITICAL (Principle VII's recorded AI review, absent from merged
       PRs #49–#143) is answered going forward by T140 and recorded in the journal; its HIGH (the e2e
       suite broken on trunk and absent from CI) was closed by spec 004's T045
+- [X] T142 Complete `AI_WORKFLOW_JOURNAL.md` §5 (Agentic Automation) and §6 (Assessment & Convergence) and refresh `SPECKIT_PLAYBOOK.md`'s current-status block (playbook §0.4 step 27) — per Principle I
+      **Done 2026-09-27.** §5 records the five workflows, why they are disabled (the account's Copilot
+      plan rejects the models tried), and Principle VII's missing recorded review on merged PRs
+      #49–#143. §6 records the convergence pass, its fixes, the final analyze pass, and the
+      architectural assessment. The playbook's spec-1 status block is kept below the new one as the
+      record §0.5 was written from
