@@ -96,7 +96,19 @@ def _bedrock_invoker(*, runtime_arn: str, region: str) -> Any:
                 cost_units=cost_units,
                 truncated=True,
             )
-        return parse_draft(target.finding_id, str(result["output_text"]), cost_units=cost_units)
+        try:
+            return parse_draft(target.finding_id, str(result["output_text"]), cost_units=cost_units)
+        except ValueError as exc:
+            # The model answered but broke the output contract. Raising here would
+            # read as "unreachable" and leave the tokens uncharged (T070, FR-004).
+            return DraftedSuggestion(
+                finding_id=target.finding_id,
+                suggestion_text="",
+                blast_radius_note="",
+                sections=[],
+                cost_units=cost_units,
+                unparseable=str(exc),
+            )
 
     return invoke
 

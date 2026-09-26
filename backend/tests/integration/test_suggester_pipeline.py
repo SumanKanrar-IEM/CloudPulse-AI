@@ -499,6 +499,18 @@ def _truncated(target: SuggestionTarget, *, cost: str = "100") -> DraftedSuggest
     )
 
 
+def _unparseable(target: SuggestionTarget, *, cost: str = "100") -> DraftedSuggestion:
+    """What the worker returns when a complete reply broke the output contract (T070)."""
+    return DraftedSuggestion(
+        finding_id=target.finding_id,
+        suggestion_text="",
+        blast_radius_note="",
+        sections=[],
+        cost_units=Decimal(cost),
+        unparseable="suggestion output was not valid JSON",
+    )
+
+
 def _run_row(db: Session, run_id: uuid.UUID) -> Any:
     return db.execute(
         text("SELECT status, cost_units, failure_reason FROM agent_run WHERE id = :r"),
@@ -610,3 +622,55 @@ def test_a_pass_with_nothing_to_do_still_records_a_run(
         ).scalar_one()
         == 1
     )
+
+
+def test_an_unparseable_draft_is_charged_skipped_and_the_pass_continues(
+    db: Session, session: TenantSession, tenant_id: uuid.UUID, account: CloudAccount
+) -> None:
+    """T070, FR-004, FR-007a: the model answered, so this is not an unreachable
+    model. Its tokens count, nothing is written for it, the later finding still
+    gets its suggestion, and the finding is retried by the next run."""
+    _, first = _finding(
+        db, tenant_id, account, arn="arn:aws:s3:::first", severity=FindingSeverity.CRITICAL
+    )
+    _, second = _finding(
+        db, tenant_id, account, arn="arn:aws:s3:::second", severity=FindingSeverity.LOW
+    )
+
+    def _first_unparseable(target: SuggestionTarget) -> DraftedSuggestion:
+        if target.finding_id == first.id:
+            return _unparseable(target, cost="70")
+        return _good(target, cost="30")
+
+    outcome = run_suggester(session, invoke=_first_unparseable, definition_hash=DEFINITION_HASH)
+    db.commit()
+
+    assert outcome.status is AgentRunStatus.SUCCEEDED
+    assert outcome.written == 1
+    assert [row.finding_id for row in _suggestions(db, tenant_id)] == [second.id]
+    row = _run_row(db, outcome.run_id)
+    assert row.cost_units == Decimal("100")
+    assert row.failure_reason is None
+    assert [t.finding_id for t in targets_needing_suggestions(session)] == [first.id]
+
+
+def test_an_unparseable_drafts_tokens_count_against_the_cap(
+    db: Session, session: TenantSession, tenant_id: uuid.UUID, account: CloudAccount
+) -> None:
+    """FR-004: uncharged, a run of malformed replies could spend without bound."""
+    for index in (1, 2):
+        _finding(db, tenant_id, account, arn=f"arn:aws:s3:::bucket-{index}")
+    calls: list[uuid.UUID] = []
+
+    def _counting(target: SuggestionTarget) -> DraftedSuggestion:
+        calls.append(target.finding_id)
+        return _unparseable(target, cost="100")
+
+    outcome = run_suggester(
+        session, invoke=_counting, definition_hash=DEFINITION_HASH, cap_units=Decimal("100")
+    )
+    db.commit()
+
+    assert len(calls) == 1
+    assert outcome.status is AgentRunStatus.TRUNCATED
+    assert _run_row(db, outcome.run_id).cost_units == Decimal("100")
