@@ -80,8 +80,11 @@ def test_the_route_reuses_the_shared_admin_and_operator_alias() -> None:
     import inspect
 
     from app.api.routers import accounts as accounts_module
+    from app.core import security
 
-    source = inspect.getsource(accounts_module)
+    # T139: the alias is defined once in `app.core.security` and imported here.
+    assert accounts_module.OperatorPrincipal is security.OperatorPrincipal
+    source = inspect.getsource(security)
     assert "OperatorPrincipal = Annotated[Principal, Depends(require_operator)]" in source
     trigger_fn_source = inspect.getsource(accounts_module.trigger_scan)
     assert "OperatorPrincipal" in trigger_fn_source

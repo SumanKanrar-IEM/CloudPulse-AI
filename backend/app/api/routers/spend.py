@@ -11,19 +11,18 @@ from datetime import date
 from decimal import Decimal
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Query
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 
 from app.api.errors import ERROR_RESPONSES, AppError, ErrorCode
 from app.core.db import tenant_session
-from app.core.security import Principal, require_viewer
+from app.core.security import ViewerPrincipal
 from app.models.core import Sda as SdaRow
 from app.models.core import SpendRecord as SpendRecordRow
 
 router = APIRouter(tags=["spend"])
 
-ViewerPrincipal = Annotated[Principal, Depends(require_viewer)]
 
 _NO_SDA_FILTER = "none"
 

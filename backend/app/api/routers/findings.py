@@ -14,14 +14,18 @@ import uuid
 from datetime import UTC, datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query, Request, status
+from fastapi import APIRouter, Query, Request, status
 from pydantic import BaseModel, Field
 from sqlalchemy import select, update
 
 from app.api.errors import ERROR_RESPONSES, AppError, ErrorCode, correlation_id_of
 from app.core.audit import write_audit_event
 from app.core.db import TenantSession, tenant_session
-from app.core.security import Principal, require_admin, require_operator, require_viewer
+from app.core.security import (
+    AdminPrincipal,
+    OperatorPrincipal,
+    ViewerPrincipal,
+)
 from app.core.users import resolve_app_user_id
 from app.governance import suggestions as suggestions_governance
 from app.governance.notifications import displayed_escalated_at
@@ -32,14 +36,6 @@ from app.models.core import Rule as RuleRow
 from app.models.enums import FindingKind, FindingStatus
 
 router = APIRouter(prefix="/findings", tags=["findings"])
-
-ViewerPrincipal = Annotated[Principal, Depends(require_viewer)]
-OperatorPrincipal = Annotated[Principal, Depends(require_operator)]
-AdminPrincipal = Annotated[Principal, Depends(require_admin)]
-
-# FR-014: the three violation kinds `evaluate_rule_against_tags` (validation.py)
-# can return, exposed as-is on the wire.
-_KIND_VALUES = ("missing_tag", "invalid_value", "invalid_format")
 
 
 class ResourceSummary(BaseModel):

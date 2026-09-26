@@ -23,15 +23,14 @@ from __future__ import annotations
 
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
-from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 
 from app.api.errors import ERROR_RESPONSES
 from app.core.db import TenantSession, tenant_session
-from app.core.security import Principal, require_viewer
+from app.core.security import ViewerPrincipal
 from app.governance.forecasting import (
     Backtest,
     InsufficientHistory,
@@ -47,7 +46,6 @@ from app.models.enums import ForecastKind
 
 router = APIRouter(tags=["forecasts"])
 
-ViewerPrincipal = Annotated[Principal, Depends(require_viewer)]
 
 # A week held out. Long enough that a backtest error means something; short
 # enough that a project with the minimum history still has more to train on

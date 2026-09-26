@@ -449,4 +449,7 @@ added for the remaining cross-spec gaps flagged by CHK028/030/032.
 
 ## Phase 11: Convergence
 
-- [ ] T139 LOW Remove the unused `ROLE_RANK` from `backend/app/core/security.py`, and define the `ViewerPrincipal` / `AdminPrincipal` dependency aliases once in `app/core/security.py` instead of re-declaring them in each of the 16 routers that do today per FR-032a (unrequested)
+- [X] T139 LOW Remove the unused `ROLE_RANK` from `backend/app/core/security.py`, and define the `ViewerPrincipal` / `AdminPrincipal` dependency aliases once in `app/core/security.py` instead of re-declaring them in each of the 16 routers that do today per FR-032a (unrequested)
+      **Done 2026-09-26.** `ROLE_RANK` removed. `AdminPrincipal`, `OperatorPrincipal` and `ViewerPrincipal` are
+      defined once in `app/core/security.py` beside `CurrentPrincipal` and imported by all 16 routers;
+      `test_scan_scheduling.py`'s structural guard now checks the shared alias is the one `accounts.py` uses.

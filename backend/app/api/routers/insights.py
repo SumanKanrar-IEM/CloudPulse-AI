@@ -22,13 +22,13 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Query
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 
 from app.api.errors import ERROR_RESPONSES
 from app.core.db import tenant_session
-from app.core.security import Principal, require_viewer
+from app.core.security import ViewerPrincipal
 from app.models.core import AgentRun as AgentRunRow
 from app.models.core import GroundingRejection as GroundingRejectionRow
 from app.models.core import InsightDigest as InsightDigestRow
@@ -36,7 +36,6 @@ from app.models.enums import AgentCapability, AgentRunStatus
 
 router = APIRouter(tags=["insights"])
 
-ViewerPrincipal = Annotated[Principal, Depends(require_viewer)]
 
 # FR-008a's order, named once so the surface reports the basis the platform
 # actually applied rather than a string a caller has to trust.

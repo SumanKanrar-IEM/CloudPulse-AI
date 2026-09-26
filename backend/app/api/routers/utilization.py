@@ -14,20 +14,18 @@ from __future__ import annotations
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Query
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 
 from app.api.errors import ERROR_RESPONSES
 from app.core.db import TenantSession, tenant_session
-from app.core.security import Principal, require_viewer
+from app.core.security import ViewerPrincipal
 from app.governance import utilization as utilization_governance
 from app.models.core import CloudAccount
 from app.models.core import Sda as SdaRow
 
 router = APIRouter(tags=["utilization"])
-
-ViewerPrincipal = Annotated[Principal, Depends(require_viewer)]
 
 
 class UtilizationFigure(BaseModel):
