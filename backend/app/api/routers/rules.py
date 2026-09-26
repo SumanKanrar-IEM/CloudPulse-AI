@@ -13,22 +13,24 @@ reusing spec 001's `require_role`/`require_viewer` exactly as spec 002 did.
 from __future__ import annotations
 
 import uuid
-from typing import Annotated, Literal
+from typing import Literal
 
-from fastapi import APIRouter, Depends, Request, status
+from fastapi import APIRouter, Request, status
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 
 from app.api.errors import ERROR_RESPONSES, AppError, ErrorCode, ErrorEnvelope, correlation_id_of
 from app.core.audit import write_audit_event
 from app.core.db import TenantSession, tenant_session
-from app.core.security import Principal, require_admin, require_viewer
+from app.core.security import (
+    AdminPrincipal,
+    Principal,
+    ViewerPrincipal,
+)
 from app.models.core import Rule as RuleRow
 
 router = APIRouter(prefix="/rules", tags=["rules"])
 
-AdminPrincipal = Annotated[Principal, Depends(require_admin)]
-ViewerPrincipal = Annotated[Principal, Depends(require_viewer)]
 
 _CONFLICT_RESPONSE = {
     "model": ErrorEnvelope,

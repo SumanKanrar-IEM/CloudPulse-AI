@@ -800,4 +800,12 @@ declaring the P1 demo path complete.
 
 ## Phase 10: Convergence
 
-- [ ] T045 MEDIUM Find and fix the root cause of `frontend/e2e/dashboard-smoke.spec.ts` failing against the deployed dev origin, so a fresh dev deploy ends green — in `Deploy dev` run 35926824641 (2026-09-23) the resource ARN is not visible at line 139 for admin and operator, and the acknowledge click times out; the suite mocks the API, so an empty database alone should not explain it per FR-026, T041 (partial)
+- [X] T045 MEDIUM Find and fix the root cause of `frontend/e2e/dashboard-smoke.spec.ts` failing against the deployed dev origin, so a fresh dev deploy ends green — in `Deploy dev` run 35926824641 (2026-09-23) the resource ARN is not visible at line 139 for admin and operator, and the acknowledge click times out; the suite mocks the API, so an empty database alone should not explain it per FR-026, T041 (partial)
+      **Done 2026-09-26.** Not the deployment: reproduced on a local server, where the whole e2e
+      suite showed ten failures. Spec 005 (FR-016) made the findings page load `GET /budget-overruns`
+      alongside `GET /findings`; neither `dashboard-smoke.spec.ts` nor `findings-workbench.spec.ts`
+      mocked it, so the unmocked call failed and took the list down with it ("Could not load
+      findings"). Both now mock it; 43/43 pass locally. Root cause of it going unseen: CI never ran
+      Playwright — the frontend job built and linted only. The suite needs no environment (it mocks
+      the API), so the same required `frontend (build + a11y lint)` job now runs it, under its
+      existing name so branch protection still matches

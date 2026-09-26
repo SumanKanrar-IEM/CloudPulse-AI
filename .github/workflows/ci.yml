@@ -122,7 +122,7 @@ jobs:
   frontend:
     name: frontend (build + a11y lint)
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -138,6 +138,14 @@ jobs:
       - run: npm run lint
         working-directory: frontend
       - run: npm run build
+        working-directory: frontend
+      # spec 004 T045: the e2e suite mocks the API, so it needs no environment -- and
+      # left out of CI it rotted unseen (spec 005's /budget-overruns call broke ten
+      # tests, found only when the deploy-time smoke step failed). The job keeps its
+      # name: it is a required check under that name.
+      - run: npx playwright install --with-deps chromium
+        working-directory: frontend
+      - run: npx playwright test
         working-directory: frontend
 
   # --- 5. Infrastructure validation (FR-009) -------------------------------

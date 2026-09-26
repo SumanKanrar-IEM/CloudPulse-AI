@@ -258,3 +258,32 @@ def test_the_worker_returns_a_truncated_draft_rather_than_raising(
     assert draft.finding_id == FINDING_ID
     assert draft.cost_units == Decimal("812")
     assert draft.sections == []
+
+
+# --- an unparseable draft from the worker (T070) -----------------------------
+
+
+def test_the_worker_returns_an_unparseable_draft_rather_than_raising(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """T070: a complete reply that breaks the output contract used to raise, which
+    `run_suggester` read as an unreachable model with the tokens left uncharged."""
+    import connectors.aws
+    from handlers.suggester_worker_handler import _bedrock_invoker
+
+    def _prose(**_: Any) -> dict[str, Any]:
+        return {
+            "output_text": "Add an owner tag to the bucket.",
+            "input_tokens": 300,
+            "output_tokens": 40,
+            "truncated": False,
+        }
+
+    monkeypatch.setattr(connectors.aws, "invoke_agent", _prose)
+    draft = _bedrock_invoker(runtime_arn="arn:test", region="us-east-1")(_target())
+
+    assert draft.unparseable is not None
+    assert "not valid JSON" in draft.unparseable
+    assert draft.truncated is False
+    assert draft.cost_units == Decimal("340")
+    assert draft.sections == []
