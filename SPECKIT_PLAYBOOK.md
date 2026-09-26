@@ -95,6 +95,18 @@ Pipeline each spec **fully** (specify → clarify → plan → checklist → tas
 in dependency order 1 → 2 → 3 → 4 → 5 → 6, so every merged spec is context Claude Code can
 read when authoring the next.
 
+> **Current status (2026-09-27): all six specs are DONE — 468/468 tasks closed, trunk green.**
+> Constitution **v3.0.0** (2026-09-09). 137 PRs merged into `pods/pod73`, this close-out included; it
+> is the only branch, locally and on GitHub. Close-out ran as planned in §0.4 F: `/speckit-converge` (#140) and its six
+> fixes (#141–#146), a final `/speckit-analyze` (#149), and the journal's §5 and §6. Step 13's
+> agentic workflows were built at close-out (#147) but are **disabled** — this account's Copilot
+> plan rejects the models tried; see journal §5 for re-enabling. Recorded there too: merged PRs
+> #49–#143 carry no recorded AI review, a Principle VII gap history cannot repair. Dev and prod are
+> **torn down to zero cost** (bootstrap state buckets only); redeploy dev with
+> `gh workflow run "Deploy dev" --ref pods/pod73`.
+>
+> The status block below is the spec-1 snapshot, kept as the record of what §0.5 was written from.
+>
 > **Current status (2026-08-23): Spec 1 is DONE — merged, implemented, live-verified, and torn
 > down.** Constitution is **v2.0.1**. `pods/pod73-001-platform-foundation` merged into `pods/pod73`
 > across 29 PRs (#1–#29); 135/135 tasks closed (T001–T135, including 5 tasks added after the

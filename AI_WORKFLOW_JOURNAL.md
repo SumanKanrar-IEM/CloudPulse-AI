@@ -327,15 +327,93 @@
 
 ## 5. Agentic Automation
 
-- **Tools:** GitHub Agentic Workflows (`gh aw`), adapted from githubnext/agentics
-- **Planned set:** issue triage, constitution-aware PR reviewer, CI doctor, daily progress + journal drafter.
-- **Outcome:** *(workflows compiled/enabled, examples of agent contributions)*
+- **Tools:** GitHub Agentic Workflows (`gh aw` v0.89.21), adapted from githubnext/agentics
+  (pinned to `4bc8419`)
+- **Planned set:** issue triage, constitution-aware PR reviewer, CI doctor, duplicate-code
+  detector, daily progress + journal drafter.
+- **Outcome (2026-09-26/27, spec 001 T140, PR #147):** built late, and not yet running.
+
+  Playbook step 13 put these workflows between spec authoring and implementation, as the solo
+  maintainer's missing teammates. They were not built then, and implementation ran to completion
+  without them. They were added at close-out: the PR reviewer rewritten to check every PR against
+  `CONTRIBUTING.md` (new, distilled from the constitution) and Principles I and III–VI and to post
+  exactly one "Constitution review" comment per PR; issue triage re-labelled to the project's own
+  taxonomy (`P1`/`P2` per Principle VIII, `spec/001`–`spec/006`); CI doctor and duplicate-code
+  detector as shipped; the daily status report turned into a journal drafter that proposes entries
+  as issues and never writes to the repository. Because the repository is public, the adapted
+  prompts treat issue, PR and commit text strictly as data, and every write goes through gh-aw's
+  safe outputs (labels, one comment, one issue).
+
+  **They do not run on this account yet.** The Copilot engine authenticated with the maintainer's
+  `COPILOT_GITHUB_TOKEN`, then refused every model tried — `auto` (resolved to `claude-sonnet-5`)
+  and `gpt-5-mini` (resolved to `gpt-5.4-mini`) — with "400 The requested model is not supported",
+  which the harness attributes to the subscription tier. All five workflows (and gh-aw's
+  maintenance job) are disabled with `gh aw disable` rather than left to fail on every PR; the
+  auto-opened failure issue (#148) is closed with the reason. Re-enabling is `gh aw enable` once a
+  supported model is set in the `GH_AW_MODEL_AGENT_COPILOT` repository variable, or the engine is
+  switched to Claude with an `ANTHROPIC_API_KEY` secret.
+
+  **What building them surfaced.** Principle VII makes a recorded AI review a merge precondition
+  for a solo maintainer. Counting every merged PR: 36 of #1–#48 carry a review comment; **none of
+  the 95 merged PRs from #49 to #143 does.** Review did happen after #48 — in the Claude Code
+  sessions, where several real bugs were caught before merge (spec 006's T038e and T043a among
+  them) — but a review that lives only in a session transcript is not "recorded on the PR", which is what the principle and its Testable clause
+  require. That is a Principle VII violation across specs 003–006 and this close-out, stated here
+  because merged history cannot be re-reviewed. The reviewer workflow is the gate that was
+  missing; until it runs, the gap stays open.
 
 ## 6. Assessment & Convergence
 
 - **Tools:** `/speckit-analyze`, `/speckit-checklist`, `/speckit-converge`
-- **Approach:** End-of-sprint audit of codebase vs specs and constitution; remaining gaps appended as tasks, never silently dropped.
-- **Outcome:** *(convergence report summary, P1 coverage %, final architectural assessment)*
+- **Approach:** End-of-sprint audit of codebase vs specs and constitution; remaining gaps appended
+  as tasks, never silently dropped.
+- **Outcome (2026-09-24 to 2026-09-27):** 468/468 tasks closed across the six specs, after one
+  convergence pass and one final analyze pass.
+
+  **`/speckit-converge` (PR #140)** checked 289 requirement and success-criterion IDs across all
+  six specs against the code, the constitution's eight principles, contract drift, and dead or
+  duplicated code. Spec 005 converged clean. Six findings became tasks in the spec that owned the
+  code:
+
+  | Task | Severity | Finding | Closed by |
+  |---|---|---|---|
+  | 006 T068 | CRITICAL | `agent-evals` ran on every PR but was the one CI job of fifteen not required by branch protection | protection API, #141 |
+  | 006 T069 | HIGH | a truncated suggester draft raised before its tokens were charged; the run read `failed` and the pass stopped | #142 |
+  | 002 T062 | HIGH | nothing ever set an account `failed`, so FR-012's failure reason could not be shown (T022 had been open since spec 002) | #143 |
+  | 004 T045 | MEDIUM | the dashboard smoke test failed against deployed dev | #146 |
+  | 001 T139 | LOW | a dead constant; one dependency alias re-declared in 16 routers | #144 |
+  | 003 T045 | LOW | a dead constant | #144 |
+
+  Two more came out of the fixes themselves: **006 T070** (an unparseable suggester draft had the
+  same uncharged-tokens flaw as T069; the T069 agent noticed it and left it out of scope, #145),
+  and 004 T045's root cause, which was bigger than the task named. Spec 005 had made the findings
+  page also load `/budget-overruns`; no e2e test mocked it, so ten e2e tests had been failing on
+  trunk, unseen, because **CI never ran Playwright** — the frontend job built and linted only. The
+  suite needs no environment, so the required frontend job now runs it.
+
+  T062 and T069 were implemented in parallel by two subagents in isolated worktrees, each opening
+  its own PR; both diffs were read before merge.
+
+  **Final `/speckit-analyze` (specs 001–004, 006; PR #149)** found no uncovered requirement: all
+  260 IDs map to tasks, the two not delivered (006 FR-024, SC-007) are descoped in the spec itself,
+  and every task-to-requirement reference that looked dangling resolved to another spec. Its
+  findings: **C1 CRITICAL**, the Principle VII gap described in §5; **H1 HIGH**, the e2e suite
+  above; and three documentation drifts — spec 002's quickstart had no walkthrough for FR-012,
+  its design contract lacked `failureReason`, and every spec header still read *Draft*. All three
+  were fixed (T141); C1 is recorded rather than fixable.
+
+  **P1 coverage:** every P1 story in all six specs is implemented and tested at the mocked and
+  integration level. Live verification against a real AWS account covered spec 001 in full and
+  parts of specs 002–006; the gaps are recorded per spec, above, together with the reason each
+  could not be proven live (chiefly the VPC-egress constraint, R-407/R-605).
+
+  **Final architectural assessment.** The deterministic-core / agentic-edge split (Principle IV)
+  held under the one migration that could have broken it: moving the agent layer from Bedrock
+  Agents to AgentCore Runtime and to a different model family (Phase 5a, spec 006) changed no
+  governance module. The contract chain — Pydantic models → `openapi.generated.yaml` → generated
+  Angular client, each link a CI gate — produced no drift in convergence. The weak points were
+  process, not structure: a review gate that was never automated (§5), and a test suite that was
+  never wired into CI. Both were found only by looking for them, which is what this phase is for.
 
 ## T033 — Branch protection configured (2026-08-22)
 
