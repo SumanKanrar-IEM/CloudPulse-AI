@@ -21,9 +21,9 @@ from __future__ import annotations
 import secrets
 import uuid
 from datetime import datetime
-from typing import Annotated, Any
+from typing import Any
 
-from fastapi import APIRouter, Depends, Request, status
+from fastapi import APIRouter, Request, status
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 
@@ -31,7 +31,12 @@ from app.api.errors import ERROR_RESPONSES, AppError, ErrorCode, ErrorEnvelope, 
 from app.core.audit import write_audit_event
 from app.core.db import TenantSession, tenant_session
 from app.core.logging import logger
-from app.core.security import Principal, require_admin, require_operator, require_viewer
+from app.core.security import (
+    AdminPrincipal,
+    OperatorPrincipal,
+    Principal,
+    ViewerPrincipal,
+)
 from app.governance.scan_deltas import scan_deltas
 from app.models.core import CloudAccount
 from app.models.core import Scan as ScanRow
@@ -46,11 +51,8 @@ router = APIRouter(prefix="/accounts", tags=["accounts"])
 CROSS_ACCOUNT_TEMPLATE_URL = "/assets/cross-account-template.yaml"
 DEFAULT_SCAN_REGION = "us-east-1"
 
-AdminPrincipal = Annotated[Principal, Depends(require_admin)]
-ViewerPrincipal = Annotated[Principal, Depends(require_viewer)]
 # Admin+operator (spec 004 FR-022) -- see module docstring for why this is no
 # longer the operator-only require_role(Role.OPERATOR) it started as.
-OperatorPrincipal = Annotated[Principal, Depends(require_operator)]
 
 _CONFLICT_RESPONSE = {
     "model": ErrorEnvelope,

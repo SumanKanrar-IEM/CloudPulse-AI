@@ -14,21 +14,18 @@ from __future__ import annotations
 
 from datetime import datetime
 from decimal import Decimal
-from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 
 from app.api.errors import ERROR_RESPONSES
 from app.core.db import tenant_session
-from app.core.security import Principal, require_viewer
+from app.core.security import ViewerPrincipal
 from app.models.core import Budget as BudgetRow
 from app.models.core import Sda as SdaRow
 
 router = APIRouter(tags=["budgets"])
-
-ViewerPrincipal = Annotated[Principal, Depends(require_viewer)]
 
 
 class Budget(BaseModel):

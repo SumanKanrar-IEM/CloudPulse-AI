@@ -7,22 +7,19 @@ rows, never stored, so there is nothing to write here.
 from __future__ import annotations
 
 import uuid
-from typing import Annotated
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, status
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 
 from app.api.errors import ERROR_RESPONSES, AppError, ErrorCode
 from app.core.db import TenantSession, tenant_session
-from app.core.security import Principal, require_viewer
+from app.core.security import ViewerPrincipal
 from app.governance.scoring import account_compliance_score, sda_compliance_score
 from app.models.core import CloudAccount
 from app.models.core import Sda as SdaRow
 
 router = APIRouter(tags=["compliance"])
-
-ViewerPrincipal = Annotated[Principal, Depends(require_viewer)]
 
 
 class ComplianceScore(BaseModel):
