@@ -1093,3 +1093,11 @@ additive polish; none of it is a prerequisite for declaring P1 complete.
       `outcome_for` takes a `truncated` flag, so the run records `truncated` rather than `failed`,
       with an error still outranking it. Proved in `test_agent_run.py`, `test_suggester_rules.py`
       and `test_suggester_pipeline.py`.
+- [X] T070 MEDIUM Handle an unparseable suggester draft item-wise, as T069 does a truncated one: a complete reply that breaks the output contract makes `parse_draft` raise `ValueError` inside the worker, which `run_suggester` reads as an unreachable model — the tokens go uncharged, the run records `failed`, and the pass stops. Surfaced by T069's implementation, not by the convergence pass per FR-004, FR-007a (partial)
+      **Done 2026-09-26.** The worker catches `parse_draft`'s `ValueError` and returns a draft carrying
+      the real token cost and the parser's reason (`DraftedSuggestion.unparseable`). `run_suggester`
+      charges it, skips that finding for the next run, logs it, and continues. Unlike a truncated
+      draft, it does not by itself change the run's status: the model answered and the pass finished,
+      so FR-007a's "unreachable" does not apply and SC-008's truncation marker would misdescribe it;
+      the run's log line counts `unparseable_drafts`. A run whose charged tokens reach the cap is
+      still `truncated`, as any other spend

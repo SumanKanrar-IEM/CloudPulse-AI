@@ -80,6 +80,9 @@ class DraftedSuggestion:
     `truncated` means the model hit its token limit mid-draft (T063, T069). The
     tokens were still spent, so `cost_units` is real; the text is not a
     suggestion and is never validated or written.
+
+    `unparseable` is `parse_draft`'s reason when a complete reply broke the output
+    contract (T070). Same handling as a truncated draft, for the same reason.
     """
 
     finding_id: uuid.UUID
@@ -88,6 +91,7 @@ class DraftedSuggestion:
     sections: list[Section]
     cost_units: Decimal
     truncated: bool = False
+    unparseable: str | None = None
 
 
 @dataclass(frozen=True)
@@ -268,6 +272,10 @@ def run_suggester(
     continues. The run records `truncated`, so SC-008's "identifiable as
     truncated" holds for a cut-off draft as well as for a cap stop; an error
     still outranks it (`outcome_for`).
+
+    An unparseable draft is item-wise too (T070): the model answered, so FR-007a's
+    "unreachable" does not apply. Charged, skipped for the next run, counted in the
+    run's log line; the run's status is left to the rest of the pass.
     """
     started_at = datetime.now(UTC)
     budget = RunBudget(cap_units if cap_units is not None else default_cost_cap_units())
@@ -278,6 +286,7 @@ def run_suggester(
     error: str | None = None
     completed = True
     truncated_drafts = 0
+    unparseable_drafts = 0
 
     for target in targets_needing_suggestions(session):
         if budget.exhausted:
@@ -308,6 +317,18 @@ def run_suggester(
                     "tenant_id": str(session.tenant_id),
                     "finding_id": str(target.finding_id),
                     "cost_units": str(draft.cost_units),
+                },
+            )
+            continue
+        if draft.unparseable is not None:
+            unparseable_drafts += 1
+            logger.warning(
+                "suggester draft unparseable; finding skipped",
+                extra={
+                    "tenant_id": str(session.tenant_id),
+                    "finding_id": str(target.finding_id),
+                    "cost_units": str(draft.cost_units),
+                    "reason": draft.unparseable,
                 },
             )
             continue
@@ -365,6 +386,7 @@ def run_suggester(
             "rejected": len(rejections),
             "skipped_admin_seeded": skipped_admin_seeded,
             "truncated_drafts": truncated_drafts,
+            "unparseable_drafts": unparseable_drafts,
         },
     )
     return SuggesterOutcome(
