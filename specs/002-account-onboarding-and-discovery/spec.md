@@ -4,7 +4,7 @@
 
 **Created**: 2026-08-23
 
-**Status**: Draft
+**Status**: Implemented
 
 **Input**: User description: "Enable an operator to connect AWS accounts to CloudPulse AI using roles only, and give the platform a complete, continuously refreshed inventory of everything that exists in those accounts — without maintaining a hardcoded service list. Functional scope (backlog S8–S17, S47 + AI-ready coverage): roles-only access (same-account and cross-account with ExternalId, no access keys); account registration with dry-run verification; an accounts admin page; a normalized, provider-agnostic resource model and connector contract; whole-account discovery via generic discovery surfaces (not a hand-picked service list); deep enrichment for governance-critical services (P1: EC2, EBS, EIP, S3, RDS, Lambda; P2: EKS, DynamoDB, ELB, IAM); coverage-as-data; scan orchestration (fan-out, retries, concurrency limits, daily schedule plus on-demand); persistence with lifecycle (raw snapshots, current-state diffing, first-seen/last-seen/deleted markers, auto-close on disappearance); scan history (P2). Success criteria: onboard a fresh account in under 5 minutes; a scan lands over 95% of actual resources including untagged ones; deleting a resource in AWS closes it in inventory on the next scan; cross-account access fails closed without the ExternalId. Out of scope: tag validation (spec 3), any write access to scanned accounts, non-AWS providers (interface only)."
 

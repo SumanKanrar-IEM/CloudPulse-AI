@@ -306,6 +306,13 @@ components:
           description: |
             `disabled` is FR-009a's deactivated state — a status value, not a separate
             deleted/removed record (data-model.md).
+        failureReason:
+          type: string
+          nullable: true
+          description: |
+            FR-012: what an admin must fix, present exactly when `status` is `failed` (set when a
+            scan cannot assume the account's role). Added by T062; `backend/openapi.generated.yaml`
+            remains the binding contract.
         lastScan:
           $ref: '#/components/schemas/ScanSummary'
         createdAt: { type: string, format: date-time }

@@ -4,7 +4,7 @@
 
 **Created**: 2026-09-02
 
-**Status**: Draft
+**Status**: Implemented
 
 **Input**: User description: "Add the financial-control dimension: what is each SDA/project
 spending, are budgets being respected, how well utilized are sandbox accounts, where is IAM

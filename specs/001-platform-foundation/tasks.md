@@ -463,3 +463,7 @@ added for the remaining cross-spec gaps flagged by CHK028/030/032.
       this: Principle VII's recorded AI review stopped being carried after PR #48 — 36 of #1–#48 hold a
       review comment, none of the 95 merged PRs from #49 to #143 does. Merged history cannot be
       re-reviewed; this reviewer is the gate that was missing, recorded in `AI_WORKFLOW_JOURNAL.md` §5
+- [X] T141 Resolve the final `/speckit-analyze` pass's documentation findings (playbook §0.4 step 26): M1 — spec 002's `quickstart.md` gains V10, walking FR-012's failure reason end to end now that T062 built it; M2 — spec 002's design contract (`contracts/openapi.yaml`) gains `failureReason`, matching the generated contract; L1 — every `spec.md` header moves from **Draft** to **Implemented** — per Principle I
+      **Done 2026-09-27.** The pass's CRITICAL (Principle VII's recorded AI review, absent from merged
+      PRs #49–#143) is answered going forward by T140 and recorded in the journal; its HIGH (the e2e
+      suite broken on trunk and absent from CI) was closed by spec 004's T045
