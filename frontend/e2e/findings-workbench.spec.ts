@@ -45,6 +45,10 @@ async function mockBackend(
   const findings = options.findings ?? [FINDING];
   let acknowledged = false;
 
+  // spec 005 FR-016: the workbench also loads budget overruns; unmocked, that
+  // request fails and takes the whole findings list down with it.
+  await page.route(/\/budget-overruns(\?.*)?$/, (route) => route.fulfill({ json: { overruns: [] } }));
+
   await page.route(/\/findings(\/[^/?]+\/(acknowledge|suggestion))?(\?.*)?$/, async (route) => {
     if (route.request().resourceType() === 'document') {
       await route.continue();

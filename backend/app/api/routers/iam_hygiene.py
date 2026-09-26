@@ -13,18 +13,16 @@ import uuid
 from datetime import datetime
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Query
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 
 from app.api.errors import ERROR_RESPONSES
 from app.core.db import tenant_session
-from app.core.security import Principal, require_viewer
+from app.core.security import ViewerPrincipal
 from app.models.core import IamHygieneFlag as FlagRow
 
 router = APIRouter(tags=["iam-hygiene"])
-
-ViewerPrincipal = Annotated[Principal, Depends(require_viewer)]
 
 
 class IamHygieneFlag(BaseModel):

@@ -11,14 +11,18 @@ from __future__ import annotations
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query, Request, status
+from fastapi import APIRouter, Query, Request, status
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 
 from app.api.errors import ERROR_RESPONSES, AppError, ErrorCode, ErrorEnvelope, correlation_id_of
 from app.core.audit import write_audit_event
 from app.core.db import TenantSession, tenant_session
-from app.core.security import Principal, require_admin, require_viewer
+from app.core.security import (
+    AdminPrincipal,
+    Principal,
+    ViewerPrincipal,
+)
 from app.governance.budgets import create_budget_for_sda, default_budget_usd
 from app.governance.sda_matching import mappings_overlap
 from app.models.core import Resource
@@ -26,8 +30,6 @@ from app.models.core import Sda as SdaRow
 
 router = APIRouter(tags=["sdas"])
 
-AdminPrincipal = Annotated[Principal, Depends(require_admin)]
-ViewerPrincipal = Annotated[Principal, Depends(require_viewer)]
 
 _OVERLAP_RESPONSE = {
     "model": ErrorEnvelope,

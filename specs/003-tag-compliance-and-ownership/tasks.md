@@ -700,4 +700,5 @@ prerequisite for declaring the P1 demo path complete.
 
 ## Phase 10: Convergence
 
-- [ ] T045 LOW Remove the unused `_KIND_VALUES` tuple from `backend/app/api/routers/findings.py` per FR-014 (unrequested)
+- [X] T045 LOW Remove the unused `_KIND_VALUES` tuple from `backend/app/api/routers/findings.py` per FR-014 (unrequested)
+      **Done 2026-09-26.** Removed; nothing referenced it.

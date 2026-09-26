@@ -13,13 +13,13 @@ from __future__ import annotations
 import uuid
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Query, status
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 
 from app.api.errors import ERROR_RESPONSES, AppError, ErrorCode
 from app.core.db import TenantSession, tenant_session
-from app.core.security import Principal, require_viewer
+from app.core.security import ViewerPrincipal
 from app.models.core import Finding as FindingRow
 from app.models.core import Resource
 from app.models.core import ResourceOwner as ResourceOwnerRow
@@ -28,7 +28,6 @@ from app.models.enums import FindingStatus
 
 router = APIRouter(prefix="/resources", tags=["resources"])
 
-ViewerPrincipal = Annotated[Principal, Depends(require_viewer)]
 
 _DEFAULT_PAGE_SIZE = 50
 _MAX_PAGE_SIZE = 200
