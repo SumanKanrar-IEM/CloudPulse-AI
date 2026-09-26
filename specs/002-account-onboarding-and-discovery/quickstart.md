@@ -108,6 +108,22 @@ now-superseded non-hierarchical-roles point). Spec 004's governance dashboard re
 also trigger a scan from its scan-operations screen, so this was widened; verify admin=202
 explicitly rather than assuming the widen landed correctly everywhere it needed to.
 
+## V10 — A failed account says what to fix (FR-012, US2 scenario 3)
+
+1. On a cross-account account that has scanned successfully, break the role: delete it, or remove
+   CloudPulse from its trust policy, or change the ExternalId condition.
+2. Trigger an on-demand scan (`POST /accounts/{id}/scans`, admin or operator). The scan's region
+   units fail at the assume-role step.
+3. As admin, `GET /accounts`: the account is `failed` and `failureReason` names the role ARN and
+   the AWS error code, and says to re-deploy the cross-account template with the registration
+   ExternalId, then re-scan. Every other account's `failureReason` is `null`. The accounts page
+   shows the same text under the status.
+4. Confirm the next scheduled cycle skips it (FR-026 scans verified accounts only).
+5. Restore the role and trigger a scan again. The account returns to `verified` and
+   `failureReason` is `null` (T062).
+6. Deactivate a `failed` account: it becomes `disabled` with no reason, and a scan never moves a
+   `disabled` account.
+
 ## Teardown
 
 Full teardown and cost sweep per playbook §0.5.3, plus this spec's own additions (research.md
