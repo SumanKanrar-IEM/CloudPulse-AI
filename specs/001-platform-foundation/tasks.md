@@ -450,3 +450,13 @@ added for the remaining cross-spec gaps flagged by CHK028/030/032.
 ## Phase 11: Convergence
 
 - [ ] T139 LOW Remove the unused `ROLE_RANK` from `backend/app/core/security.py`, and define the `ViewerPrincipal` / `AdminPrincipal` dependency aliases once in `app/core/security.py` instead of re-declaring them in each of the 16 routers that do today per FR-032a (unrequested)
+
+## Phase 12: Close-out
+
+- [X] T140 Add the five GitHub Agentic Workflows the playbook planned (§0.4 step 13, §11) and a `CONTRIBUTING.md` distilled from the constitution: `contribution-guidelines-checker` adapted into the constitution-aware PR reviewer whose comment is Principle VII's recorded AI review, `issue-triage` adapted to the spec and P1/P2 taxonomy, `ci-doctor` and `duplicate-code-detector` stock, `daily-repo-status` adapted into the journal drafter — per Principle VII, Principle II (GitHub-native delivery)
+      **Done 2026-09-26.** Pinned to githubnext/agentics `4bc8419` and compiled with `gh aw` v0.89.21.
+      Copilot engine: the workflows run only once the maintainer adds a `COPILOT_GITHUB_TOKEN`
+      repository secret, which is not a cloud credential and never enters source. Found while doing
+      this: Principle VII's recorded AI review stopped being carried after PR #48 — 36 of #1–#48 hold a
+      review comment, none of the 95 merged PRs from #49 to #143 does. Merged history cannot be
+      re-reviewed; this reviewer is the gate that was missing, recorded in `AI_WORKFLOW_JOURNAL.md` §5

@@ -65,3 +65,7 @@ frontend/playwright-report/
 
 # ---- Office lock files ----
 ~$*
+
+# ---- Claude Code local state (per machine, not project config) ----
+.claude/launch.json
+.claude/worktrees/
