@@ -20,16 +20,20 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import Annotated, Any
+from typing import Any
 
-from fastapi import APIRouter, Depends, Request, status
+from fastapi import APIRouter, Request, status
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 
 from app.api.errors import ERROR_RESPONSES, AppError, ErrorCode, ErrorEnvelope, correlation_id_of
 from app.core.audit import write_audit_event
 from app.core.db import TenantSession, tenant_session
-from app.core.security import Principal, require_admin, require_viewer
+from app.core.security import (
+    AdminPrincipal,
+    Principal,
+    ViewerPrincipal,
+)
 from app.core.users import resolve_app_user_id
 from app.governance.coverage_advisor import decide as decide_proposal
 from app.models.core import CoverageAdvisoryGap as AdvisoryRow
@@ -37,8 +41,6 @@ from app.models.core import CoverageProposal as ProposalRow
 
 router = APIRouter(prefix="/coverage-proposals", tags=["coverage-proposals"])
 
-AdminPrincipal = Annotated[Principal, Depends(require_admin)]
-ViewerPrincipal = Annotated[Principal, Depends(require_viewer)]
 
 _ALREADY_DECIDED_RESPONSE = {
     "model": ErrorEnvelope,

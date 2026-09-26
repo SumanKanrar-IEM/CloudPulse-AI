@@ -24,13 +24,13 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Query
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 
 from app.api.errors import ERROR_RESPONSES
 from app.core.db import tenant_session
-from app.core.security import Principal, require_viewer
+from app.core.security import ViewerPrincipal
 from app.governance.notifications import displayed_escalated_at
 from app.models.core import Budget as BudgetRow
 from app.models.core import Finding as FindingRow
@@ -38,8 +38,6 @@ from app.models.core import Sda as SdaRow
 from app.models.enums import FindingKind, FindingStatus
 
 router = APIRouter(tags=["budget-overruns"])
-
-ViewerPrincipal = Annotated[Principal, Depends(require_viewer)]
 
 
 class BudgetOverrun(BaseModel):

@@ -45,11 +45,6 @@ DEFAULT_GROUP_ROLE_MAP: Final[dict[str, Role]] = {
     "cloudpulse-viewers": Role.VIEWER,
 }
 
-# Ordering is for display only. It is deliberately NOT used to break a multi-group tie:
-# picking the highest would be privilege escalation, picking the lowest would be a
-# silent downgrade. FR-032a requires refusal.
-ROLE_RANK: Final[dict[Role, int]] = {Role.VIEWER: 0, Role.OPERATOR: 1, Role.ADMIN: 2}
-
 
 class Principal:
     """The authenticated caller for one request."""
@@ -240,6 +235,11 @@ require_admin = require_role(Role.ADMIN)
 require_operator = require_role(Role.ADMIN, Role.OPERATOR)
 require_viewer = require_role(Role.ADMIN, Role.OPERATOR, Role.VIEWER)
 
+# One definition per role gate, imported by every router rather than re-declared in each.
+AdminPrincipal = Annotated[Principal, Depends(require_admin)]
+OperatorPrincipal = Annotated[Principal, Depends(require_operator)]
+ViewerPrincipal = Annotated[Principal, Depends(require_viewer)]
+
 __all__ = [
     "Principal",
     "CurrentPrincipal",
@@ -249,6 +249,9 @@ __all__ = [
     "require_admin",
     "require_operator",
     "require_viewer",
+    "AdminPrincipal",
+    "OperatorPrincipal",
+    "ViewerPrincipal",
     "GROUPS_CLAIM",
     "DEFAULT_GROUP_ROLE_MAP",
 ]
