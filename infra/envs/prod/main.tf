@@ -38,6 +38,9 @@ module "network" {
   # bill per AZ-hour whether or not anything calls them, and the standing
   # decision not to fund the VPC's egress gap is unchanged (R-407, R-604a).
   enable_agent_endpoints = var.enable_agent_endpoints
+
+  # T143: a live-verification window's egress switch, same discipline as above.
+  enable_egress = var.enable_egress
 }
 
 module "database" {

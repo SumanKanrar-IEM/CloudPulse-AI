@@ -28,6 +28,14 @@ on:
         description: "Provision the bedrock-agentcore VPC endpoint the workers need (billed per AZ-hour; tear down after)"
         type: boolean
         default: false
+      # T143, R-407. A single-AZ NAT gateway so the Lambdas can reach STS, the
+      # Tagging API, Cost Explorer, SES and the AgentCore runtime. Billed per
+      # hour while it exists; a live-verification window turns it on and the
+      # teardown removes it. Off for every push-triggered deploy.
+      enable_egress:
+        description: "Provision a NAT gateway so the Lambdas can reach AWS APIs (billed per hour; tear down after)"
+        type: boolean
+        default: false
 
 # FR-022: OIDC federation only. No AWS access key exists anywhere in this repository.
 permissions:
@@ -155,6 +163,7 @@ jobs:
           # A push-triggered run has no inputs, so this is false there -- a merge
           # can never silently provision a billed endpoint.
           ENABLE_AGENT_ENDPOINTS: ${{ inputs.enable_agent_endpoints || false }}
+          ENABLE_EGRESS: ${{ inputs.enable_egress || false }}
         run: |
           terraform init -input=false
           terraform apply -input=false -auto-approve \
@@ -163,7 +172,8 @@ jobs:
             -var="agent_package_path=../../../agents/dist/agent.zip" \
             -var="agent_package_hash=${AGENT_PACKAGE_HASH}" \
             -var="git_sha=${GITHUB_SHA}" \
-            -var="enable_agent_endpoints=${ENABLE_AGENT_ENDPOINTS}"
+            -var="enable_agent_endpoints=${ENABLE_AGENT_ENDPOINTS}" \
+            -var="enable_egress=${ENABLE_EGRESS}"
           {
             echo "migrate_function=$(terraform output -raw migrate_function_name)"
             echo "frontend_bucket=$(terraform output -raw frontend_bucket)"

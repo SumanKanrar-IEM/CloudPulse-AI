@@ -148,3 +148,9 @@ variable "agent_package_hash" {
   description = "hex md5 of the agent package, S3 etag form. Defaulted like package_hash for the same reason."
   default     = ""
 }
+
+variable "enable_egress" {
+  type        = bool
+  description = "T143: single-AZ NAT gateway for a live-verification window (R-407). Billed per hour while it exists; off by default, and the teardown removes it."
+  default     = false
+}
