@@ -68,6 +68,77 @@ resource "aws_route_table_association" "private" {
   route_table_id = aws_route_table.private.id
 }
 
+# --- optional internet egress for a live-verification window (T143) ----------
+#
+# R-407: with no NAT, a VPC-attached Lambda has no path to STS, the Tagging API,
+# Cost Explorer or SES, so account registration hangs and nothing downstream of a
+# scan can be exercised live. The NAT has been declined as a standing cost twice;
+# this makes it a switch instead, off by default like `enable_agent_endpoints`:
+# a deploy that wants egress for a test window asks for it, and the teardown
+# destroys it with everything else. One NAT in one AZ -- a test window needs a
+# path out, not cross-AZ resilience.
+
+resource "aws_internet_gateway" "egress" {
+  count  = var.enable_egress ? 1 : 0
+  vpc_id = aws_vpc.this.id
+  tags   = { Name = "${local.name}-egress" }
+}
+
+resource "aws_subnet" "public" {
+  count             = var.enable_egress ? 1 : 0
+  vpc_id            = aws_vpc.this.id
+  cidr_block        = cidrsubnet(var.vpc_cidr, 8, 100)
+  availability_zone = var.azs[0]
+  tags              = { Name = "${local.name}-public-egress" }
+}
+
+resource "aws_route_table" "public" {
+  count  = var.enable_egress ? 1 : 0
+  vpc_id = aws_vpc.this.id
+  tags   = { Name = "${local.name}-public-egress" }
+}
+
+resource "aws_route" "public_internet" {
+  count                  = var.enable_egress ? 1 : 0
+  route_table_id         = aws_route_table.public[0].id
+  destination_cidr_block = "0.0.0.0/0"
+  gateway_id             = aws_internet_gateway.egress[0].id
+}
+
+resource "aws_route_table_association" "public" {
+  count          = var.enable_egress ? 1 : 0
+  subnet_id      = aws_subnet.public[0].id
+  route_table_id = aws_route_table.public[0].id
+}
+
+resource "aws_eip" "nat" {
+  count  = var.enable_egress ? 1 : 0
+  domain = "vpc"
+  tags   = { Name = "${local.name}-nat" }
+}
+
+resource "aws_nat_gateway" "egress" {
+  count         = var.enable_egress ? 1 : 0
+  allocation_id = aws_eip.nat[0].id
+  subnet_id     = aws_subnet.public[0].id
+  tags          = { Name = "${local.name}-nat" }
+
+  depends_on = [aws_internet_gateway.egress]
+}
+
+resource "aws_route" "private_egress" {
+  count                  = var.enable_egress ? 1 : 0
+  route_table_id         = aws_route_table.private.id
+  destination_cidr_block = "0.0.0.0/0"
+  nat_gateway_id         = aws_nat_gateway.egress[0].id
+}
+
+variable "enable_egress" {
+  type        = bool
+  description = "T143: provision a single-AZ NAT gateway (public subnet, internet gateway, Elastic IP, default route) so the VPC's Lambdas can reach AWS APIs for a live-verification window. Billed per hour while it exists, so off by default; the standing decision not to fund egress long-term (R-407) is unchanged."
+  default     = false
+}
+
 # --- VPC endpoints: reach AWS APIs without a NAT gateway -------------------
 
 resource "aws_security_group" "endpoints" {

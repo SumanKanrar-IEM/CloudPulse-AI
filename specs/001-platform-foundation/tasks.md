@@ -473,3 +473,10 @@ added for the remaining cross-spec gaps flagged by CHK028/030/032.
       #49–#143. §6 records the convergence pass, its fixes, the final analyze pass, and the
       architectural assessment. The playbook's spec-1 status block is kept below the new one as the
       record §0.5 was written from
+- [X] T143 Add an optional, off-by-default internet egress switch for a live-verification window: a single-AZ NAT gateway (public subnet, internet gateway, Elastic IP, default route from the private route table) in `infra/modules/network/`, wired through both environments as `enable_egress` and exposed as a `Deploy dev` dispatch input that push-triggered deploys never set; the deploy role gains exactly the EC2 actions those resources need — per R-407 (spec 004), playbook §0.5.3
+      **Done 2026-09-29.** Mirrors `enable_agent_endpoints`: billed only while it exists, and `ops/teardown.sh`
+      destroys it with everything else (state-driven), with the §0.5.3 sweep's NAT and address checks
+      confirming it. With egress on, the workers reach the AgentCore runtime over the NAT, so
+      `enable_agent_endpoints` can stay off. The bootstrap policy change is applied by the maintainer
+- [ ] T144 **Live-verify the P1 demo path end to end against the real dev account**, with `enable_egress` on: sign in (Cognito admin user), register this account in same-account mode, scan, then confirm inventory, findings, compliance score, ownership, the dashboard, the cost view, the AI digest and suggestions (a real model call), and the owner-notification email; record per step what was proven live and what was not — per playbook §0.5.3, SC-001 (spec 004)
+- [ ] T145 **Teardown and cost sweep**, immediately following T144, never separated from it — `ops/teardown.sh dev`, then the full §0.5.3 sweep, including NAT gateways and Elastic IPs — playbook §0.5.3

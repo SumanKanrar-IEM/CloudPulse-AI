@@ -63,6 +63,11 @@ data "aws_iam_policy_document" "deploy" {
       "ec2:CreateVpcEndpoint", "ec2:DeleteVpcEndpoints", "ec2:ModifyVpcEndpoint",
       "ec2:CreateNetworkInterface", "ec2:DeleteNetworkInterface",
       "ec2:CreateTags", "ec2:DeleteTags",
+      # T143: the optional live-verification NAT (off by default in every env).
+      "ec2:CreateInternetGateway", "ec2:DeleteInternetGateway",
+      "ec2:AttachInternetGateway", "ec2:DetachInternetGateway",
+      "ec2:AllocateAddress", "ec2:ReleaseAddress", "ec2:DisassociateAddress",
+      "ec2:CreateNatGateway", "ec2:DeleteNatGateway",
     ]
     resources = ["*"]
   }
