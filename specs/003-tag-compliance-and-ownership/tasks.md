@@ -702,3 +702,8 @@ prerequisite for declaring the P1 demo path complete.
 
 - [X] T045 LOW Remove the unused `_KIND_VALUES` tuple from `backend/app/api/routers/findings.py` per FR-014 (unrequested)
       **Done 2026-09-26.** Removed; nothing referenced it.
+- [X] T046 HIGH Make the ownership worker's CloudTrail sweeps survive a real account — found live by spec 001's T144: both `sweep_cloudtrail_events` and `sweep_write_events` paged the account's entire 90-day `LookupEvents` history unfiltered (filtering read-only events client-side), hit the API's 2-requests-per-second limit, and failed with `ThrottlingException` after botocore's default 4 retries, dead-lettering every ownership message. The docstring's "immaterial at demo-scale event volume" (R-306) did not hold for an account whose own deploys generate thousands of events per FR-020, FR-024, SC-004 (partial)
+      **Done 2026-09-29.** Both sweeps now ask CloudTrail for write events only
+      (`LookupAttributes: ReadOnly=false`, server-side) and use an adaptive-retry client
+      (`max_attempts=10`) that paces itself to the rate limit instead of giving up.
+      `test_cloudtrail_sweep.py` pins both for both sweeps

@@ -509,6 +509,26 @@ def _is_human_principal(user_identity: dict[str, Any]) -> bool:
     return False
 
 
+# spec 003 T046: `LookupEvents` is limited to 2 requests per second per account and
+# region, and a real account's 90-day history is thousands of events -- found live
+# by T144, where both sweeps threw `ThrottlingException` after botocore's default 4
+# retries and every ownership message dead-lettered. Two changes, both here:
+# CloudTrail filters to write events server-side (read-only events are most of any
+# account's history and neither sweep uses them), and the client retries adaptively,
+# pacing itself to the rate limit rather than giving up.
+_WRITE_EVENTS_ONLY = [{"AttributeKey": "ReadOnly", "AttributeValue": "false"}]
+
+
+def _cloudtrail_client(session: Any, region: str) -> Any:
+    from botocore.config import Config
+
+    return session.client(
+        "cloudtrail",
+        region_name=region,
+        config=Config(retries={"mode": "adaptive", "max_attempts": 10}),
+    )
+
+
 def sweep_cloudtrail_events(
     account: ConnectorAccount, region: str, *, since: Any
 ) -> dict[str, dict[str, Any]]:
@@ -529,11 +549,11 @@ def sweep_cloudtrail_events(
     from botocore.exceptions import BotoCoreError, ClientError
 
     session = _build_session(account, session_name="cloudpulse-ownership")
-    client = session.client("cloudtrail", region_name=region)
+    client = _cloudtrail_client(session, region)
     events_by_resource: dict[str, dict[str, Any]] = {}
     try:
         paginator = client.get_paginator("lookup_events")
-        for page in paginator.paginate(StartTime=since):
+        for page in paginator.paginate(StartTime=since, LookupAttributes=_WRITE_EVENTS_ONLY):
             for event in page.get("Events", []):
                 event_name = event.get("EventName", "")
                 if event_name not in _CREATION_EVENT_NAMES:
@@ -572,17 +592,17 @@ def sweep_write_events(
     A second, independent `LookupEvents` pass rather than widening
     `sweep_cloudtrail_events`'s own return shape: this keeps the P1
     direct-attribution sweep's tested shape untouched, at the cost of one
-    extra paginated sweep -- immaterial at this project's demo-scale event
-    volume (research.md R-306).
+    extra paginated sweep (research.md R-306). Both sweeps ask CloudTrail for write
+    events only (T046), which is what keeps two of them affordable on a real account.
     """
     from botocore.exceptions import BotoCoreError, ClientError
 
     session = _build_session(account, session_name="cloudpulse-ownership")
-    client = session.client("cloudtrail", region_name=region)
+    client = _cloudtrail_client(session, region)
     events_by_resource: dict[str, list[dict[str, Any]]] = {}
     try:
         paginator = client.get_paginator("lookup_events")
-        for page in paginator.paginate(StartTime=since):
+        for page in paginator.paginate(StartTime=since, LookupAttributes=_WRITE_EVENTS_ONLY):
             for event in page.get("Events", []):
                 if event.get("ReadOnly") != "false":
                     continue
