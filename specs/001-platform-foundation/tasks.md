@@ -502,4 +502,8 @@ added for the remaining cross-spec gaps flagged by CHK028/030/032.
       SSO refresh token expired mid-session, so Terraform ran on the CLI session's exported
       credentials; and the versioned snapshots bucket refused deletion while it held the scans'
       five object versions, which the maintainer deleted by hand (T146)
-- [ ] T146 Make a dev teardown survive real data: `aws_s3_bucket.snapshots` (and any other versioned bucket a live run writes to) needs `force_destroy` in dev only — prod keeps it off — found by T145, where the first teardown after a real scan stopped at a non-empty bucket — per FR-005a, playbook §0.5.3
+- [X] T146 Make a dev teardown survive real data: `aws_s3_bucket.snapshots` (and any other versioned bucket a live run writes to) needs `force_destroy` in dev only — prod keeps it off — found by T145, where the first teardown after a real scan stopped at a non-empty bucket — per FR-005a, playbook §0.5.3
+      **Done 2026-09-29.** `force_destroy = var.environment != "prod"` on the snapshots bucket, the
+      frontend origin's existing split. The only other versioned bucket, the agent artefact bucket,
+      already force-destroys (it holds only the deploy's own package). `test_teardown_buckets.py` pins
+      both: dev force-destroys, prod never does

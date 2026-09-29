@@ -16,6 +16,12 @@ terraform {
 
 resource "aws_s3_bucket" "snapshots" {
   bucket = "cloudpulse-${var.environment}-snapshots-${var.account_id}"
+
+  # T146: a versioned bucket that a scan has written to refuses deletion, so the
+  # first dev teardown after a real scan stopped here (T145). Dev snapshots are
+  # disposable test evidence; prod's are the audit trail a finding traces back
+  # to, so prod never force-destroys -- the same split as the frontend origin.
+  force_destroy = var.environment != "prod"
 }
 
 # Snapshots are immutable evidence: a finding traces back to the account state that
