@@ -668,7 +668,19 @@ class AwsConnector:
         if fn is None:
             return resource
 
-        detail = fn(self._session, resource)
+        from botocore.exceptions import BotoCoreError, ClientError
+
+        try:
+            detail = fn(self._session, resource)
+        except (ClientError, BotoCoreError) as exc:
+            # FR-021a (T065): enrichment is a per-resource promise. One denied,
+            # throttled or failing describe used to fail the whole region's unit --
+            # T144's first real scan stored zero resources over one DynamoDB table.
+            # The resource keeps its base inventory and says why it is thinner; the
+            # code is a plain string, so no SDK type leaves the connector.
+            return replace(
+                resource, detail={**resource.detail, "enrichment_error": _error_code(exc)}
+            )
         # Frozen dataclass (FR-014's shape) -- replace() returns a new record rather
         # than mutating the one callers may still hold a reference to.
         return replace(resource, detail={**resource.detail, **detail})

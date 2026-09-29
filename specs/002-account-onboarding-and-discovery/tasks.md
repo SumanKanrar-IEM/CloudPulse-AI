@@ -375,4 +375,11 @@ runs short, Phase 8 is what gets cut — not any part of Phases 1–7.
       `connectors/aws.py` and fails if any AWS call it makes is not in the grant, so a new enricher
       cannot ship without its permission again. Not changed: whether one denied enrichment should
       fail a whole region — the spec does not say, and that is a separate decision
-- [ ] T065 **Decision needed.** Should one denied or failed enrichment call fail its whole region's scan unit (today's behaviour — T144's first real scan finished `failed`, 0 resources, over one `dynamodb:DescribeTable` denial), or leave that one resource un-enriched and the region `succeeded`? The spec does not say; FR-020/FR-021 treat *absent* coverage as not an error, but say nothing about coverage that errors per FR-019, FR-020, FR-021 (underspecified)
+- [X] T065 **Decided 2026-09-30: per resource.** Should one denied or failed enrichment call fail its whole region's scan unit (today's behaviour — T144's first real scan finished `failed`, 0 resources, over one `dynamodb:DescribeTable` denial), or leave that one resource un-enriched and the region `succeeded`? The spec does not say; FR-020/FR-021 treat *absent* coverage as not an error, but say nothing about coverage that errors per FR-019, FR-020, FR-021 (underspecified)
+      **Done 2026-09-30, option B.** Spec gains Clarifications Session 2026-09-30 and FR-021a.
+      `AwsConnector.enrich` catches a failing describe and returns the resource with
+      `detail = {"enrichment_error": "<code>"}` (a plain string, so no SDK type leaves the connector);
+      `enrich_resources` logs one warning per unit naming each failed type and code; the unit and
+      its other resources proceed. Discovery failures still fail the unit. data-model.md's `detail`
+      row documents the marker. Tests (real moto, a describe against a missing table): the resource
+      survives with its reason, and one failure does not stop a real table in the same batch

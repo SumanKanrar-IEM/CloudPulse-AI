@@ -30,6 +30,15 @@
   accounts list read-only. Spec 1's roles are non-hierarchical — admin does not automatically
   inherit operator's scan-trigger right, since FR-033 grants it to operator specifically.
 
+### Session 2026-09-30
+
+- Q: Should one failed enrichment call — a describe that is denied, throttled or errors for a
+  single resource — fail its whole region's scan unit? (T144's first real scan finished `failed`
+  with zero resources over one denied `dynamodb:DescribeTable`.) → A: No. Enrichment is per
+  resource: the resource is still recorded with its base inventory, marked with why its enrichment
+  failed, and the region's unit succeeds. Discovery failing is still a unit failure; only the
+  narrower enrichment promise degrades per resource (FR-021a, T065).
+
 ## User Scenarios & Testing *(mandatory)*
 
 <!--
@@ -352,6 +361,10 @@ and confirm the resource is marked gone in inventory without any manual interven
   MUST be configuration the platform reads rather than logic compiled into it — extending
   coverage to a new resource type MUST NOT require a code change or a redeployment (Acceptance
   Scenario US3.5).
+- **FR-021a**: An enrichment call that fails for one resource MUST NOT fail its region's scan
+  unit. The resource MUST still be recorded with its base inventory, carrying the reason its
+  enrichment failed, and the failure MUST be logged; the other resources in the unit are enriched
+  as normal (Clarifications, Session 2026-09-30).
 - **FR-022**: A change to coverage configuration MUST take effect starting with the next scan
   that begins after the change, and MUST NOT alter the behavior of a scan already in progress
   when the change is made (Edge Cases).
