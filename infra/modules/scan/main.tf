@@ -118,6 +118,11 @@ data "aws_iam_policy_document" "worker_runtime" {
       "rds:DescribeDBInstances",
       "lambda:GetFunction",
       "lambda:ListFunctions",
+      "eks:DescribeCluster",
+      "dynamodb:DescribeTable",
+      "elasticloadbalancing:DescribeLoadBalancers",
+      "iam:GetRole",
+      "iam:ListAttachedRolePolicies",
     ]
     resources = ["*"]
   }
