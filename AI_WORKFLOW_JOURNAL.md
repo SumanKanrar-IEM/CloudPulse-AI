@@ -1267,3 +1267,38 @@ The last four tasks closed without new code:
 Spec 006 ends at 96/96 with **no success criterion proven end to end against live data** — the
 same outcome spec 005 reached, reached this time on purpose and written down at each step
 instead of discovered at the end.
+
+## Live P1 verification, end to end (2026-09-29) — spec 001 T143–T146
+
+The first time the platform ran against a real AWS account with data. Every earlier live pass
+stopped at R-407: the VPC had no egress, so account registration hung and nothing downstream of a
+scan could be exercised. T143 made egress a deploy-time switch (a single-AZ NAT gateway, off by
+default), and with it on, the P1 path was walked with the maintainer signing in and clicking
+through the real UI.
+
+**Proven live:** sign-in as admin; same-account registration; a whole-account scan (87 resources);
+compliance (score 0%, correct: the stack's own resources carry none of the seeded rules' tags);
+ownership from CloudTrail (18 resources); the overview, inventory and findings screens; the insight
+digest end to end through the AgentCore runtime and Nova 2 Lite, grounded and non-empty — the path
+T067 could not prove; 19 AI suggestions, none rejected, confirmed resource-specific by the
+maintainer; cost ingestion from Cost Explorer. **Not proven:** owner email (no SES sender
+configured), cross-account mode (one account only), the P2 workers.
+
+**Three bugs no mocked test could have caught**, each fixed in its own PR during the session:
+- **Spec 002 T063** — the platform's own roles were never granted what registration and
+  same-account scanning need. Registration could not have passed live in either mode since spec
+  002 shipped; the missing egress hid it behind a timeout.
+- **Spec 002 T064** — the P2 enrichers shipped without their permissions, and one denied describe
+  fails a whole region, so the first real scan returned zero resources. A new test now parses every
+  enricher and fails if any AWS call it makes is not granted.
+- **Spec 003 T046** — the ownership sweeps paged 90 days of CloudTrail unfiltered and throttled out
+  on a real account's event volume. They now filter to write events server-side and retry
+  adaptively.
+
+A fourth, found by the teardown (T145): the versioned snapshots bucket blocks `terraform destroy`
+once a scan has written to it (T146, open). Teardown and sweep ended byte-identical to the
+pre-deploy baseline; the session's AWS cost was a few dollars at most.
+
+The lesson is the one R-511 recorded in spec 005, now demonstrated: a capability is not verified
+until its *inputs* exist live. Three of the four bugs sat in IAM and data volume — exactly what a
+mocked test assumes away.
