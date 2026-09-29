@@ -10,6 +10,7 @@ pick up T056's four new P2 types -- exactly the extensibility SC-005 claims.
 
 from __future__ import annotations
 
+from app.core.logging import logger
 from connectors.base import Connector, NormalizedResource
 
 
@@ -25,7 +26,21 @@ def enrich_resources(
     it caches the AWS session enrichment reuses (connectors/aws.py's
     `AwsConnector` docstring explains why the `Connector` protocol is stateful here).
     """
-    return [connector.enrich(resource) for resource in resources]
+    enriched = [connector.enrich(resource) for resource in resources]
+    failed = [r for r in enriched if "enrichment_error" in r.detail]
+    if failed:
+        # FR-021a: a failed enrichment no longer fails the unit, so it must not
+        # vanish either -- one line per unit, with what failed and why.
+        logger.warning(
+            "enrichment failed for some resources; recorded without enrichment",
+            extra={
+                "failed_count": len(failed),
+                "failures": sorted(
+                    {f"{r.resource_type}: {r.detail['enrichment_error']}" for r in failed}
+                ),
+            },
+        )
+    return enriched
 
 
 __all__ = ["enrich_resources"]

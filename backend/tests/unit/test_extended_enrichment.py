@@ -200,3 +200,53 @@ def test_extended_types_resolve_via_the_same_data_driven_dispatch() -> None:
     ):
         fn = resolve_enrichment_function(resource_type, definitions, ENRICHMENT_FUNCTIONS)
         assert fn is not None, f"{resource_type} has no resolvable enrichment function"
+
+
+def _ddb_resource(name: str) -> NormalizedResource:
+    return NormalizedResource(
+        provider="aws",
+        account_id="123456789012",
+        resource_id=f"arn:aws:dynamodb:us-east-1:123456789012:table/{name}",
+        service="dynamodb",
+        resource_type="AWS::DynamoDB::Table",
+        region="us-east-1",
+        name=None,
+        tags={},
+        state=None,
+        created_at=None,
+    )
+
+
+@mock_aws
+def test_a_failed_enrichment_keeps_the_resource_and_says_why() -> None:
+    """FR-021a (T065): a describe that errors for one resource no longer raises out
+    of the unit -- T144's first real scan stored zero resources over one table."""
+    connector = AwsConnector()
+    connector._session = boto3.Session()  # type: ignore[attr-defined]
+
+    enriched = connector.enrich(_ddb_resource("does-not-exist"))
+
+    assert enriched.resource_id.endswith("table/does-not-exist")
+    assert enriched.detail == {"enrichment_error": "ResourceNotFoundException"}
+
+
+@mock_aws
+def test_one_failed_enrichment_does_not_stop_the_rest_of_the_batch() -> None:
+    from app.scan.enrichment import enrich_resources
+
+    boto3.client("dynamodb", region_name="us-east-1").create_table(
+        TableName="real",
+        KeySchema=[{"AttributeName": "id", "KeyType": "HASH"}],
+        AttributeDefinitions=[{"AttributeName": "id", "AttributeType": "S"}],
+        BillingMode="PAY_PER_REQUEST",
+    )
+    connector = AwsConnector()
+    connector._session = boto3.Session()  # type: ignore[attr-defined]
+
+    missing, real = enrich_resources(
+        [_ddb_resource("gone"), _ddb_resource("real")], connector=connector
+    )
+
+    assert missing.detail == {"enrichment_error": "ResourceNotFoundException"}
+    assert real.detail["status"] == "ACTIVE"
+    assert "enrichment_error" not in real.detail
