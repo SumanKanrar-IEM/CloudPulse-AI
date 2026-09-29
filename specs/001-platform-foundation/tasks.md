@@ -478,5 +478,28 @@ added for the remaining cross-spec gaps flagged by CHK028/030/032.
       destroys it with everything else (state-driven), with the §0.5.3 sweep's NAT and address checks
       confirming it. With egress on, the workers reach the AgentCore runtime over the NAT, so
       `enable_agent_endpoints` can stay off. The bootstrap policy change is applied by the maintainer
-- [ ] T144 **Live-verify the P1 demo path end to end against the real dev account**, with `enable_egress` on: sign in (Cognito admin user), register this account in same-account mode, scan, then confirm inventory, findings, compliance score, ownership, the dashboard, the cost view, the AI digest and suggestions (a real model call), and the owner-notification email; record per step what was proven live and what was not — per playbook §0.5.3, SC-001 (spec 004)
-- [ ] T145 **Teardown and cost sweep**, immediately following T144, never separated from it — `ops/teardown.sh dev`, then the full §0.5.3 sweep, including NAT gateways and Elastic IPs — playbook §0.5.3
+- [X] T144 **Live-verify the P1 demo path end to end against the real dev account**, with `enable_egress` on: sign in (Cognito admin user), register this account in same-account mode, scan, then confirm inventory, findings, compliance score, ownership, the dashboard, the cost view, the AI digest and suggestions (a real model call), and the owner-notification email; record per step what was proven live and what was not — per playbook §0.5.3, SC-001 (spec 004)
+      **Done 2026-09-29**, dev deployed with `enable_egress` on (runs 36486789677, then three redeploys
+      for the fixes below). **Proven live, against this real account:** Cognito sign-in as admin;
+      same-account registration (201, 0.4 s — the first ever); a whole-account scan (87 resources,
+      `us-east-1`); compliance evaluation (87 resources, score 0%: the stack's own resources carry none
+      of the five seeded rules' tags); ownership attribution from CloudTrail (18 resources); the
+      overview, inventory and findings screens against that data; the insight digest end to end —
+      worker → AgentCore runtime → Nova 2 Lite → grounding → stored, non-empty, the path T067 could not
+      prove; the suggester (19 suggestions written, 0 rejected by grounding, confirmed specific by the
+      maintainer; the run stopped `truncated` at its 200,000-unit cap as designed, and T070's handling
+      of 4 unparseable drafts ran live); cost ingestion from Cost Explorer (yesterday's spend stored).
+      **Not proven:** the owner-notification email (no SES sender configured); cross-account mode
+      (needs a second account); the ownership and cost screens were ingested but not viewed before
+      teardown; the P2 workers. **Found live and fixed**, each a PR of its own: spec 002 T063 (the
+      platform's roles could not register or scan in either mode), spec 002 T064 (the P2 enrichers'
+      permissions were never granted, so one denied describe failed the whole region), spec 003 T046
+      (the ownership sweeps throttled out on a real account's CloudTrail volume). None of the three
+      was catchable by the mocked suites; all three had been hidden behind R-407's missing egress
+- [X] T145 **Teardown and cost sweep**, immediately following T144, never separated from it — `ops/teardown.sh dev`, then the full §0.5.3 sweep, including NAT gateways and Elastic IPs — playbook §0.5.3
+      **Done 2026-09-29.** 151 resources destroyed; the sweep is byte-identical to the pre-deploy
+      baseline (0 NAT gateways, 0 Elastic IPs, 0 ENIs, only the two state buckets). Two snags: the
+      SSO refresh token expired mid-session, so Terraform ran on the CLI session's exported
+      credentials; and the versioned snapshots bucket refused deletion while it held the scans'
+      five object versions, which the maintainer deleted by hand (T146)
+- [ ] T146 Make a dev teardown survive real data: `aws_s3_bucket.snapshots` (and any other versioned bucket a live run writes to) needs `force_destroy` in dev only — prod keeps it off — found by T145, where the first teardown after a real scan stopped at a non-empty bucket — per FR-005a, playbook §0.5.3

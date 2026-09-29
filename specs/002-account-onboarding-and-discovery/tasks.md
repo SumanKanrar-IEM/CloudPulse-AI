@@ -375,3 +375,4 @@ runs short, Phase 8 is what gets cut — not any part of Phases 1–7.
       `connectors/aws.py` and fails if any AWS call it makes is not in the grant, so a new enricher
       cannot ship without its permission again. Not changed: whether one denied enrichment should
       fail a whole region — the spec does not say, and that is a separate decision
+- [ ] T065 **Decision needed.** Should one denied or failed enrichment call fail its whole region's scan unit (today's behaviour — T144's first real scan finished `failed`, 0 resources, over one `dynamodb:DescribeTable` denial), or leave that one resource un-enriched and the region `succeeded`? The spec does not say; FR-020/FR-021 treat *absent* coverage as not an error, but say nothing about coverage that errors per FR-019, FR-020, FR-021 (underspecified)

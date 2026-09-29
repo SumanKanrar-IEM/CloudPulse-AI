@@ -1101,3 +1101,4 @@ additive polish; none of it is a prerequisite for declaring P1 complete.
       so FR-007a's "unreachable" does not apply and SC-008's truncation marker would misdescribe it;
       the run's log line counts `unparseable_drafts`. A run whose charged tokens reach the cap is
       still `truncated`, as any other spend
+- [ ] T071 LOW Reduce the suggester's unparseable replies: in T144's live run 4 of 23 Nova drafts were not JSON from the first character ("Expecting value: line 1 column 1"), most likely a sentence before the object that `unwrap_fence` does not strip. T070 keeps them harmless (charged, skipped, retried), but each costs ~9,000 tokens for nothing — tighten the prompt or extract the first JSON object, with an agent-eval case per FR-004, FR-011 (partial)
