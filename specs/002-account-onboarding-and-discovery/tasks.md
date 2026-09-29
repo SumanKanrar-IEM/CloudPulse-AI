@@ -368,3 +368,10 @@ runs short, Phase 8 is what gets cut — not any part of Phases 1–7.
       parses the Terraform and fails if the scan worker's same-account set drifts from
       `cross_account_template.yaml`'s, if it ever gains a non-Describe/Get/List action, or if any of
       the API role's three grants disappears
+- [X] T064 HIGH Grant the P2 enrichers' describe calls (S47: EKS, DynamoDB, ELBv2, IAM role coverage) to both the scan worker's same-account set and `cross_account_template.yaml`'s scanner role — found live by spec 001's T144: the first real scan was denied `dynamodb:DescribeTable` on the account's own lock table, and one denied enrichment fails the whole region's scan unit, so the scan finished `failed` with 0 resources per FR-019, FR-021 (missing)
+      **Done 2026-09-29.** `eks:DescribeCluster`, `dynamodb:DescribeTable`,
+      `elasticloadbalancing:DescribeLoadBalancers`, `iam:GetRole` and `iam:ListAttachedRolePolicies`
+      added to both. `test_every_enricher_call_is_granted` now parses every `_enrich_*` function in
+      `connectors/aws.py` and fails if any AWS call it makes is not in the grant, so a new enricher
+      cannot ship without its permission again. Not changed: whether one denied enrichment should
+      fail a whole region — the spec does not say, and that is a separate decision

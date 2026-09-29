@@ -49,3 +49,43 @@ def test_the_api_role_can_verify_in_both_modes() -> None:
     assert _statement_actions(api, "AssumeScannerRole") == {"sts:AssumeRole"}
     assert _statement_actions(api, "StoreExternalIdSecrets") == {"secretsmanager:CreateSecret"}
     assert 'role/cloudpulse-scanner"' in api
+
+
+# The client variable each enricher uses, mapped to its IAM service prefix.
+_SERVICE = {
+    "ec2": "ec2",
+    "s3": "s3",
+    "rds": "rds",
+    "lambda_client": "lambda",
+    "eks": "eks",
+    "ddb": "dynamodb",
+    "elbv2": "elasticloadbalancing",
+    "iam": "iam",
+}
+# Where the IAM action name is not the API operation name.
+_ACTION_OVERRIDES = {"s3:GetBucketEncryption": "s3:GetEncryptionConfiguration"}
+
+
+def _enricher_actions() -> set[str]:
+    """Every AWS call made inside an `_enrich_*` function in connectors/aws.py."""
+    source = (Path(__file__).resolve().parents[2] / "connectors" / "aws.py").read_text()
+    actions: set[str] = set()
+    for body in re.findall(r"\ndef _enrich_\w+\(.*?(?=\ndef |\n# |\Z)", source, re.DOTALL):
+        for client, method in re.findall(r"\b(\w+)\.([a-z_]+)\(", body):
+            if client in _SERVICE and method != "client":
+                name = "".join(part.capitalize() for part in method.split("_"))
+                action = f"{_SERVICE[client]}:{name}"
+                actions.add(_ACTION_OVERRIDES.get(action, action))
+    return actions
+
+
+def test_every_enricher_call_is_granted() -> None:
+    """T064: the P2 enrichers shipped without their grants, and one AccessDenied
+    fails the whole region's scan unit. A new enricher must bring its permission."""
+    scan = (INFRA / "scan" / "main.tf").read_text()
+    calls = _enricher_actions()
+    assert calls, "no enricher calls found -- the parser no longer matches connectors/aws.py"
+    granted = {action.lower() for action in _statement_actions(scan, "SameAccountReadOnlyScan")}
+    # IAM action names are case-insensitive (`DescribeDBInstances` vs the SDK's
+    # `describe_db_instances`).
+    assert {action.lower() for action in calls} <= granted

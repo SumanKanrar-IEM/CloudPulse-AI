@@ -75,6 +75,13 @@ Resources:
                   - rds:DescribeDBInstances
                   - lambda:GetFunction
                   - lambda:ListFunctions
+                  # spec 002 T064: the P2 enrichers (S47) -- EKS, DynamoDB, ELBv2 and
+                  # IAM role coverage -- whose describes were never granted here.
+                  - eks:DescribeCluster
+                  - dynamodb:DescribeTable
+                  - elasticloadbalancing:DescribeLoadBalancers
+                  - iam:GetRole
+                  - iam:ListAttachedRolePolicies
                 Resource: "*"
       # FR-005: no functional requirement in this spec authorizes writing, modifying,
       # or deleting anything in a scanned account. Every statement above is
