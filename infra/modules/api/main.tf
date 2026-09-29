@@ -77,6 +77,33 @@ data "aws_iam_policy_document" "lambda_runtime" {
     resources = [var.scan_state_machine_arn]
   }
 
+  # spec 002 T063, FR-007: registration's read check. Same-account mode verifies
+  # with this role's own identity (`verify_access` -> tag:GetResources, one
+  # item); cross-account mode assumes the target's scanner role with the
+  # platform-issued ExternalId and stores that ExternalId as a secret. None of
+  # the three was granted, so registration could never pass live in either mode
+  # -- invisible until the VPC had egress (T143).
+  statement {
+    sid       = "VerifySameAccountRead"
+    effect    = "Allow"
+    actions   = ["tag:GetResources"]
+    resources = ["*"] # GetResources has no resource-level scoping (AWS-side).
+  }
+
+  statement {
+    sid       = "AssumeScannerRole"
+    effect    = "Allow"
+    actions   = ["sts:AssumeRole"]
+    resources = ["arn:aws:iam::*:role/cloudpulse-scanner"]
+  }
+
+  statement {
+    sid       = "StoreExternalIdSecrets"
+    effect    = "Allow"
+    actions   = ["secretsmanager:CreateSecret"]
+    resources = ["arn:aws:secretsmanager:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:secret:cloudpulse/external-id/*"]
+  }
+
   statement {
     sid    = "WriteOwnLogs"
     effect = "Allow"

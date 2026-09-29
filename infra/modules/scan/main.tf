@@ -96,6 +96,32 @@ data "aws_iam_policy_document" "worker_runtime" {
     resources = ["arn:aws:iam::*:role/cloudpulse-scanner"]
   }
 
+  # spec 002 T063, FR-002/FR-016/FR-019: same-account mode discovers and enriches
+  # with this role's own identity, so it needs the read-only set the scanner role
+  # carries for cross-account mode (cross_account_template.yaml, kept in step with
+  # it). Describe/Get/List only -- FR-005 holds.
+  statement {
+    sid    = "SameAccountReadOnlyScan"
+    effect = "Allow"
+    actions = [
+      "tag:GetResources",
+      "cloudformation:ListResources",
+      "cloudformation:GetResource",
+      "ec2:DescribeInstances",
+      "ec2:DescribeVolumes",
+      "ec2:DescribeAddresses",
+      "s3:GetBucketLocation",
+      "s3:GetBucketTagging",
+      "s3:GetBucketVersioning",
+      "s3:GetEncryptionConfiguration",
+      "s3:ListAllMyBuckets",
+      "rds:DescribeDBInstances",
+      "lambda:GetFunction",
+      "lambda:ListFunctions",
+    ]
+    resources = ["*"]
+  }
+
   # FR-028: the raw immutable snapshot per unit of work.
   statement {
     sid       = "WriteSnapshots"

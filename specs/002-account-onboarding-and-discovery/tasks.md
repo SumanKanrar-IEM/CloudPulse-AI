@@ -363,3 +363,8 @@ runs short, Phase 8 is what gets cut — not any part of Phases 1–7.
       the role is fixed. (4) A `disabled` account stays `disabled` whatever a scan finds, and
       deactivating a `failed` account clears its reason. (5) data-model.md's `cloud_account` table
       gains a `failure_reason` row. Its "no schema change" heading was true only until this task.
+- [X] T063 CRITICAL Grant the platform's own roles what registration and same-account scanning need, found live by spec 001's T144: the API role (`infra/modules/api`) lacked `tag:GetResources` for same-account verification, `sts:AssumeRole` on `cloudpulse-scanner` for cross-account verification, and `secretsmanager:CreateSecret` on `cloudpulse/external-id/*` to store the ExternalId; the scan worker (`infra/modules/scan`) lacked the whole read-only discovery and enrichment set the cross-account scanner role carries. Registration failed in both modes (`no_usable_access` / `role_not_assumable`), which the missing VPC egress (R-407) had hidden behind a timeout since this spec shipped per FR-002, FR-007, FR-016, FR-019 (missing)
+      **Done 2026-09-29.** Both roles gain exactly those grants, read-only. `test_same_account_scan_permissions.py`
+      parses the Terraform and fails if the scan worker's same-account set drifts from
+      `cross_account_template.yaml`'s, if it ever gains a non-Describe/Get/List action, or if any of
+      the API role's three grants disappears
