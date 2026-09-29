@@ -178,7 +178,13 @@ def parse_draft(
     try:
         payload = json.loads(output_text)
     except json.JSONDecodeError as exc:
-        raise ValueError(f"suggestion output was not valid JSON: {exc}") from exc
+        # T071: the reply's shape, so a live run's warning log shows *why* -- an
+        # empty reply and a chatty one fail with the same JSON error. Platform
+        # data only (the prompt carries no secret), and capped short.
+        raise ValueError(
+            f"suggestion output was not valid JSON: {exc} "
+            f"(output {len(output_text)} chars, starts {output_text[:120]!r})"
+        ) from exc
     if not isinstance(payload, dict):
         raise ValueError("suggestion output must be a JSON object")
 

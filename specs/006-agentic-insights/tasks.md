@@ -1101,4 +1101,13 @@ additive polish; none of it is a prerequisite for declaring P1 complete.
       so FR-007a's "unreachable" does not apply and SC-008's truncation marker would misdescribe it;
       the run's log line counts `unparseable_drafts`. A run whose charged tokens reach the cap is
       still `truncated`, as any other spend
-- [ ] T071 LOW Reduce the suggester's unparseable replies: in T144's live run 4 of 23 Nova drafts were not JSON from the first character ("Expecting value: line 1 column 1"), most likely a sentence before the object that `unwrap_fence` does not strip. T070 keeps them harmless (charged, skipped, retried), but each costs ~9,000 tokens for nothing — tighten the prompt or extract the first JSON object, with an agent-eval case per FR-004, FR-011 (partial)
+- [X] T071 LOW Reduce the suggester's unparseable replies: in T144's live run 4 of 23 Nova drafts were not JSON from the first character ("Expecting value: line 1 column 1"), most likely a sentence before the object that `unwrap_fence` does not strip. T070 keeps them harmless (charged, skipped, retried), but each costs ~9,000 tokens for nothing — tighten the prompt or extract the first JSON object, with an agent-eval case per FR-004, FR-011 (partial)
+      **Done 2026-09-30, options A + B, by the maintainer's choice.** B: the runtime now returns
+      `extract_json(text)` — the one JSON value in the reply, with prose or a fence around it dropped —
+      which reverses the part of T067d that let prose-around-JSON fail closed. The prose is never
+      parsed, validated or shown, so nothing invented can pass through it; the governance parsers
+      stay strict on everything inside the value, and a reply with no decodable JSON still reaches
+      them unchanged and fails. A: because T144's four failures could equally have been empty
+      replies (the replies were not logged, and the runtime's logs went with the teardown),
+      `parse_draft`'s error now carries the reply's length and first 120 characters, which the
+      worker's existing warning logs — the next live run shows the real shape

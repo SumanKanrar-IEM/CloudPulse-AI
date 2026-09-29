@@ -150,11 +150,43 @@ def unwrap_fence(text: str) -> str:
     parsers, being fail-closed, rejected all eight before grounding ran. With
     the wrapper removed, 5 of 5 grounded cleanly. So this is transport
     formatting, not content, and it is absorbed here at the model boundary
-    rather than in the governance parsers: those stay strict, and a reply
-    with prose around the JSON, or a fence inside it, still fails closed.
+    rather than in the governance parsers, which stay strict. (T071 went further
+    for prose around the JSON: see `extract_json`.)
     """
     match = _WHOLE_FENCE.match(text.strip())
     return match.group("body") if match else text
+
+
+# A fence anywhere in the reply, for prose-around-a-fence (T071).
+_ANY_FENCE = re.compile(r"```[A-Za-z0-9_-]*[ \t]*\r?\n(?P<body>.*?)\r?\n?```", re.DOTALL)
+
+
+def extract_json(text: str) -> str:
+    """The one JSON value in the reply, with any prose or fence around it dropped.
+
+    T071 reverses part of T067's call above. T144's live run had 4 of 23
+    suggester drafts fail with "Expecting value: line 1 column 1" -- most likely
+    a sentence before the JSON -- each spending ~9,000 tokens for nothing. The
+    maintainer chose to take the JSON and discard the rest: prose outside the
+    value is never parsed, validated or shown, so dropping it cannot let an
+    invented reference through. Everything *inside* the value still meets the
+    governance parsers unchanged, and they stay fail-closed. A reply with no
+    decodable JSON value is returned as it came, so it still fails there.
+    """
+    body = unwrap_fence(text).strip()
+    if not body.startswith(("{", "[")):
+        fenced = _ANY_FENCE.search(body)
+        if fenced:
+            body = fenced.group("body").strip()
+    starts = [i for i in (body.find("{"), body.find("[")) if i != -1]
+    if not starts:
+        return text
+    start = min(starts)
+    try:
+        _, end = json.JSONDecoder().raw_decode(body, start)
+    except ValueError:
+        return text
+    return body[start:end]
 
 
 def converse_loop(capability: str, prompt: str, *, region: str) -> dict[str, Any]:
@@ -214,7 +246,7 @@ def converse_loop(capability: str, prompt: str, *, region: str) -> dict[str, Any
     final = messages[-1] if messages[-1]["role"] == "assistant" else {}
     text = "".join(b.get("text", "") for b in final.get("content", []) if "text" in b)
     return {
-        "output_text": unwrap_fence(text),
+        "output_text": extract_json(text),
         "input_tokens": input_tokens,
         "output_tokens": output_tokens,
         "stop_reason": stop_reason,

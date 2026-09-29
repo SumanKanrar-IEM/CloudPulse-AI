@@ -287,3 +287,14 @@ def test_the_worker_returns_an_unparseable_draft_rather_than_raising(
     assert draft.truncated is False
     assert draft.cost_units == Decimal("340")
     assert draft.sections == []
+
+
+def test_an_unparseable_reply_says_what_it_looked_like() -> None:
+    """T071: an empty reply and a chatty one fail with the same JSON error; the
+    reason carries the reply's length and opening so a live log tells them apart."""
+    from app.governance.suggester import parse_draft
+
+    for reply, shown in (("", "output 0 chars"), ("Sorry, I cannot.", "starts 'Sorry, I cannot.'")):
+        with pytest.raises(ValueError) as caught:
+            parse_draft(FINDING_ID, reply)
+        assert shown in str(caught.value)
