@@ -292,3 +292,23 @@ def test_multiple_write_events_accumulate_for_the_same_resource(monkeypatch: Any
         ],
     )
     assert len(events["i-abc"]) == 2
+
+
+def test_both_sweeps_ask_cloudtrail_for_write_events_only_and_retry_adaptively(
+    monkeypatch: Any,
+) -> None:
+    """T046, found live: unfiltered 90-day sweeps throttled out on a real account.
+    Both must filter server-side and pace themselves to LookupEvents' 2 TPS."""
+    for sweep in (sweep_cloudtrail_events, sweep_write_events):
+        fake_session = _fake_session([{"Events": []}])
+        monkeypatch.setattr("connectors.aws._build_session", lambda *a, _s=fake_session, **k: _s)
+        sweep(_ACCOUNT, "us-east-1", since=datetime(2026, 1, 1, tzinfo=UTC))
+
+        client_kwargs = fake_session.client.call_args.kwargs
+        assert client_kwargs["config"].retries == {"mode": "adaptive", "max_attempts": 10}
+        paginate_kwargs = (
+            fake_session.client.return_value.get_paginator.return_value.paginate.call_args.kwargs
+        )
+        assert paginate_kwargs["LookupAttributes"] == [
+            {"AttributeKey": "ReadOnly", "AttributeValue": "false"}
+        ]
