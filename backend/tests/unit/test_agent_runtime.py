@@ -226,13 +226,61 @@ def test_a_bare_fence_without_a_language_is_unwrapped_too(runtime) -> None:  # t
     assert runtime.unwrap_fence('```\n{"sections": []}\n```') == '{"sections": []}'
 
 
-def test_prose_around_a_fence_is_left_alone_so_the_parser_still_fails_closed(runtime) -> None:  # type: ignore[no-untyped-def]
-    """Only a fence wrapping the *entire* reply is transport formatting. Prose
-    before or after it is the model ignoring the output contract, and the
-    governance parser must see that and refuse it."""
+def test_unwrap_fence_itself_still_only_takes_a_whole_reply_fence(runtime) -> None:  # type: ignore[no-untyped-def]
+    """`unwrap_fence` keeps T067's narrow rule; T071's widening lives in
+    `extract_json`, which is what the loop returns."""
     chatty = 'Here is your digest:\n```json\n{"sections": []}\n```'
 
     assert runtime.unwrap_fence(chatty) == chatty
+
+
+# --- T071: take the one JSON value, drop the prose around it ------------------------
+
+
+def test_prose_before_the_json_is_dropped(runtime) -> None:  # type: ignore[no-untyped-def]
+    assert runtime.extract_json('Here is the suggestion:\n{"a": 1}') == '{"a": 1}'
+
+
+def test_prose_after_the_json_is_dropped(runtime) -> None:  # type: ignore[no-untyped-def]
+    assert runtime.extract_json('{"a": {"b": [1, 2]}}\nLet me know if that helps.') == (
+        '{"a": {"b": [1, 2]}}'
+    )
+
+
+def test_prose_around_a_fence_yields_the_fenced_json(runtime) -> None:  # type: ignore[no-untyped-def]
+    chatty = 'Here is your digest:\n```json\n{"sections": []}\n```\nHope this helps.'
+
+    assert runtime.extract_json(chatty) == '{"sections": []}'
+
+
+def test_a_whole_reply_fence_still_unwraps(runtime) -> None:  # type: ignore[no-untyped-def]
+    import json
+
+    assert json.loads(runtime.extract_json(NOVA_REPLY))["sections"]
+
+
+def test_clean_json_passes_through(runtime) -> None:  # type: ignore[no-untyped-def]
+    assert runtime.extract_json('{"sections": []}') == '{"sections": []}'
+
+
+def test_no_decodable_json_is_returned_as_it_came_so_the_parser_fails_closed(runtime) -> None:  # type: ignore[no-untyped-def]
+    for reply in ("", "I could not produce a suggestion.", 'Result: {"broken": }'):
+        assert runtime.extract_json(reply) == reply
+
+
+def test_the_real_suggester_parser_accepts_an_extracted_chatty_reply(runtime) -> None:  # type: ignore[no-untyped-def]
+    """End to end over the boundary: what T144's 4 failures most likely looked like."""
+    import uuid
+
+    from app.governance.suggester import parse_draft
+
+    chatty = (
+        "Sure, here is the remediation:\n"
+        '{"suggestion": "Add the owner tag.", "blastRadius": "Tag-only change.", "references": []}'
+    )
+    draft = parse_draft(uuid.uuid4(), runtime.extract_json(chatty))
+
+    assert draft.suggestion_text == "Add the owner tag."
 
 
 def test_unfenced_json_passes_through_unchanged(runtime) -> None:  # type: ignore[no-untyped-def]
