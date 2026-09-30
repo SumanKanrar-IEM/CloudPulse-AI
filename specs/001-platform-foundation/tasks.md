@@ -510,3 +510,5 @@ added for the remaining cross-spec gaps flagged by CHK028/030/032.
 - [X] T147 Write the root `README.md`: overview, capabilities per spec, design principles, architecture and flow diagrams (Mermaid), roles and security model, tech stack, a project map explaining every folder, subfolder and file, local backend and frontend runs, provisioning, teardown and cost hygiene, quality gates, and current status — per Principle I
       **Done 2026-10-01.** Every fact checked against the repository and the live verification (T144):
       versions, schedules, commands, counts and what is and is not proven live
+- [X] T148 Bring the `backend/`, `infra/` and `agents/` READMEs up to date with the live-verification work: optional NAT egress (T143) and its effect on the workers, Nova 2 Lite replacing the Marketplace-blocked model, the full model path proven live (T144), the narrator's descoping, dev-only `force_destroy` (T146) and the runtime's JSON extraction (T071) — per Principle I
+      **Done 2026-10-01.** Each stale sentence replaced in place; no other content changed

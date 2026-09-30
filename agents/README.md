@@ -3,7 +3,9 @@
 > **Migrated 2026-09-15 (constitution v3.0.0, research R-613, R-613a, R-613b; tasks T061–T066).**
 > Built for Bedrock Agents (classic), which AWS placed in maintenance mode and closed to this
 > account; now runs on **Bedrock AgentCore Runtime**. The constraints below are unchanged and
-> still binding. Live proof (T067) waits on the account's Marketplace payment instrument.
+> still binding. The model is Amazon Nova 2 Lite (R-613c), and the path is proven live: T067 verified
+> the runtime and grounding, and T144 (2026-09-29) ran worker → runtime → Nova → grounding end to end
+> on real findings — a non-empty digest and 19 suggestions, none rejected.
 
 **Owned by spec 006 (agentic insights).** Spec 001 reserved this tree and left it empty; spec 006
 populates it. The constraints below are spec 001's and this spec implements against them — it does
@@ -38,27 +40,34 @@ governance store before display (`backend/app/governance/grounding.py`). A rejec
 recorded, never displayed. The validator is deterministic code, not a second model call — one that
 could hallucinate would defeat its own purpose (R-607).
 
-## Runtime limitation, stated rather than discovered
+## Reaching the runtime from the VPC
 
-Every capability here calls Bedrock from a VPC-attached Lambda. The dev VPC has no NAT gateway and
-only S3 and Secrets Manager interface endpoints. Whether Bedrock publishes an interface endpoint is
-**unverified** — see R-604, and run its check rather than assuming either answer. Plan for the
-model being unreachable: that is a specified, testable state here (FR-007a, SC-009), not an outage.
+The workers that invoke these capabilities are VPC-attached Lambdas, and the dev VPC's standing
+endpoints are only S3 and Secrets Manager. A deploy opts into one of two paths, both off by default
+and billed per hour: `enable_egress` (a single-AZ NAT gateway, T143 — what T144 used) or
+`enable_agent_endpoints` (the `bedrock-agentcore` interface endpoint AWS does publish, R-604a).
+Without either, the model is unreachable — a specified, testable state here (FR-007a, SC-009), not
+an outage. The runtime itself runs in `PUBLIC` network mode and reaches the platform API directly.
 
-## What is here now (spec 006, as of 2026-09-14)
+## What is here now (spec 006, as of 2026-10-01)
 
 | Capability | Definition | Prompt | Allowlist | Invoked by |
 | --- | --- | --- | --- | --- |
 | `digest` | `definitions/digest.json` | `prompts/digest.md` | `action-groups/digest_tools.py` (`/findings`, `/resources/{id}`, `/spend/summary`) | `digest_worker_handler`, daily, via `connectors.aws.invoke_agent` |
 | `suggester` | `definitions/suggester.json` | `prompts/suggester.md` | `action-groups/suggester_tools.py` (`/findings`, `/resources/{id}`, `/rules`) | `suggester_worker_handler`, daily, one invocation per open finding |
 | `advisor` | `definitions/advisor.json` | `prompts/advisor.md` | `action-groups/advisor_tools.py` (`/resources`) | **Not invoked.** `advisor_worker_handler` runs a deterministic detection and hashes these files onto the run row as the capability's contract (T038f). The seam if narration is wanted |
-| `narrator` | `definitions/narrator.json` | `prompts/narrator.md` | `action-groups/narrator_tools.py` (`/forecasts`) | **No worker.** Rendering deferred (T054a); the validator's exact-figure mode and these files stand |
+| `narrator` | `definitions/narrator.json` | `prompts/narrator.md` | `action-groups/narrator_tools.py` (`/forecasts`) | **No worker.** US7 was descoped from spec 006 (2026-09-24); these files and the validator's exact-figure mode stay, unused |
 
 All four name `global.amazon.nova-2-lite-v1:0` — an Amazon-owned model through an inference
 profile. R-613b found the original Claude id end-of-life and every Anthropic model gated behind
 an AWS Marketplace subscription this AISPL-billed account cannot complete; R-613c verified Nova 2
 Lite answers from inside the runtime with no Marketplace step. Principle II names Bedrock, not a
 vendor.
+
+The runtime returns `extract_json(text)`: the one JSON value in the model's reply, with any code
+fence or prose around it dropped (T067d, widened by T071). The dropped text is never parsed or
+shown; the governance parsers stay strict on the value itself, and a reply with no JSON value still
+reaches them unchanged and fails closed.
 
 `_platform_api.py` is the one HTTP client every tool call shares: Cognito machine principal
 (secret read from Secrets Manager under the runtime's own role — R-613b), HTTPS only, GET only,
