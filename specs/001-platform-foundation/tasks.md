@@ -507,3 +507,6 @@ added for the remaining cross-spec gaps flagged by CHK028/030/032.
       frontend origin's existing split. The only other versioned bucket, the agent artefact bucket,
       already force-destroys (it holds only the deploy's own package). `test_teardown_buckets.py` pins
       both: dev force-destroys, prod never does
+- [X] T147 Write the root `README.md`: overview, capabilities per spec, design principles, architecture and flow diagrams (Mermaid), roles and security model, tech stack, a project map explaining every folder, subfolder and file, local backend and frontend runs, provisioning, teardown and cost hygiene, quality gates, and current status — per Principle I
+      **Done 2026-10-01.** Every fact checked against the repository and the live verification (T144):
+      versions, schedules, commands, counts and what is and is not proven live
