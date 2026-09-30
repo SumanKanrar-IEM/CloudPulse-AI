@@ -106,7 +106,7 @@ The project is governed by a [**constitution**](.specify/memory/constitution.md)
 ## 🧱 Architecture
 
 ```mermaid
-flowchart LR
+flowchart TB
     subgraph Users["👥 Users"]
         U[Admin · Operator · Viewer]
     end
