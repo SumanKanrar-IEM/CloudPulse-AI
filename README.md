@@ -103,7 +103,7 @@ The project is governed by a [**constitution**](.specify/memory/constitution.md)
 
 ---
 
-## 🏗️ Architecture
+## 🧱 Architecture
 
 ```mermaid
 flowchart LR
@@ -186,7 +186,7 @@ flowchart LR
 
 ---
 
-## ⚙️ How it works
+## 🔄 How it works
 
 ### 1 · Onboarding an account
 
@@ -307,7 +307,7 @@ A rule violation opens a **finding**, which is either resolved automatically by 
 
 ---
 
-## 🗂️ Repository layout
+## 📁 Repository layout
 
 ```text
 .
@@ -345,7 +345,7 @@ Each top-level area has its own README with deeper detail: [backend](backend/REA
 
 ---
 
-## 🗃️ Project map
+## 📦 Project map
 
 A complete guide to what lives where: first every folder and subfolder, then each file, grouped by area.
 
@@ -764,7 +764,7 @@ aws lambda invoke --function-name cloudpulse-dev-migrate --cli-binary-format raw
 
 ---
 
-## 🅰️ Running the frontend
+## 💻 Running the frontend
 
 All commands run from `frontend/`.
 
@@ -788,7 +788,7 @@ The SPA reads its API URL and Cognito settings at runtime from `window.__CLOUDPU
 
 ---
 
-## 🏗️ Provisioning and deployment
+## 🚢 Provisioning and deployment
 
 ### Step 1 · Bootstrap (once per AWS account, by a human)
 
