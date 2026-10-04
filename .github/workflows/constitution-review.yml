@@ -39,14 +39,16 @@ jobs:
           fetch-depth: 1
 
       - name: Review the PR against the constitution
-        # Pinned to the commit behind tag v1 (2026-10-05).
+        # Pinned to the commit behind tag v1 (2026-10-05). `Write` is allowed only so
+        # the review body can be written to a file for `gh pr review --body-file`; the
+        # job's token is contents: read, so nothing written can reach the repository.
         uses: anthropics/claude-code-action@cab360f6565aa35a51d6ce9e43f1f4287c0a32ea
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
           claude_args: |
             --max-turns 30
-            --allowedTools "Read,Grep,Glob,Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr review:*)"
+            --allowedTools "Read,Grep,Glob,Write,Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr review:*)"
           prompt: |
             REPO: ${{ github.repository }}
             PR NUMBER: ${{ github.event.pull_request.number }}
@@ -94,9 +96,11 @@ jobs:
             maintainer's call. Note real correctness bugs you see, briefly.
 
             ## 4. Record the review
-            Run exactly one:
-            `gh pr review ${{ github.event.pull_request.number }} --comment --body-file <file>`
-            with a body that starts with the line `## Constitution review` and follows:
+            Write the review body with the Write tool to `review-body.md` in the current
+            working directory (it is never committed: this job cannot push), then run
+            exactly this one command, nothing piped or chained:
+            `gh pr review ${{ github.event.pull_request.number }} --comment --body-file review-body.md`
+            The body starts with the line `## Constitution review` and follows:
 
             **Verdict:** ✅ Compliant | ⚠️ Needs changes
 
