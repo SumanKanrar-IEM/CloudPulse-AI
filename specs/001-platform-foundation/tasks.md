@@ -512,3 +512,8 @@ added for the remaining cross-spec gaps flagged by CHK028/030/032.
       versions, schedules, commands, counts and what is and is not proven live
 - [X] T148 Bring the `backend/`, `infra/` and `agents/` READMEs up to date with the live-verification work: optional NAT egress (T143) and its effect on the workers, Nova 2 Lite replacing the Marketplace-blocked model, the full model path proven live (T144), the narrator's descoping, dev-only `force_destroy` (T146) and the runtime's JSON extraction (T071) — per Principle I
       **Done 2026-10-01.** Each stale sentence replaced in place; no other content changed
+- [X] T149 Close Principle VII's recorded-AI-review gap going forward: replace the gh-aw reviewer (T140, unable to run without a Copilot plan) with `.github/workflows/constitution-review.yml` — `anthropics/claude-code-action` (pinned to the `v1` commit) on the maintainer's Claude subscription, reviewing every same-repo PR into `pods/pod73` against `CONTRIBUTING.md` and the constitution, recording one formal review on the head commit, and failing if none was recorded — per Principle VII
+      **Done 2026-10-05.** Fork PRs are skipped (no secrets, untrusted code); only the PR number, head
+      SHA and repository reach the prompt or a shell step, never the PR's title, body or branch.
+      Running it needs the `CLAUDE_CODE_OAUTH_TOKEN` repository secret, which the maintainer adds;
+      making `constitution-review` a required status check is a separate branch-protection change

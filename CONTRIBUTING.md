@@ -2,9 +2,10 @@
 
 CloudPulse AI is built by one maintainer working with AI agents, under the project constitution
 (`.specify/memory/constitution.md`, v3.x). This file is the constitution's contribution rules
-distilled into a checklist. The automated PR reviewer (`.github/workflows/contribution-guidelines-checker.md`)
-checks every pull request against it, and its comment is the **recorded AI review** Principle VII
-requires before a merge.
+distilled into a checklist. The automated PR reviewer (`.github/workflows/constitution-review.yml`,
+Claude via `anthropics/claude-code-action`) checks every pull request against it and records one
+formal review on the PR's current commit: the **recorded AI review** Principle VII requires before
+a merge.
 
 When this file and the constitution disagree, the constitution wins.
 
