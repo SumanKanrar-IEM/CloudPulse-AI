@@ -362,6 +362,13 @@
   because merged history cannot be re-reviewed. The reviewer workflow is the gate that was
   missing; until it runs, the gap stays open.
 
+  **Closed going forward (2026-10-05, spec 001 T149).** The gh-aw reviewer was replaced by
+  `.github/workflows/constitution-review.yml`: Anthropic's `claude-code-action`, authenticated with
+  the maintainer's Claude subscription (`CLAUDE_CODE_OAUTH_TOKEN` from `claude setup-token`), runs
+  the same constitution checklist on every PR and records one formal review on the head commit; a
+  final step fails the job if no such review exists, so the check can be required by branch
+  protection. The gap stands for merged PRs #49–#162 and is not repaired.
+
 ## 6. Assessment & Convergence
 
 - **Tools:** `/speckit-analyze`, `/speckit-checklist`, `/speckit-converge`

@@ -98,7 +98,7 @@ The project is governed by a [**constitution**](.specify/memory/constitution.md)
 | **IV · Deterministic core, agentic edge** | Discovery, validation, scoring and cost are deterministic; agents explain and propose, never execute | Grounding validator, read-only agent API |
 | **V · Contract-first modularity** | OpenAPI is the binding contract; provider SDKs stay in `connectors/`; rules and coverage are data | `contract-compat`, `client-drift`, `connector-boundary` gates |
 | **VI · Test and quality gates** | Lint, types, unit, integration, e2e and evals on every PR | 15 required status checks |
-| **VII · Solo trunk-based delivery** | One long-lived branch (`pods/pod73`), short-lived `pods/pod73-*` branches | Branch protection |
+| **VII · Solo trunk-based delivery** | One long-lived branch (`pods/pod73`), short-lived `pods/pod73-*` branches, a recorded AI review on every PR | Branch protection, `constitution-review` |
 | **VIII · Honest prioritization** | P1 is frozen; P2 never blocks P1 | Task tiers |
 
 ---
@@ -355,7 +355,7 @@ A complete guide to what lives where: first every folder and subfolder, then eac
 |---|---|---|
 | **`/`** (root) | Project-wide docs and config | Entry point: README, constitution-driven process docs, Makefile, lint and secret-scan config |
 | `.github/` | GitHub configuration | Everything GitHub runs or reads |
-| ├─ `.github/workflows/` | GitHub Actions | CI gate (`ci.yml`), the two deploy pipelines, and the five agentic workflows (sources plus compiled `.lock.yml` files) |
+| ├─ `.github/workflows/` | GitHub Actions | CI gate (`ci.yml`), the two deploy pipelines, the constitution reviewer (`constitution-review.yml`), and four agentic workflows (sources plus compiled `.lock.yml` files) |
 | ├─ `.github/aw/` | gh-aw metadata | Pinned action versions used by the compiled agentic workflows |
 | └─ `.github/skills/` | Agent skills | Spec Kit commands and the gh-aw dispatcher, for agents working inside GitHub |
 | `.claude/skills/` | Claude Code skills | The `/speckit-*` commands Claude Code runs (specify, plan, tasks, implement, analyze, converge, and so on) |
@@ -436,7 +436,7 @@ A complete guide to what lives where: first every folder and subfolder, then eac
 | `ci.yml` | The PR gate: 15 required checks (lint, types, unit, integration, frontend + e2e, Terraform ×2, secret scan, contract, client drift, dependency allowlist, connector boundary, ERD, task reference, agent evals) |
 | `deploy-dev.yml` | Builds the Lambda, agent and SPA packages; applies Terraform; runs migrations; injects runtime config; smoke-tests. Inputs `enable_egress` and `enable_agent_endpoints` |
 | `deploy-prod.yml` | Manual-only prod deploy: read-only plan first, approval, trunk-only commits |
-| `contribution-guidelines-checker.md` / `.lock.yml` | Constitution-aware PR reviewer (gh-aw; disabled) |
+| `constitution-review.yml` | **The recorded AI review** (Principle VII): Claude reviews every PR against `CONTRIBUTING.md` and the constitution, records one formal review on the head commit, and fails if none was recorded |
 | `issue-triage.md` / `.lock.yml` | Labels issues P1/P2 and `spec/00N` (gh-aw; disabled) |
 | `ci-doctor.md` / `.lock.yml` | Investigates CI failures (gh-aw; disabled) |
 | `duplicate-code-detector.md` / `.lock.yml` | Daily duplicate-code report (gh-aw; disabled) |
@@ -917,7 +917,7 @@ The [**AI Workflow Journal**](AI_WORKFLOW_JOURNAL.md) records it honestly, phase
 | **Branch** | `pods/pod73`, trunk-based; the only branch |
 | **Live-verified end to end** (real AWS account) | Sign-in, same-account registration, a whole-account scan (87 resources), compliance scoring, CloudTrail ownership, the dashboard, the **AI digest and suggestions through Nova**, cost ingestion |
 | **Not yet live-verified** | Owner email (needs a verified SES sender), cross-account mode (needs a second account), the P2 workers |
-| **Known and recorded** | GitHub Agentic Workflows are built but disabled until a supported engine is configured; merged PRs #49–#143 lack a recorded AI review (see journal §5) |
+| **Known and recorded** | The remaining GitHub Agentic Workflows (triage, CI doctor, duplicate detector, journal drafter) are built but disabled until a supported engine is configured; merged PRs #49–#162 lack a recorded AI review, and every PR from the constitution reviewer's introduction (T149) carries one (see journal §5) |
 
 ---
 
