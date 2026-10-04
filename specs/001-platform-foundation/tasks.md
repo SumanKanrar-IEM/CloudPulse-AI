@@ -516,4 +516,8 @@ added for the remaining cross-spec gaps flagged by CHK028/030/032.
       **Done 2026-10-05.** Fork PRs are skipped (no secrets, untrusted code); only the PR number, head
       SHA and repository reach the prompt or a shell step, never the PR's title, body or branch.
       Running it needs the `CLAUDE_CODE_OAUTH_TOKEN` repository secret, which the maintainer adds;
-      making `constitution-review` a required status check is a separate branch-protection change
+      making `constitution-review` a required status check is a separate branch-protection change.
+      First live run (PR #163): denied the Write tool its review-body file and recorded nothing —
+      the final step failed the job as designed; with Write allowed, it recorded a ✅ Compliant
+      review. On the maintainer's instruction `constitution-review` was then added to `pods/pod73`'s
+      required status checks (16 in all), so no PR can merge without a recorded AI review
