@@ -404,7 +404,7 @@ A complete guide to what lives where: first every folder and subfolder, then eac
 | └─ `ops/spikes/` | Spikes | Throwaway experiments (e.g. the AgentCore feasibility spike) kept as evidence |
 | **`specs/`** | Feature specs | One folder per spec, 001–006 |
 | └─ `specs/00N-*/` | One feature | `spec.md`, `plan.md`, `research.md`, `data-model.md`, `quickstart.md`, `tasks.md`, plus `contracts/` (design-time OpenAPI) and `checklists/` (requirement-quality checks) |
-| **`docs/`** | Deliverables | Architecture deck, capstone overview, engineering guide, plan and tech stack, backlog |
+| **`docs/`** | Deliverables | v2.0 (as built): architecture deck, capstone overview, engineering guide, plan and tech stack, backlog with outcomes; plus the original draft plan |
 
 ### Files, by area
 
@@ -930,7 +930,7 @@ The [**AI Workflow Journal**](AI_WORKFLOW_JOURNAL.md) records it honestly, phase
 | [AI Workflow Journal](AI_WORKFLOW_JOURNAL.md) | How the project was built, including the live findings |
 | [Spec Kit Playbook](SPECKIT_PLAYBOOK.md) | Delivery playbook, the teardown sweep, hard-won lessons |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | The PR checklist |
-| [`docs/`](docs/) | Architecture deck, capstone overview, engineering guide, backlog |
+| [`docs/`](docs/) | v2.0 (as built) architecture deck, capstone overview (doc + deck), engineering guide, plan and tech stack, and backlog with each story's outcome; `CloudPulse AI.docx` is the original draft plan |
 
 <div align="center">
 
