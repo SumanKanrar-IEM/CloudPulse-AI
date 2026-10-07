@@ -54,6 +54,9 @@ variable "notification_sender_email" {
   type        = string
   description = "FR-014: the fixed, per-environment SES sending identity. A verified identity in the platform's own account, never a per-tenant address. Empty leaves the worker deployed but refusing to run (T015), rather than silently sending from an unverified address."
   default     = ""
+  # T054: an email address is personal data, and this repository is public. Sensitive
+  # keeps it out of the plan output in Actions logs (Lambda env, SES identity ARN).
+  sensitive = true
 }
 
 variable "notification_schedule_expression" {
