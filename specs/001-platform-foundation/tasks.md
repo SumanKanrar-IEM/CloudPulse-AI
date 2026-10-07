@@ -521,3 +521,8 @@ added for the remaining cross-spec gaps flagged by CHK028/030/032.
       the final step failed the job as designed; with Write allowed, it recorded a ✅ Compliant
       review. On the maintainer's instruction `constitution-review` was then added to `pods/pod73`'s
       required status checks (16 in all), so no PR can merge without a recorded AI review
+- [X] T150 Bring the `docs/` deliverables to v2.0, as built: the Capstone Overview (doc and deck, plus a "Where It Stands" slide), the Architecture deck, the Plan & Tech Stack Guide, the Engineering Guide, and the Backlog (each story's outcome and the spec that delivered it, with an as-built summary) — per Principle I
+      **Done 2026-10-05.** Rewritten in place from clones of each file's own paragraph, table, slide and
+      cell styles, so layouts and branding are unchanged; v1.0 stays in git history. Rendered and checked
+      through PowerPoint, Pages and Quick Look. `CloudPulse AI.docx`, the original draft plan, is
+      deliberately unchanged
