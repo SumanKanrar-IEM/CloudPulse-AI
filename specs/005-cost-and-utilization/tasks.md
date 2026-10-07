@@ -1039,3 +1039,10 @@ into "proven against real AWS" — honestly bounded by research.md R-511 from th
 discovered mid-attempt. P2 (Phases 7–10) is additive polish afterward, never a prerequisite for
 declaring the P1 demo path complete; User Story 6's own live-verification (T051/T052) is the one
 piece of P2 work whose live-provability doesn't wait on R-407 at all.
+
+## Phase 11: Live verification of owner email and the P2 features
+
+- [X] T054 Feed the SES sender for owner email from a `NOTIFICATION_SENDER_EMAIL` repository secret (`TF_VAR_notification_sender_email` in `deploy-dev.yml`), and mark `notification_sender_email` `sensitive` in the cost module and both environments — the repository is public, and an address passed as an input or in tfvars would appear in Actions logs through the plan (Lambda environment, SES identity ARN). Unset leaves today's behaviour: the worker deploys but refuses to send — per FR-014
+      **Done 2026-10-07.** `terraform validate` clean for dev and prod
+- [ ] T055 **Live-verify owner email and the P2 features** against the real dev account (egress on, sender set): a day-0 owner email delivered for a real finding whose resource resolves an owner email; an SDA registered with its auto-created budget; the metrics collector, coverage advisor, IAM hygiene and cost workers run, and the utilization, IAM hygiene, forecasts, rightsizing and coverage-proposal screens checked — recording per item what was proven live and what was not — per FR-004–FR-010, FR-015–FR-020, playbook §0.5.3
+- [ ] T056 **Teardown and cost sweep**, immediately following T055 — `ops/teardown.sh dev` and the §0.5.3 sweep against a pre-deploy baseline — playbook §0.5.3
