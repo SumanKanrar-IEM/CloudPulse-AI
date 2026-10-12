@@ -69,7 +69,7 @@ import { CostService, defaultSpendRange } from './cost.service';
             </tr>
           </thead>
           <tbody>
-            @for (row of summary.byProject; track row.sdaId ?? 'none') {
+            @for (row of summary.byProject; track $index) {
               <tr>
                 <td>{{ row.sdaName ?? 'No SDA' }}</td>
                 <td>{{ row.totalUsd }}</td>
