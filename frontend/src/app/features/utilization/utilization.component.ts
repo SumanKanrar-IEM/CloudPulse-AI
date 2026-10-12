@@ -74,7 +74,7 @@ import { UtilizationStateService } from './utilization.service';
             </tr>
           </thead>
           <tbody>
-            @for (row of report.byProject; track row.sdaId ?? 'none') {
+            @for (row of report.byProject; track $index) {
               <tr>
                 <td>{{ row.sdaName ?? 'No SDA' }}</td>
                 <td>{{ display(row.utilization) }}</td>
