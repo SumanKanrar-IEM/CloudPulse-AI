@@ -8,6 +8,7 @@ import { authInterceptor } from './core/auth.interceptor';
 import { resolveApiBaseUrl, resolveE2eMockRole } from './core/api-config';
 import { authGuard, roleGuard } from './core/auth.guard';
 import { AuthService } from './core/auth.service';
+import { CHART_DEFAULTS } from './core/chart-theme';
 
 // Feature routes: accounts (spec 002), sdas (spec 003), overview/inventory/findings/
 // scans (spec 004), cost/utilization/iam-hygiene (spec 005), coverage-proposals/rightsizing/forecasts (spec 006).
@@ -119,7 +120,8 @@ export const appConfig: ApplicationConfig = {
     provideRouter(routes),
     provideHttpClient(withInterceptors([authInterceptor, correlationInterceptor])),
     provideApi(resolveApiBaseUrl()),
-    provideCharts(withDefaultRegisterables()),
+    // T046: one chart look for every screen, set once rather than per chart.
+    provideCharts(withDefaultRegisterables(), { defaults: CHART_DEFAULTS }),
     {
       // Test-only (spec 003, T034): seeds a fake session before routing
       // starts, when a Playwright test has set `window.__CLOUDPULSE_CONFIG__

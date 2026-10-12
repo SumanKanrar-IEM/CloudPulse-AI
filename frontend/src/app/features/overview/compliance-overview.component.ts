@@ -69,37 +69,39 @@ import { OverviewService } from './overview.service';
           </div>
         </section>
 
-        <section>
-          <h2>Findings by type</h2>
-          @if (byTypeChartData().labels!.length > 0) {
-            <canvas
-              baseChart
-              [type]="'bar'"
-              [data]="byTypeChartData()"
-              [options]="chartOptions"
-              aria-label="Open findings by tag rule"
-              role="img"
-            ></canvas>
-          } @else {
-            <p>No open findings.</p>
-          }
-        </section>
+        <div class="chart-grid">
+          <section>
+            <h2>Findings by type</h2>
+            @if (byTypeChartData().labels!.length > 0) {
+              <canvas
+                baseChart
+                [type]="'bar'"
+                [data]="byTypeChartData()"
+                [options]="chartOptions"
+                aria-label="Open findings by tag rule"
+                role="img"
+              ></canvas>
+            } @else {
+              <p>No open findings.</p>
+            }
+          </section>
 
-        <section>
-          <h2>Findings by severity</h2>
-          @if (bySeverityChartData().labels!.length > 0) {
-            <canvas
-              baseChart
-              [type]="'bar'"
-              [data]="bySeverityChartData()"
-              [options]="chartOptions"
-              aria-label="Open findings by severity"
-              role="img"
-            ></canvas>
-          } @else {
-            <p>No open findings.</p>
-          }
-        </section>
+          <section>
+            <h2>Findings by severity</h2>
+            @if (bySeverityChartData().labels!.length > 0) {
+              <canvas
+                baseChart
+                [type]="'bar'"
+                [data]="bySeverityChartData()"
+                [options]="chartOptions"
+                aria-label="Open findings by severity"
+                role="img"
+              ></canvas>
+            } @else {
+              <p>No open findings.</p>
+            }
+          </section>
+        </div>
 
         <section>
           <h2>Accounts</h2>
@@ -134,57 +136,6 @@ import { OverviewService } from './overview.service';
       }
     }
   `,
-  styles: [
-    `
-      .visually-hidden {
-        position: absolute;
-        width: 1px;
-        height: 1px;
-        overflow: hidden;
-        clip: rect(0, 0, 0, 0);
-        white-space: nowrap;
-      }
-      .score-cards {
-        display: flex;
-        gap: 1rem;
-      }
-      .digest-card {
-        border: 1px solid #d0d0d0;
-        border-radius: 4px;
-        padding: 1rem;
-        margin-bottom: 1rem;
-      }
-      .digest-provenance {
-        color: #595959;
-        font-size: 0.875rem;
-        margin-top: 0;
-      }
-      .score-card {
-        border: 1px solid #d0d0d0;
-        border-radius: 4px;
-        padding: 1rem;
-        min-width: 12rem;
-      }
-      .score {
-        font-size: 2rem;
-        font-weight: bold;
-        margin: 0;
-      }
-      table {
-        width: 100%;
-        border-collapse: collapse;
-      }
-      th,
-      td {
-        text-align: left;
-        padding: 0.5rem;
-        border-bottom: 1px solid #d0d0d0;
-      }
-      canvas {
-        max-width: 100%;
-      }
-    `,
-  ],
 })
 export class ComplianceOverviewComponent implements OnInit {
   protected readonly overview = inject(OverviewService);

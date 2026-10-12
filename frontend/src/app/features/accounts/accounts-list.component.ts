@@ -68,7 +68,7 @@ import { AccountFormComponent } from './account-form.component';
               <td>{{ account.connectionMode }}</td>
               <td>{{ account.scanRegions.join(', ') }}</td>
               <td>
-                {{ account.status }}
+                <span class="badge" [attr.data-tone]="account.status">{{ account.status }}</span>
                 @if (account.status === 'failed' && account.failureReason) {
                   <p class="failure-reason">{{ account.failureReason }}</p>
                 }
@@ -103,24 +103,6 @@ import { AccountFormComponent } from './account-form.component';
   `,
   styles: [
     `
-      .visually-hidden {
-        position: absolute;
-        width: 1px;
-        height: 1px;
-        overflow: hidden;
-        clip: rect(0, 0, 0, 0);
-        white-space: nowrap;
-      }
-      table {
-        width: 100%;
-        border-collapse: collapse;
-      }
-      th,
-      td {
-        text-align: left;
-        padding: 0.5rem;
-        border-bottom: 1px solid #d0d0d0;
-      }
       .failure-reason {
         margin: 0.25rem 0 0;
         max-width: 40rem;

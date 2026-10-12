@@ -109,42 +109,6 @@ import { ForecastsStateService } from './forecasts.service';
       }
     }
   `,
-  styles: [
-    `
-      .visually-hidden {
-        position: absolute;
-        width: 1px;
-        height: 1px;
-        overflow: hidden;
-        clip: rect(0, 0, 0, 0);
-        white-space: nowrap;
-      }
-      .note {
-        color: #555555;
-      }
-      table {
-        width: 100%;
-        border-collapse: collapse;
-        margin-top: 1rem;
-      }
-      th,
-      td {
-        text-align: left;
-        padding: 0.5rem;
-        border-bottom: 1px solid #d0d0d0;
-        vertical-align: top;
-      }
-      .badge {
-        border-radius: 0.75rem;
-        padding: 0.1rem 0.6rem;
-        font-size: 0.85rem;
-        font-weight: 600;
-        background: #e4e4e4;
-        color: #333333;
-        white-space: nowrap;
-      }
-    `,
-  ],
 })
 export class ForecastsComponent implements OnInit {
   protected readonly state = inject(ForecastsStateService);

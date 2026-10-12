@@ -81,8 +81,8 @@ import { ResourceDetailComponent } from './resource-detail.component';
                 </td>
                 <td>{{ resource.service }}</td>
                 <td>{{ resource.region }}</td>
-                <td>{{ resource.tagStatus }}</td>
-                <td>{{ resource.ownerStatus }}</td>
+                <td><span class="badge" [attr.data-tone]="resource.tagStatus">{{ resource.tagStatus }}</span></td>
+                <td><span class="badge" [attr.data-tone]="resource.ownerStatus">{{ resource.ownerStatus }}</span></td>
               </tr>
             }
           </tbody>
@@ -112,34 +112,6 @@ import { ResourceDetailComponent } from './resource-detail.component';
       <cp-resource-detail [resourceId]="id" />
     }
   `,
-  styles: [
-    `
-      .visually-hidden {
-        position: absolute;
-        width: 1px;
-        height: 1px;
-        overflow: hidden;
-        clip: rect(0, 0, 0, 0);
-        white-space: nowrap;
-      }
-      form {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 1rem;
-        margin-bottom: 1rem;
-      }
-      table {
-        width: 100%;
-        border-collapse: collapse;
-      }
-      th,
-      td {
-        text-align: left;
-        padding: 0.5rem;
-        border-bottom: 1px solid #d0d0d0;
-      }
-    `,
-  ],
 })
 export class InventoryExplorerComponent implements OnInit {
   protected readonly inventory = inject(InventoryService);

@@ -23,6 +23,21 @@ Standalone components with signals, Angular Material, hosted on S3 behind CloudF
 explicit that this proves only part of it** — keyboard operability and focus visibility
 remain a reviewer's responsibility. Passing lint is not evidence the baseline is met.
 
+## Look and motion (spec 004, T046)
+
+Screens are plain semantic HTML; the design system lives once in `src/styles.scss`
+(Material theme, tokens on `:root`, tables, forms, buttons, cards, badges, loading and
+error states, page and row animations). A component keeps only layout that is its own.
+
+- **Status colour is data:** `<span class="badge" [attr.data-tone]="status">` — the
+  tone follows from the raw value in `styles.scss`, and the label always carries the
+  meaning.
+- **Charts:** one look for every chart, set in `src/app/core/chart-theme.ts` through
+  `provideCharts`. No screen sets colours.
+- **Fonts and icons:** Inter and Material Symbols Rounded from Google Fonts
+  (`src/index.html`); icons are `aria-hidden` and never the only label.
+- **Motion** is decoration only and switches off under `prefers-reduced-motion`.
+
 ## The generated client
 
 `src/app/api/` comes from `backend/openapi.generated.yaml`. CI regenerates it and fails
