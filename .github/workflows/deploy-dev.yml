@@ -164,6 +164,10 @@ jobs:
           # can never silently provision a billed endpoint.
           ENABLE_AGENT_ENDPOINTS: ${{ inputs.enable_agent_endpoints || false }}
           ENABLE_EGRESS: ${{ inputs.enable_egress || false }}
+          # T054: the SES sender for owner email. A repository secret, not an input or a
+          # tfvars value, because this repository is public; the variable is sensitive so
+          # the plan masks it. Unset means the notification worker deploys but won't send.
+          TF_VAR_notification_sender_email: ${{ secrets.NOTIFICATION_SENDER_EMAIL }}
         run: |
           terraform init -input=false
           terraform apply -input=false -auto-approve \
