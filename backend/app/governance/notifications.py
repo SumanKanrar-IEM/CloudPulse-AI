@@ -25,6 +25,7 @@ from sqlalchemy import select
 
 from app.core.db import TenantSession
 from app.core.logging import logger
+from app.governance.identity_resolution import is_valid_email
 from app.models.core import Finding as FindingRow
 from app.models.core import Notification as NotificationRow
 from app.models.core import Resource as ResourceRow
@@ -266,7 +267,9 @@ def _attempt(
     retried forever" is about an unnotifiable *address*, not a transport error.
     """
     owner_email = _owner_email_of(session, finding)
-    if not owner_email:
+    # T057: an owner FR-027 could not resolve stays the raw principal ARN, which is
+    # not an address. Sending it raised every day forever; it is unnotifiable.
+    if not is_valid_email(owner_email):
         logger.info(
             "notification withheld: no owner email",
             extra={"finding_id": str(finding.id), "cadence_point": cadence_point.value},
