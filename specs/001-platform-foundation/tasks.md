@@ -526,3 +526,4 @@ added for the remaining cross-spec gaps flagged by CHK028/030/032.
       cell styles, so layouts and branding are unchanged; v1.0 stays in git history. Rendered and checked
       through PowerPoint, Pages and Quick Look. `CloudPulse AI.docx`, the original draft plan, is
       deliberately unchanged
+- [X] T151 **[Found by CI, not by inspection]** Cap `pydantic` below 2.14 in `backend/pyproject.toml`. Pydantic 2.14.1, released after #166 merged, drops the `pattern` constraint from Decimal-as-string JSON schemas, so `contract-compat (oasdiff)`'s stale-contract step regenerates a different `openapi.generated.yaml` from unchanged code and fails every PR (first seen on #167). The cap keeps the contract deterministic; lifting it is a deliberate change that regenerates the contract and the client together — per FR-048

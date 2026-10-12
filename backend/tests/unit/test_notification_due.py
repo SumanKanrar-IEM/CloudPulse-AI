@@ -155,6 +155,24 @@ def test_an_unresolvable_owner_is_recorded_as_withheld_and_never_emailed(
     assert session.rows[0].recipient_email is None
 
 
+def test_a_raw_principal_owner_is_withheld_not_sent(stub_lookups: Any) -> None:
+    """T057, found live: when FR-027 resolves no address, spec 003 keeps the raw
+    principal ARN as the owner. SES rejects it, and an unrecorded send error is
+    retried every day -- so it must be recorded as unnotifiable instead."""
+    principal = "arn:aws:sts::123456789012:assumed-role/AWSReservedSSO_Admin_abc/alice"
+    stub_lookups([_finding()], principal)
+    session = _RecordingSession()
+    sent: list[NotificationEmail] = []
+
+    outcomes = send_due_day0_notifications(
+        session, sent.append, sender=SENDER, frontend_url=FRONTEND_URL
+    )
+
+    assert outcomes == [NotificationOutcome.WITHHELD_NO_OWNER_EMAIL]
+    assert sent == []
+    assert session.rows[0].recipient_email is None
+
+
 def test_no_outcome_is_ever_sent_when_there_is_no_address_to_send_to(
     stub_lookups: Any,
 ) -> None:

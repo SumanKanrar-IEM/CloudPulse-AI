@@ -11,6 +11,7 @@ V4's documented behavior) -- this chain never invents a value.
 from __future__ import annotations
 
 import re
+from typing import TypeGuard
 
 from sqlalchemy import select
 
@@ -24,7 +25,7 @@ _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 _PATTERN_PLACEHOLDER = "{principal_local_part}"
 
 
-def _is_valid_email(value: str | None) -> bool:
+def is_valid_email(value: str | None) -> TypeGuard[str]:
     return value is not None and bool(_EMAIL_RE.match(value))
 
 
@@ -38,7 +39,7 @@ def resolve_owner_email(
 ) -> str | None:
     """FR-027's chain. Returns `None` if nothing resolves."""
     owner_tag = _owner_tag_value(tags)
-    if _is_valid_email(owner_tag):
+    if is_valid_email(owner_tag):
         return owner_tag
 
     pattern = session.raw.execute(
@@ -47,7 +48,7 @@ def resolve_owner_email(
     if pattern:
         local_part = principal_id.rsplit("/", 1)[-1]
         candidate = pattern.replace(_PATTERN_PLACEHOLDER, local_part)
-        if _is_valid_email(candidate):
+        if is_valid_email(candidate):
             return candidate
 
     override = session.raw.execute(
