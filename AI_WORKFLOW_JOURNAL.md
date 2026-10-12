@@ -1309,3 +1309,40 @@ pre-deploy baseline; the session's AWS cost was a few dollars at most.
 The lesson is the one R-511 recorded in spec 005, now demonstrated: a capability is not verified
 until its *inputs* exist live. Three of the four bugs sat in IAM and data volume — exactly what a
 mocked test assumes away.
+
+## Live owner email and P2 verification (2026-10-13) — spec 005 T054–T058
+
+The second live pass, with the two inputs the first one lacked: an SES sender (T054, fed from a
+repository secret so the address never reaches the public Actions log) and the maintainer's own
+address on a resource whose creator CloudTrail could name. Egress was on, as before.
+
+**Proven live:** ownership attribution (18 resources); FR-027's tag rule resolving an owner to an
+email after the maintainer tagged one; three day-0 emails accepted by SES and 276 findings
+recorded as unnotifiable; all four P2 workers (cost ingestion with a budget checked once an SDA
+existed, metrics collection, IAM hygiene with 12 principals flagged, the coverage advisor); and
+every P2 screen, checked by the maintainer in the browser. **Not proven:** a budget overrun and
+its email, the day-2/day-4 reminders, forecasts and rightsizing with real figures (one day of
+history), cross-account mode.
+
+**What it found:**
+- **Spec 005 T057** — an owner FR-027 could not resolve stays a raw principal ARN, and the
+  notification worker handed that ARN to SES as a recipient. SES rejected 62 of them, the send
+  error recorded nothing, and every daily pass would have retried them forever — FR-010 says
+  otherwise. Mocked tests passed because they only ever stubbed `None` or a real address.
+- **Spec 005 T058** — the Cost and Utilization screens tracked project rows with `??` in an
+  `@for` `track` expression, which Angular 18 compiles to an undeclared temporary. The "No SDA"
+  row (null id) crashed the render, so neither screen had ever shown its tables. Found with mocked
+  data while preparing the design pass, before the maintainer reached those pages live.
+- **Spec 001 T151** — not a bug in the code: a pydantic release mid-session changed the generated
+  contract, so the stale-contract check failed every PR. Capped, with the lift left as a
+  deliberate change.
+
+Alongside it, at the maintainer's request, **spec 004 T046** gave the dashboard a design system
+(Angular Material theme, shared styles, chart defaults, CSS motion that honours reduced motion)
+and linked the six screens the nav had never listed — with no new dependency, and axe clean on
+all twelve screens.
+
+Teardown (T056) destroyed 151 resources with no manual step, and the sweep matched the
+pre-deploy baseline exactly. The pattern from the first pass held: each bug sat where a mock
+supplies a convenient input — a well-formed owner, a non-null id — and live data does not.
+

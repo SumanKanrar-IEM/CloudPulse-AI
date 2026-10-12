@@ -1044,7 +1044,34 @@ piece of P2 work whose live-provability doesn't wait on R-407 at all.
 
 - [X] T054 Feed the SES sender for owner email from a `NOTIFICATION_SENDER_EMAIL` repository secret (`TF_VAR_notification_sender_email` in `deploy-dev.yml`), and mark `notification_sender_email` `sensitive` in the cost module and both environments — the repository is public, and an address passed as an input or in tfvars would appear in Actions logs through the plan (Lambda environment, SES identity ARN). Unset leaves today's behaviour: the worker deploys but refuses to send — per FR-014
       **Done 2026-10-07.** `terraform validate` clean for dev and prod
-- [ ] T055 **Live-verify owner email and the P2 features** against the real dev account (egress on, sender set): a day-0 owner email delivered for a real finding whose resource resolves an owner email; an SDA registered with its auto-created budget; the metrics collector, coverage advisor, IAM hygiene and cost workers run, and the utilization, IAM hygiene, forecasts, rightsizing and coverage-proposal screens checked — recording per item what was proven live and what was not — per FR-004–FR-010, FR-015–FR-020, playbook §0.5.3
-- [ ] T056 **Teardown and cost sweep**, immediately following T055 — `ops/teardown.sh dev` and the §0.5.3 sweep against a pre-deploy baseline — playbook §0.5.3
+- [X] T055 **Live-verify owner email and the P2 features** against the real dev account (egress on, sender set): a day-0 owner email delivered for a real finding whose resource resolves an owner email; an SDA registered with its auto-created budget; the metrics collector, coverage advisor, IAM hygiene and cost workers run, and the utilization, IAM hygiene, forecasts, rightsizing and coverage-proposal screens checked — recording per item what was proven live and what was not — per FR-004–FR-010, FR-015–FR-020, playbook §0.5.3
+      **Done 2026-10-13, with what was and was not proven recorded per item.** Deployed trunk
+      `dcd2f3e` with egress on (run 38302277436, 151 resources); the sender came from the
+      `NOTIFICATION_SENDER_EMAIL` secret and appears zero times in the public Actions log (T054).
+      **Owner email, proven:** ownership attributed 18 resources from CloudTrail; the maintainer
+      tagged an attributed one `owner=<their address>` and re-scanned, and FR-027's tag rule
+      resolved it; `trigger_daily` then sent 3 day-0 emails (SES accepted all three — delivery to
+      the inbox was not separately confirmed in the session) and recorded 276 findings as
+      `withheld_no_owner_email`. **Found:** 62 more findings whose owner was a raw principal ARN
+      went to SES as recipients and were rejected (`InvalidParameterValue: Nested group`) with no
+      row recorded — retried daily forever, against FR-010. Fixed as T057 (#167) and redeployed
+      (run 38311395989); the fix is proven by its unit test, not by a second live run.
+      **P2 workers, proven:** cost ingestion (spend for 2026-10-11; `budgets_checked` 0, then 1
+      once the maintainer registered an SDA with a budget); metrics collector (4 utilization
+      rows); IAM hygiene (12 principals flagged); coverage advisor (run succeeded: 0 proposals,
+      28 advisory gaps). **Screens, proven by the maintainer in the browser:** Cost, Utilization,
+      IAM hygiene, Forecasts, Rightsizing, Coverage proposals, SDAs — after T058 (#170), found
+      while preparing the design pass, without which Cost's and Utilization's tables never
+      rendered. **Not proven:** a budget-overrun finding and its email (no budget was crossed);
+      day-2/day-4 reminders (they need days to elapse); forecasts and rightsizing with real
+      figures (one day of history, so both report insufficient history); cross-account mode
+      (one account). Spec 001 T151 (a pydantic release drifting the generated contract) and
+      spec 004 T046 (the dashboard design pass) also landed during the session.
+- [X] T056 **Teardown and cost sweep**, immediately following T055 — `ops/teardown.sh dev` and the §0.5.3 sweep against a pre-deploy baseline — playbook §0.5.3
+      **Done 2026-10-13.** `ops/teardown.sh dev`: 151 resources destroyed, exit 0, no manual
+      step (T146's `force_destroy` held). The §0.5.3 sweep afterwards was byte-identical to the
+      baseline taken before T055's deploy: only the two Terraform state buckets and the default
+      VPC's internet gateway remain. The one deliberate leftover is the maintainer's SES-verified
+      address, which costs nothing.
 - [X] T057 **[Found live by T055, not by inspection]** Withhold, rather than send, a notification whose owner is a raw audit-trail principal instead of an email. Spec 003's attribution stores the principal ARN in `resource_owner.owner_email` when FR-027's chain resolves no address (quickstart.md V4), and `_attempt` in `backend/app/governance/notifications.py` handed it to SES as the recipient: SES rejected all 62 such findings live (`InvalidParameterValue: Nested group`), the send error left no row, so every daily pass would retry them forever — against FR-010's "recorded as unnotifiable rather than retried". `_attempt` now records `withheld_no_owner_email` for any value that is not a valid email, using identity resolution's own validator (made public as `is_valid_email`); tests in `backend/tests/unit/test_notification_due.py` — per FR-010
 - [X] T058 **[Found while doing spec 004 T046, not by inspection]** Fix the Cost and Utilization screens' project tables, which never rendered. Both tracked `@for` rows by `row.sdaId ?? 'none'` — the "No SDA" row's `sdaId` is null — and Angular 18's template compiler turns a `??` in a `track` expression into an undeclared temporary: rendering threw `ReferenceError: tmp_.. is not defined` and every table after it on the page stayed empty. Track by `$index` in `frontend/src/app/features/cost/cost-dashboard.component.ts` and `frontend/src/app/features/utilization/utilization.component.ts`; regression test `frontend/e2e/project-rows.spec.ts` fails before the fix and passes after — per FR-003, FR-018
