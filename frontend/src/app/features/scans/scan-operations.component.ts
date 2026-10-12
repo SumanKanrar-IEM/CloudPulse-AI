@@ -75,7 +75,7 @@ import { ScansService } from './scans.service';
                         <tr>
                           <td>{{ scan.startedAt }}</td>
                           <td>{{ duration(scan) }}</td>
-                          <td>{{ scan.status }}</td>
+                          <td><span class="badge" [attr.data-tone]="scan.status">{{ scan.status }}</span></td>
                           <td>{{ scan.added ?? '—' }}</td>
                           <td>{{ scan.removed ?? '—' }}</td>
                           <td>{{ scan.changed ?? '—' }}</td>
@@ -91,42 +91,6 @@ import { ScansService } from './scans.service';
       </ul>
     }
   `,
-  styles: [
-    `
-      .visually-hidden {
-        position: absolute;
-        width: 1px;
-        height: 1px;
-        overflow: hidden;
-        clip: rect(0, 0, 0, 0);
-        white-space: nowrap;
-      }
-      .accounts-list {
-        list-style: none;
-        padding: 0;
-      }
-      .account-row {
-        display: flex;
-        gap: 1rem;
-        align-items: center;
-        padding: 0.5rem 0;
-        border-bottom: 1px solid #d0d0d0;
-      }
-      .history-panel {
-        padding: 0.5rem 1rem 1rem;
-        background: #f7f7f7;
-      }
-      table {
-        width: 100%;
-        border-collapse: collapse;
-      }
-      th,
-      td {
-        text-align: left;
-        padding: 0.5rem;
-      }
-    `,
-  ],
 })
 export class ScanOperationsComponent implements OnInit {
   protected readonly accounts = inject(AccountsService);

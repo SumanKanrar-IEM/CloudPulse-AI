@@ -67,33 +67,6 @@ import { RightsizingStateService } from './rightsizing.service';
   `,
   styles: [
     `
-      .visually-hidden {
-        position: absolute;
-        width: 1px;
-        height: 1px;
-        overflow: hidden;
-        clip: rect(0, 0, 0, 0);
-        white-space: nowrap;
-      }
-      .note {
-        color: #555555;
-      }
-      table {
-        width: 100%;
-        border-collapse: collapse;
-        margin-top: 1rem;
-      }
-      th,
-      td {
-        text-align: left;
-        padding: 0.5rem;
-        border-bottom: 1px solid #d0d0d0;
-        vertical-align: top;
-      }
-      .identifier {
-        font-family: monospace;
-        word-break: break-all;
-      }
       .evidence {
         font-size: 0.9rem;
       }

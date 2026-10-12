@@ -40,28 +40,6 @@ import { SdasService } from './sdas.service';
       </table>
     }
   `,
-  styles: [
-    `
-      .visually-hidden {
-        position: absolute;
-        width: 1px;
-        height: 1px;
-        overflow: hidden;
-        clip: rect(0, 0, 0, 0);
-        white-space: nowrap;
-      }
-      table {
-        width: 100%;
-        border-collapse: collapse;
-      }
-      th,
-      td {
-        text-align: left;
-        padding: 0.5rem;
-        border-bottom: 1px solid #d0d0d0;
-      }
-    `,
-  ],
 })
 export class NoSdaTriageComponent {
   protected readonly sdas = inject(SdasService);

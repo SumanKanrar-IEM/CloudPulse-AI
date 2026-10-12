@@ -74,7 +74,7 @@ import { UtilizationStateService } from './utilization.service';
             </tr>
           </thead>
           <tbody>
-            @for (row of report.byProject; track row.sdaId ?? 'none') {
+            @for (row of report.byProject; track $index) {
               <tr>
                 <td>{{ row.sdaName ?? 'No SDA' }}</td>
                 <td>{{ display(row.utilization) }}</td>
@@ -109,48 +109,6 @@ import { UtilizationStateService } from './utilization.service';
       </section>
     }
   `,
-  styles: [
-    `
-      .visually-hidden {
-        position: absolute;
-        width: 1px;
-        height: 1px;
-        overflow: hidden;
-        clip: rect(0, 0, 0, 0);
-        white-space: nowrap;
-      }
-      .score-cards {
-        display: flex;
-        gap: 1rem;
-      }
-      .score-card {
-        border: 1px solid #d0d0d0;
-        border-radius: 4px;
-        padding: 1rem;
-        min-width: 14rem;
-      }
-      .score {
-        font-size: 2rem;
-        font-weight: bold;
-        margin: 0;
-      }
-      .scope {
-        margin: 0;
-        color: #555555;
-        font-size: 0.85rem;
-      }
-      table {
-        width: 100%;
-        border-collapse: collapse;
-      }
-      th,
-      td {
-        text-align: left;
-        padding: 0.5rem;
-        border-bottom: 1px solid #d0d0d0;
-      }
-    `,
-  ],
 })
 export class UtilizationComponent implements OnInit {
   protected readonly state = inject(UtilizationStateService);

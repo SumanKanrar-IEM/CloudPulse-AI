@@ -1,5 +1,49 @@
-// Global styles.
+// Global design system (spec 004, T046).
 //
+// Every screen renders plain semantic HTML -- tables, forms, sections, lists -- so
+// the look lives here, once, rather than in seventeen component style blocks. A
+// component keeps only the layout that is genuinely its own.
+//
+// Colour pairs below are chosen for WCAG AA contrast (FR-047a): badge and alert
+// text sits on a tint of its own hue, never on a saturated fill, and the label
+// always carries the meaning -- colour only reinforces it.
+@use '@angular/material' as mat;
+
+$theme: mat.define-theme(
+  (
+    color: (
+      theme-type: light,
+      primary: mat.$violet-palette,
+      tertiary: mat.$azure-palette,
+    ),
+  )
+);
+
+html {
+  @include mat.core();
+  @include mat.core-theme($theme);
+}
+
+:root {
+  --cp-bg: #f4f6fb;
+  --cp-surface: #ffffff;
+  --cp-surface-alt: #f8faff;
+  --cp-border: #e3e8f1;
+  --cp-text: #111827;
+  --cp-muted: #5b6475;
+  --cp-primary: #4f46e5;
+  --cp-primary-dark: #3730a3;
+  --cp-violet: #7c3aed;
+  --cp-sky: #0ea5e9;
+  --cp-gradient: linear-gradient(135deg, #4f46e5 0%, #7c3aed 55%, #0ea5e9 100%);
+  --cp-radius: 14px;
+  --cp-radius-sm: 10px;
+  --cp-shadow: 0 1px 2px rgba(16, 24, 40, 0.06), 0 8px 24px rgba(16, 24, 40, 0.06);
+  --cp-shadow-lift: 0 2px 4px rgba(16, 24, 40, 0.06), 0 16px 40px rgba(79, 70, 229, 0.14);
+  --cp-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --mat-ripple-color: rgba(255, 255, 255, 0.12);
+}
+
 // FR-047a requires a visible focus indicator on every focused control. Browsers
 // vary and some component libraries suppress the default outline, so it is set
 // once here rather than trusted per-component.
@@ -8,7 +52,825 @@
   outline-offset: 2px;
 }
 
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
 body {
   margin: 0;
-  font-family: Roboto, "Helvetica Neue", sans-serif;
+  font-family: Inter, Roboto, 'Helvetica Neue', sans-serif;
+  font-size: 0.95rem;
+  line-height: 1.55;
+  color: var(--cp-text);
+  background:
+    radial-gradient(60rem 30rem at 100% -10%, rgba(124, 58, 237, 0.08), transparent 60%),
+    radial-gradient(50rem 30rem at 20% 110%, rgba(14, 165, 233, 0.07), transparent 60%),
+    var(--cp-bg);
+  background-attachment: fixed;
+  -webkit-font-smoothing: antialiased;
+}
+
+.material-symbols-rounded {
+  font-family: 'Material Symbols Rounded';
+  font-weight: normal;
+  font-style: normal;
+  font-size: 1.25rem;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  white-space: nowrap;
+  direction: ltr;
+  -webkit-font-feature-settings: 'liga';
+  font-feature-settings: 'liga';
+  user-select: none;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
+// --- Typography -------------------------------------------------------------
+
+main h1 {
+  font-size: 1.75rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin: 0 0 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+
+  &::after {
+    content: '';
+    flex: 0 0 3rem;
+    height: 4px;
+    border-radius: 4px;
+    background: var(--cp-gradient);
+    background-size: 200% 100%;
+    animation: cp-gradient-shift 6s ease-in-out infinite;
+  }
+}
+
+main h2 {
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin: 0 0 1rem;
+}
+
+main h3 {
+  font-size: 0.95rem;
+  font-weight: 650;
+  margin: 1rem 0 0.5rem;
+}
+
+a {
+  color: var(--cp-primary);
+}
+
+.note,
+.scope,
+.digest-provenance {
+  color: var(--cp-muted);
+  font-size: 0.875rem;
+}
+
+.identifier {
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.8rem;
+  overflow-wrap: anywhere;
+}
+
+// Inline, an identifier reads as code; as a whole table cell it stays a plain cell.
+:not(td).identifier {
+  background: #f1f5f9;
+  padding: 0.1rem 0.4rem;
+  border-radius: 6px;
+}
+
+// --- Cards ------------------------------------------------------------------
+
+main section:not(.score-cards),
+.digest-card {
+  background: var(--cp-surface);
+  border: 1px solid var(--cp-border);
+  border-radius: var(--cp-radius);
+  padding: 1.25rem 1.5rem;
+  margin-bottom: 1.25rem;
+  box-shadow: var(--cp-shadow);
+  transition:
+    box-shadow 0.25s var(--cp-ease),
+    transform 0.25s var(--cp-ease);
+}
+
+main section section {
+  box-shadow: none;
+  padding: 0;
+  border: 0;
+}
+
+// The AI digest gets a gradient border: the one card whose content is generated.
+.digest-card {
+  position: relative;
+  border: 1.5px solid transparent;
+  background:
+    linear-gradient(var(--cp-surface), var(--cp-surface)) padding-box,
+    var(--cp-gradient) border-box;
+
+  > h2::before {
+    content: '✦ ';
+    color: var(--cp-violet);
+  }
+
+  article {
+    border-left: 3px solid #ede9fe;
+    padding-left: 0.85rem;
+  }
+}
+
+.score-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.score-card {
+  position: relative;
+  overflow: hidden;
+  background: var(--cp-surface);
+  border: 1px solid var(--cp-border);
+  border-radius: var(--cp-radius);
+  padding: 1.25rem 1.5rem;
+  box-shadow: var(--cp-shadow);
+  transition:
+    transform 0.25s var(--cp-ease),
+    box-shadow 0.25s var(--cp-ease);
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 4px;
+    background: var(--cp-gradient);
+  }
+
+  &::after {
+    content: '';
+    position: absolute;
+    width: 9rem;
+    height: 9rem;
+    right: -3rem;
+    top: -3rem;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(124, 58, 237, 0.12), transparent 70%);
+    transition: transform 0.4s var(--cp-ease);
+  }
+
+  &:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--cp-shadow-lift);
+
+    &::after {
+      transform: scale(1.4);
+    }
+  }
+
+  h2 {
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--cp-muted);
+    margin: 0 0 0.5rem;
+  }
+
+  p {
+    margin: 0.25rem 0 0;
+    color: var(--cp-muted);
+  }
+}
+
+.score {
+  font-size: 2.4rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+  color: var(--cp-text);
+  font-variant-numeric: tabular-nums;
+}
+
+// --- Tables -----------------------------------------------------------------
+
+table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  background: var(--cp-surface);
+  border: 1px solid var(--cp-border);
+  border-radius: var(--cp-radius);
+  overflow: hidden;
+  box-shadow: var(--cp-shadow);
+  margin: 0.5rem 0 1rem;
+  font-size: 0.875rem;
+}
+
+section table {
+  box-shadow: none;
+}
+
+th,
+td {
+  text-align: left;
+  padding: 0.7rem 1rem;
+  vertical-align: top;
+}
+
+th {
+  background: var(--cp-surface-alt);
+  color: var(--cp-muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  border-bottom: 1px solid var(--cp-border);
+  white-space: nowrap;
+}
+
+td {
+  border-top: 1px solid #eef1f6;
+}
+
+tbody tr:first-child td {
+  border-top: 0;
+}
+
+tbody tr {
+  transition: background-color 0.2s ease;
+  animation: cp-row-in 0.45s var(--cp-ease) both;
+
+  &:hover {
+    background: #f5f7ff;
+  }
+
+  @for $i from 1 through 12 {
+    &:nth-child(#{$i}) {
+      animation-delay: #{$i * 35}ms;
+    }
+  }
+}
+
+// An ARN in a cell is a button that opens a detail panel: it reads as a link.
+td > button {
+  all: unset;
+  cursor: pointer;
+  color: var(--cp-primary);
+  font-weight: 600;
+  word-break: break-all;
+  border-radius: 4px;
+  transition: color 0.2s ease;
+
+  &:hover {
+    color: var(--cp-violet);
+    text-decoration: underline;
+  }
+
+  &:focus-visible {
+    outline: 3px solid #005fcc;
+    outline-offset: 2px;
+  }
+}
+
+td > button + button {
+  margin-left: 0.85rem;
+}
+
+// --- Forms ------------------------------------------------------------------
+
+form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+main > * > form {
+  background: var(--cp-surface);
+  border: 1px solid var(--cp-border);
+  border-radius: var(--cp-radius);
+  padding: 1rem 1.25rem;
+  box-shadow: var(--cp-shadow);
+}
+
+label {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--cp-muted);
+}
+
+label:has(> input[type='checkbox']) {
+  flex-direction: row;
+  align-items: center;
+  font-size: 0.875rem;
+}
+
+input,
+select,
+textarea {
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 400;
+  color: var(--cp-text);
+  background: var(--cp-surface);
+  border: 1px solid #cfd6e4;
+  border-radius: var(--cp-radius-sm);
+  padding: 0.55rem 0.75rem;
+  min-width: 11rem;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+
+  &:hover {
+    border-color: #a5b4fc;
+  }
+
+  &:focus {
+    border-color: var(--cp-primary);
+    box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.15);
+  }
+}
+
+input[type='checkbox'],
+input[type='radio'] {
+  min-width: 0;
+  width: 1.1rem;
+  height: 1.1rem;
+  accent-color: var(--cp-primary);
+}
+
+// --- Buttons ----------------------------------------------------------------
+
+button,
+.button {
+  position: relative;
+  overflow: hidden;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--cp-text);
+  background: var(--cp-surface);
+  border: 1px solid #cfd6e4;
+  border-radius: var(--cp-radius-sm);
+  padding: 0.55rem 1rem;
+  cursor: pointer;
+  transition:
+    transform 0.15s var(--cp-ease),
+    box-shadow 0.2s var(--cp-ease),
+    border-color 0.2s ease,
+    background-color 0.2s ease;
+
+  &:hover:not(:disabled) {
+    transform: translateY(-1px);
+    border-color: #a5b4fc;
+    box-shadow: 0 6px 16px rgba(79, 70, 229, 0.15);
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(0) scale(0.98);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+button[type='submit'] {
+  color: #ffffff;
+  border-color: transparent;
+  background: linear-gradient(135deg, #4f46e5, #6d28d9);
+
+  // A light sweep across the button on hover.
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(110deg, transparent 30%, rgba(255, 255, 255, 0.28) 50%, transparent 70%);
+    transform: translateX(-120%);
+    transition: transform 0.6s var(--cp-ease);
+  }
+
+  &:hover:not(:disabled) {
+    border-color: transparent;
+    box-shadow: 0 8px 22px rgba(79, 70, 229, 0.35);
+
+    &::after {
+      transform: translateX(120%);
+    }
+  }
+}
+
+// --- Lists of rows (findings, scan accounts) --------------------------------
+
+.findings-list,
+.accounts-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 0.6rem;
+
+  > li {
+    animation: cp-row-in 0.45s var(--cp-ease) both;
+
+    @for $i from 1 through 12 {
+      &:nth-child(#{$i}) {
+        animation-delay: #{$i * 40}ms;
+      }
+    }
+  }
+}
+
+.finding-row,
+.account-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+  background: var(--cp-surface);
+  border: 1px solid var(--cp-border);
+  border-radius: 12px;
+  padding: 0.75rem 1rem;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+  transition:
+    transform 0.2s var(--cp-ease),
+    box-shadow 0.2s var(--cp-ease),
+    border-color 0.2s ease;
+
+  &:hover {
+    transform: translateY(-2px);
+    border-color: #c7d2fe;
+    box-shadow: var(--cp-shadow-lift);
+  }
+
+  > span:first-child {
+    font-weight: 600;
+    word-break: break-all;
+  }
+
+  > button:last-child {
+    margin-left: auto;
+  }
+}
+
+.suggestion-panel,
+.history-panel {
+  margin: 0.25rem 0.75rem 0.5rem;
+  padding: 1rem 1.25rem;
+  background: var(--cp-surface-alt);
+  border: 1px dashed #c7d2fe;
+  border-radius: 12px;
+  animation: cp-expand 0.35s var(--cp-ease) both;
+
+  form {
+    margin: 0.5rem 0 0;
+  }
+}
+
+// --- Badges -----------------------------------------------------------------
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  border-radius: 999px;
+  padding: 0.15rem 0.65rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  white-space: nowrap;
+  background: #f1f5f9;
+  color: #334155;
+  border: 1px solid #e2e8f0;
+
+  &::before {
+    content: '';
+    width: 0.45rem;
+    height: 0.45rem;
+    border-radius: 50%;
+    background: currentColor;
+    opacity: 0.8;
+  }
+}
+
+.badge-escalated,
+.badge-overrun,
+.badge-over,
+.badge-rejected {
+  background: #fee2e2;
+  color: #991b1b;
+  border-color: #fecaca;
+}
+
+.badge-escalated::before {
+  animation: cp-pulse 1.6s ease-in-out infinite;
+}
+
+.badge-pending,
+.badge-warning,
+.badge-active {
+  background: #fef3c7;
+  color: #92400e;
+  border-color: #fde68a;
+}
+
+.badge-ok,
+.badge-accepted {
+  background: #dcfce7;
+  color: #166534;
+  border-color: #bbf7d0;
+}
+
+.badge-acknowledged {
+  background: #e0e7ff;
+  color: #3730a3;
+  border-color: #c7d2fe;
+}
+
+.badge-cleared {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+// A value-driven badge: `[attr.data-tone]` carries the raw status or severity, and
+// the tone follows from it here -- the screens stay free of colour logic.
+.badge[data-tone='critical'],
+.badge[data-tone='high'],
+.badge[data-tone='open'],
+.badge[data-tone='failed'],
+.badge[data-tone^='missing'] {
+  background: #fee2e2;
+  color: #991b1b;
+  border-color: #fecaca;
+}
+
+.badge[data-tone='medium'],
+.badge[data-tone='pending'],
+.badge[data-tone='running'],
+.badge[data-tone='queued'],
+.badge[data-tone='unattributed'] {
+  background: #fef3c7;
+  color: #92400e;
+  border-color: #fde68a;
+}
+
+.badge[data-tone='low'] {
+  background: #e0f2fe;
+  color: #075985;
+  border-color: #bae6fd;
+}
+
+.badge[data-tone='resolved'],
+.badge[data-tone='succeeded'],
+.badge[data-tone='compliant'],
+.badge[data-tone='attributed'],
+.badge[data-tone='verified'] {
+  background: #dcfce7;
+  color: #166534;
+  border-color: #bbf7d0;
+}
+
+.badge[data-tone='running']::before,
+.badge[data-tone='queued']::before {
+  animation: cp-pulse 1.2s ease-in-out infinite;
+}
+
+// --- Status and errors ------------------------------------------------------
+
+p[role='status'] {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.5rem 1rem;
+  border-radius: 999px;
+  background: #eef2ff;
+  color: var(--cp-primary-dark);
+  font-weight: 600;
+  font-size: 0.875rem;
+
+  &::before {
+    content: '';
+    width: 0.9rem;
+    height: 0.9rem;
+    border-radius: 50%;
+    border: 2px solid #c7d2fe;
+    border-top-color: var(--cp-primary);
+    animation: cp-spin 0.8s linear infinite;
+  }
+}
+
+p[role='alert'] {
+  padding: 0.75rem 1rem;
+  border-radius: var(--cp-radius-sm);
+  border: 1px solid #fecaca;
+  border-left: 4px solid #dc2626;
+  background: #fef2f2;
+  color: #991b1b;
+  font-weight: 500;
+  animation: cp-shake 0.45s var(--cp-ease) both;
+}
+
+// The inventory's resource detail renders below the table: a card that slides in.
+cp-resource-detail:not(:empty) {
+  display: block;
+  margin-top: 1.25rem;
+  background: var(--cp-surface);
+  border: 1px solid var(--cp-border);
+  border-radius: var(--cp-radius);
+  padding: 1.25rem 1.5rem;
+  box-shadow: var(--cp-shadow-lift);
+  animation: cp-card-in 0.45s var(--cp-ease) both;
+
+  h2 {
+    word-break: break-all;
+  }
+}
+
+.chart-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(22rem, 1fr));
+  gap: 0 1.25rem;
+}
+
+// --- Misc content -----------------------------------------------------------
+
+dl {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.35rem 1.25rem;
+
+  dt {
+    font-weight: 600;
+    color: var(--cp-muted);
+  }
+
+  dd {
+    margin: 0;
+    word-break: break-all;
+  }
+}
+
+pre {
+  background: #0f172a;
+  color: #e2e8f0;
+  border-radius: var(--cp-radius-sm);
+  padding: 1rem 1.25rem;
+  overflow: auto;
+  font-size: 0.8rem;
+}
+
+canvas {
+  max-width: 100%;
+}
+
+nav[aria-label$='pagination'] {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  color: var(--cp-muted);
+  font-size: 0.875rem;
+}
+
+// --- Motion -----------------------------------------------------------------
+
+// Each routed screen is inserted fresh as a sibling of <router-outlet>, so a CSS
+// animation on insertion is a page transition with no animation library.
+main > *:not(router-outlet) {
+  display: block;
+  animation: cp-page-in 0.5s var(--cp-ease) both;
+
+  > section,
+  > .score-cards,
+  > form {
+    animation: cp-card-in 0.55s var(--cp-ease) both;
+  }
+
+  @for $i from 1 through 8 {
+    > :nth-child(#{$i}) {
+      animation-delay: #{$i * 60}ms;
+    }
+  }
+}
+
+@keyframes cp-page-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes cp-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.99);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes cp-row-in {
+  from {
+    opacity: 0;
+    transform: translateX(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes cp-expand {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes cp-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes cp-shake {
+  0%,
+  100% {
+    transform: none;
+  }
+  25% {
+    transform: translateX(-4px);
+  }
+  75% {
+    transform: translateX(4px);
+  }
+}
+
+@keyframes cp-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+  50% {
+    transform: scale(1.6);
+    opacity: 0.35;
+  }
+}
+
+@keyframes cp-gradient-shift {
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+// Motion is decoration here, never information: switch it all off on request.
+// Delays go too, or a staggered element would sit invisible until its turn.
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0s !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

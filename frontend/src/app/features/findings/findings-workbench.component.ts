@@ -47,8 +47,8 @@ import { FindingsFilters, FindingsService } from './findings.service';
                   <span class="badge badge-overrun">Budget</span>
                   <span>{{ overrun.sdaName }}</span>
                   <span>over {{ overrun.budgetUsd ?? 'budget' }}</span>
-                  <span>{{ overrun.severity }}</span>
-                  <span>{{ overrun.status }}</span>
+                  <span class="badge" [attr.data-tone]="overrun.severity">{{ overrun.severity }}</span>
+                  <span class="badge" [attr.data-tone]="overrun.status">{{ overrun.status }}</span>
                   @if (overrun.escalatedAt) {
                     <span class="badge badge-escalated">Escalated</span>
                   }
@@ -73,8 +73,8 @@ import { FindingsFilters, FindingsService } from './findings.service';
               <div class="finding-row">
                 <span>{{ finding.resource.arn }}</span>
                 <span>{{ finding.ruleKey }}</span>
-                <span>{{ finding.severity }}</span>
-                <span>{{ finding.status }}</span>
+                <span class="badge" [attr.data-tone]="finding.severity">{{ finding.severity }}</span>
+                <span class="badge" [attr.data-tone]="finding.status">{{ finding.status }}</span>
                 <!-- FR-009: escalated must read as distinct from both plain-open and
                      acknowledged. The API returns escalatedAt only while the state is
                      actually active, so there is no "escalated but acknowledged" case
@@ -138,53 +138,6 @@ import { FindingsFilters, FindingsService } from './findings.service';
       }
     }
   `,
-  styles: [
-    `
-      form {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 1rem;
-        align-items: flex-end;
-        margin-bottom: 1rem;
-      }
-      .findings-list {
-        list-style: none;
-        padding: 0;
-      }
-      .finding-row {
-        display: flex;
-        gap: 1rem;
-        align-items: center;
-        padding: 0.5rem 0;
-        border-bottom: 1px solid #d0d0d0;
-      }
-      .suggestion-panel {
-        padding: 0.5rem 1rem 1rem;
-        background: #f7f7f7;
-      }
-      /* The label carries the meaning; colour only reinforces it, so the two
-         badges stay distinguishable without relying on colour vision. */
-      .badge {
-        border-radius: 0.75rem;
-        padding: 0.1rem 0.6rem;
-        font-size: 0.85rem;
-        font-weight: 600;
-        white-space: nowrap;
-      }
-      .badge-escalated {
-        background: #7a1f1f;
-        color: #ffffff;
-      }
-      .badge-acknowledged {
-        background: #e4e4e4;
-        color: #333333;
-      }
-      .badge-overrun {
-        background: #1f4f7a;
-        color: #ffffff;
-      }
-    `,
-  ],
 })
 export class FindingsWorkbenchComponent implements OnInit {
   protected readonly findings = inject(FindingsService);
